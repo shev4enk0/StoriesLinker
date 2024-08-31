@@ -1,0 +1,158 @@
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe.config
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.pdb
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Form1.resources
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Properties.Resources.resources
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.GenerateResource.Cache
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.pdb
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csprojResolveAssemblyReference.cache
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.dll
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.dll
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.xml
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.xml
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\ArticyImporter.Editor.dll
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\ArticyRuntime.dll
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\Ionic.Zip.dll
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.StoriesLinker.exe.config
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.dll
+G:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.xml
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe.config
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.pdb
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.pdb
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\ArticyImporter.Editor.dll
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\ArticyRuntime.dll
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.dll
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\Ionic.Zip.dll
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.dll
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.dll
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.xml
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.xml
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.xml
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csprojResolveAssemblyReference.cache
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.StoriesLinker.exe.config
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Form1.resources
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Properties.Resources.resources
+L:\Unity Projects\Revolution Fist\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.GenerateResource.Cache
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe.config
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.pdb
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.dll
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.dll
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.xml
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.xml
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.xml
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csprojAssemblyReference.cache
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe.config
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Form1.resources
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Properties.Resources.resources
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.GenerateResource.cache
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CoreCompileInputs.cache
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CopyComplete
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe
+G:\бекапы в швецию\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.pdb
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe.config
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.pdb
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.pdb
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.dll
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.dll
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.xml
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.xml
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.xml
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csprojResolveAssemblyReference.cache
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.StoriesLinker.exe.config
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Form1.resources
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Properties.Resources.resources
+L:\Unity Projects\Revolution Fist\stories after sweden\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.GenerateResource.Cache
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe.config
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.pdb
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.pdb
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.dll
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.dll
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.xml
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.xml
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.xml
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Properties.Resources.resources
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.GenerateResource.Cache
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.LocalizEntity.resources
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csprojAssemblyReference.cache
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe.config
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CoreCompileInputs.cache
+L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CopyComplete
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe.config
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.pdb
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.dll
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.dll
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.xml
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.xml
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.xml
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csprojAssemblyReference.cache
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe.config
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.LocalizEntity.resources
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Properties.Resources.resources
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.GenerateResource.cache
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CoreCompileInputs.cache
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CopyComplete
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe
+G:\Web-Design\Projects\Stories\Packingsoftware\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.pdb
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe.config
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.pdb
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.dll
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.dll
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.xml
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.xml
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.xml
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.AssemblyReference.cache
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.SuggestedBindingRedirects.cache
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe.config
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.LocalizEntity.resources
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Properties.Resources.resources
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.GenerateResource.cache
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CoreCompileInputs.cache
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CopyComplete
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe
+D:\MEGA_STORIES\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.pdb
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe.config
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.pdb
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.dll
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.dll
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.xml
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.xml
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.xml
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.AssemblyReference.cache
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.SuggestedBindingRedirects.cache
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe.config
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.LocalizEntity.resources
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Properties.Resources.resources
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.GenerateResource.cache
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CoreCompileInputs.cache
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CopyComplete
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe
+D:\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.pdb
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe.config
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.exe
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\StoriesLinker.pdb
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.dll
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.dll
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\EPPlus.xml
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\Newtonsoft.Json.xml
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\bin\Debug\UnityEngine.xml
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.AssemblyReference.cache
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.SuggestedBindingRedirects.cache
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe.config
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Properties.Resources.resources
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.GenerateResource.cache
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CoreCompileInputs.cache
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.csproj.CopyComplete
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.exe
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.pdb
+C:\_FromD\Bundles_Editors\StoriesLinker\StoriesLinker\StoriesLinker\obj\Debug\StoriesLinker.Form1.resources
