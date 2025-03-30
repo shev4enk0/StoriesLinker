@@ -1478,87 +1478,88 @@ namespace StoriesLinker
         private AJLocalizInJSONFile GetXMLFile(string[] _paths_to_xmls, int _default_column, List<string> _known_languages)
         {
             Dictionary<string, string> _total = new Dictionary<string, string>();
-            // Создаем HashSet для быстрой проверки языков, игнорируя регистр
             var knownLanguagesSet = new HashSet<string>(_known_languages ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
 
+            Console.WriteLine("\n=== Начало обработки файлов локализации ===");
             foreach (var path in _paths_to_xmls)
             {
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"ВНИМАНИЕ: Файл не найден: {path}");
+                    continue;
+                }
+
+                Console.WriteLine($"\nОбработка файла: {path}");
                 Dictionary<string, string> _file_dict = null;
                 string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(path);
 
-                // Проверяем, является ли имя файла названием известного языка
-                if (knownLanguagesSet.Contains(fileNameWithoutExtension))
+                try
                 {
-                    Console.WriteLine($"Applying D->B logic for language file: {path}");
-                    // Особая логика D->B для файлов с именем языка
-                    Dictionary<string, string> dictD = XMLTableToDict(path, 3); // Колонка D
-                    Dictionary<string, string> dictB = XMLTableToDict(path, 1); // Колонка B
+                    // Определяем, является ли файл файлом описания книги
+                    bool isBookDescription = path.Contains("BookDescriptions");
+                    bool isTranslatedData = path.Contains("TranslatedData");
 
-                    _file_dict = new Dictionary<string, string>();
-                    // Собираем все ключи из обеих колонок
-                    var allKeys = dictD.Keys.Union(dictB.Keys).Distinct();
-
-                    foreach (var key in allKeys)
+                    if (isBookDescription && knownLanguagesSet.Contains(fileNameWithoutExtension))
                     {
-                        string valueD = dictD.TryGetValue(key, out var valD) ? valD?.Trim() : null;
-                        string valueB = dictB.TryGetValue(key, out var valB) ? valB?.Trim() : null;
+                        // Для файлов из BookDescriptions используем логику D->B
+                        Console.WriteLine($"Применяем логику D->B для файла описания книги: {path}");
+                        Dictionary<string, string> dictD = XMLTableToDict(path, 3); // Колонка D
+                        Dictionary<string, string> dictB = XMLTableToDict(path, 1); // Колонка B
 
-                        // Приоритет у колонки D, если она не пустая
-                        if (!string.IsNullOrEmpty(valueD))
+                        Console.WriteLine($"Количество ключей в колонке D: {dictD.Count}");
+                        Console.WriteLine($"Количество ключей в колонке B: {dictB.Count}");
+
+                        _file_dict = new Dictionary<string, string>();
+                        var allKeys = dictD.Keys.Union(dictB.Keys).Distinct();
+
+                        foreach (var key in allKeys)
                         {
-                            _file_dict[key] = valueD;
+                            string valueD = dictD.TryGetValue(key, out var valD) ? valD?.Trim() : null;
+                            string valueB = dictB.TryGetValue(key, out var valB) ? valB?.Trim() : null;
+
+                            if (!string.IsNullOrEmpty(valueD))
+                            {
+                                _file_dict[key] = valueD;
+                            }
+                            else
+                            {
+                                _file_dict[key] = valueB ?? string.Empty;
+                            }
                         }
-                        else
+                    }
+                    else if (isTranslatedData)
+                    {
+                        // Для файлов из TranslatedData используем колонку E
+                        Console.WriteLine($"Применяем логику колонки E для переведенного файла: {path}");
+                        _file_dict = XMLTableToDict(path, 4); // Колонка E
+                    }
+                    else
+                    {
+                        // Для остальных файлов используем стандартную логику
+                        Console.WriteLine($"Применяем стандартную логику для колонки {_default_column}: {path}");
+                        _file_dict = XMLTableToDict(path, _default_column);
+                    }
+
+                    if (_file_dict != null)
+                    {
+                        foreach (var pair in _file_dict.Where(p => p.Key != "ID"))
                         {
-                             // Иначе берем значение из B (даже если оно пустое)
-                            _file_dict[key] = valueB ?? string.Empty; // Используем ?? string.Empty для случая, если ключ есть, но значение null
+                            if (!_total.ContainsKey(pair.Key))
+                            {
+                                _total.Add(pair.Key, pair.Value);
+                            }
                         }
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                     // Стандартная логика для всех остальных файлов
-                    Console.WriteLine($"Applying standard column {_default_column} logic for: {path}");
-                    _file_dict = XMLTableToDict(path, _default_column);
-                }
-
-                // ---> НАЧАЛО: Добавляем логирование для BookName <---
-                if (_file_dict != null)
-                {
-                    bool bookNameExists = _file_dict.ContainsKey("BookName");
-                    string bookNameValue = bookNameExists ? _file_dict["BookName"]?.Trim() : "<Ключ отсутствует>";
-                    bool bookNameIsEmpty = string.IsNullOrEmpty(bookNameValue);
-                    Console.WriteLine($"  [Debug] Файл: {Path.GetFileName(path)}, Ключ 'BookName' найден: {bookNameExists}, Значение пустое: {bookNameIsEmpty}, Значение: '{bookNameValue}'");
-                }
-                else 
-                {
-                    Console.WriteLine($"  [Debug] Файл: {Path.GetFileName(path)}, Словарь не был загружен (_file_dict is null).");
-                }
-                // ---> КОНЕЦ: Добавляем логирование для BookName <---
-
-                // Добавляем строки из прочитанного файла в общий словарь
-                if (_file_dict != null)
-                {
-                     foreach (var _pair in _file_dict.Where(_pair => _pair.Key != "ID"))
-                     {
-                         if (!_total.ContainsKey(_pair.Key))
-                         {
-                            _total.Add(_pair.Key, _pair.Value);
-                         }
-                         else
-                         {
-                             // Обработка дубликатов ключей, если нужно
-                             // Console.WriteLine($"Warning: Duplicate key '{_pair.Key}' found in {path}. Keeping existing value.");
-                         }
-                     }
-                }
-                else
-                {
-                     Console.WriteLine($"Warning: Could not read dictionary for path: {path}");
+                    Console.WriteLine($"Ошибка при обработке файла {path}: {ex.Message}");
+                    throw;
                 }
             }
 
-            AJLocalizInJSONFile _json_file = new AJLocalizInJSONFile { Data = _total };
+            AJLocalizInJSONFile _json_file = new AJLocalizInJSONFile();
+            _json_file.Data = _total;
 
             return _json_file;
         }
