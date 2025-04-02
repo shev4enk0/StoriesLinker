@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
-
 
 namespace StoriesLinker
 {
@@ -185,7 +183,6 @@ namespace StoriesLinker
         public string SpritePrefix;
 
         public BookVersionInfo Version;
-
 
         public List<string> ClothesSpriteNames;
         public int UndefinedClothesFuncVariant;

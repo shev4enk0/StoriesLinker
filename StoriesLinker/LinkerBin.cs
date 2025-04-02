@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Articy.Unity;
 using Newtonsoft.Json;
 using OfficeOpenXml;
+using StoriesLinker.Converter;
 
 namespace StoriesLinker
 {
@@ -79,15 +79,42 @@ namespace StoriesLinker
 
         public AJFile GetParsedFlowJSONFile()
         {
-            AJFile _json_obj;
-
-            using (StreamReader r = new StreamReader(GetFlowJSONPath(ProjectPath)))
+            try
             {
-                string json = r.ReadToEnd();
-                _json_obj = JsonConvert.DeserializeObject<AJFile>(json);
-            }
+                string jsonPath = GetFlowJSONPath(ProjectPath);
+                if (!File.Exists(jsonPath))
+                {
+                    throw new FileNotFoundException($"Файл {jsonPath} не найден");
+                }
 
-            return _json_obj;
+                string json;
+                using (StreamReader r = new StreamReader(jsonPath))
+                {
+                    json = r.ReadToEnd();
+                }
+
+                if (string.IsNullOrEmpty(json))
+                {
+                    throw new InvalidOperationException("JSON файл пуст");
+                }
+
+                var _json_obj = JsonConvert.DeserializeObject<AJFile>(json);
+                if (_json_obj == null)
+                {
+                    throw new InvalidOperationException("Не удалось десериализовать JSON файл");
+                }
+
+                if (_json_obj.Packages == null)
+                {
+                    _json_obj.Packages = new List<AJPackage>();
+                }
+
+                return _json_obj;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Ошибка при чтении Flow.json: {ex.Message}", ex);
+            }
         }
 
         public AJLinkerMeta GetParsedMetaInputJSONFile()
@@ -360,8 +387,13 @@ namespace StoriesLinker
             return _check_row;
         }
 
-        public Dictionary<string, AJObj> GetAricyBookEntities(AJFile _ajfile, Dictionary<string, string> _nativeDict)
+        public Dictionary<string, AJObj> GetAricyBookEntities(AJFile _ajfile, Dictionary<string, string> _native_dict)
         {
+            if (_ajfile == null || _ajfile.Packages == null || _ajfile.Packages.Count == 0)
+            {
+                return new Dictionary<string, AJObj>();
+            }
+
             Dictionary<string, AJObj> ObjectsList = new Dictionary<string, AJObj>();
 
             List<AJObj> Models = _ajfile.Packages[0].Models;
@@ -376,7 +408,7 @@ namespace StoriesLinker
                 {
                     case "FlowFragment":
                         _type = AJType.FlowFragment;
-                        string _value = Regex.Match(_nativeDict[_ns.Properties.DisplayName], @"\d+").Value;
+                        string _value = Regex.Match(_native_dict[_ns.Properties.DisplayName], @"\d+").Value;
 
                         int _int_value = int.Parse(_value);
 
@@ -1602,7 +1634,26 @@ namespace StoriesLinker
             return _path;
         }
 
-        public static string GetFlowJSONPath(string _proj_path) { return _proj_path + @"\Raw\Flow.json"; }
+        public static string GetFlowJSONPath(string _proj_path) 
+        { 
+            string flowJsonPath = _proj_path + @"\Raw\Flow.json";
+            string jsonXPath = _proj_path + @"\Raw\JSON_X";
+            
+            if (!File.Exists(flowJsonPath))
+            {
+                try
+                {
+                    var converter = new ArticyXToArticy3Converter(jsonXPath, flowJsonPath);
+                    converter.Convert();
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Ошибка при конвертации ArticyX в Articy3: {ex.Message}");
+                }
+            }
+            
+            return flowJsonPath;
+        }
 
         public static string GetMetaJSONPath(string _proj_path) { return _proj_path + @"\Raw\Meta.json"; }
     }
