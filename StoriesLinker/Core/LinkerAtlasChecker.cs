@@ -11,8 +11,6 @@ using System.Windows.Forms;
 using OfficeOpenXml;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
-
-using Articy.Unity;
 using Microsoft.Win32;
 
 using StoriesLinker;

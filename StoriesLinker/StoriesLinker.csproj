@@ -49,21 +49,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ArticyImporter.Editor">
-      <HintPath>..\..\Stories-TestJSON\Assets\ArticyImporter\Plugin\Editor\ArticyImporter.Editor.dll</HintPath>
-    </Reference>
-    <Reference Include="ArticyRuntime">
-      <HintPath>..\..\Stories-TestJSON\Assets\ArticyJSON\ArticyRuntime.dll</HintPath>
-    </Reference>
     <Reference Include="EPPlus, Version=4.5.2.1, Culture=neutral, PublicKeyToken=ea159fdaa78159a1, processorArchitecture=MSIL">
-      <HintPath>..\packages\EPPlus.4.5.2.1\lib\net40\EPPlus.dll</HintPath>
+      <HintPath>Libs\EPPlus.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Ionic.Zip">
-      <HintPath>..\..\Stories-TestJSON\Assets\ArticyImporter\Plugin\Editor\Ionic.Zip.dll</HintPath>
-    </Reference>
     <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>Libs\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="PresentationCore" />
@@ -80,25 +71,23 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
-    <Reference Include="UnityEngine">
-      <HintPath>..\..\Stories-TestJSON\Library\UnityAssemblies\UnityEngine.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AJTypes.cs" />
-    <Compile Include="BooksDB.cs" />
-    <Compile Include="Form1.cs">
+    <Compile Include="Models\AJTypes.cs" />
+    <Compile Include="Data\BooksDB.cs" />
+    <Compile Include="UI\Form1.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Form1.Designer.cs">
+    <Compile Include="UI\Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
-    <Compile Include="LinkerAtlasChecker.cs" />
-    <Compile Include="LinkerBin.cs" />
-    <Compile Include="LocalizEntity.cs" />
+    <Compile Include="Core\LinkerAtlasChecker.cs" />
+    <Compile Include="Core\LinkerBin.cs" />
+    <Compile Include="Models\LocalizEntity.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <EmbeddedResource Include="Form1.resx">
+    <Compile Include="Utils\StringExtensions.cs" />
+    <EmbeddedResource Include="UI\Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
