@@ -4,6 +4,8 @@ using System.IO;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using OfficeOpenXml;
+using System.Diagnostics;
+using System.Text;
 
 namespace StoriesLinker
 {
@@ -243,7 +245,68 @@ namespace StoriesLinker
 
         public static void ShowMessage(string _message)
         {
+            string prefixedMessage = _message;
+            ConsoleColor originalColor = Console.ForegroundColor;
+            
+            // Добавляем префиксы и устанавливаем цвета в зависимости от типа сообщения
+            if (_message.StartsWith("Ошибка"))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                prefixedMessage = "[ОШИБКА] " + _message;
+            }
+            else if (_message.StartsWith("==="))
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                prefixedMessage = "[СЕКЦИЯ] " + _message;
+            }
+            else if (_message.StartsWith("String with ID"))
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                prefixedMessage = "[ПЕРЕВОД] " + _message;
+            }
+            else if (_message.StartsWith("Применяем") || _message.StartsWith("Обработка"))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                prefixedMessage = "[ПРОЦЕСС] " + _message;
+            }
+            else if (_message.Contains("сгенерирована") || _message.Contains("успешно"))
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                prefixedMessage = "[УСПЕХ] " + _message;
+            }
+            else if (_message.StartsWith("Количество"))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                prefixedMessage = "[СТАТИСТИКА] " + _message;
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                prefixedMessage = "[ИНФО] " + _message;
+            }
+            
+            // Вывод в консоль
+            Console.WriteLine(prefixedMessage);
+            
+            // Возвращаем исходный цвет
+            Console.ForegroundColor = originalColor;
+            
+            // Вывод в элемент textBox2 на форме (без префикса)
             Application.OpenForms["Form1"].Controls["textBox2"].Text = _message;
+            
+            // Запись сообщения в лог-файл с корректной кодировкой (с префиксом)
+            try
+            {
+                string logPath = Path.Combine(Application.StartupPath, "log.txt");
+                using (StreamWriter writer = new StreamWriter(logPath, true, System.Text.Encoding.UTF8))
+                {
+                    writer.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ": " + prefixedMessage);
+                }
+            }
+            catch
+            {
+                // Игнорируем ошибки при записи лога
+            }
         }
 
         private void GenerateLocalizTables(object sender, EventArgs e)
