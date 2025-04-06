@@ -249,7 +249,7 @@ namespace StoriesLinker
             ConsoleColor originalColor = Console.ForegroundColor;
             
             // Добавляем префиксы и устанавливаем цвета в зависимости от типа сообщения
-            if (_message.StartsWith("Ошибка"))
+            if (_message.StartsWith("Ошибка") || _message.Contains("isn't translated"))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 prefixedMessage = "[ОШИБКА] " + _message;
@@ -259,25 +259,35 @@ namespace StoriesLinker
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 prefixedMessage = "[СЕКЦИЯ] " + _message;
             }
-            else if (_message.StartsWith("String with ID"))
+            else if (_message.StartsWith("Таблица") && _message.Contains("сгенерирована"))
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                prefixedMessage = "[ПЕРЕВОД] " + _message;
+                Console.ForegroundColor = ConsoleColor.Green;
+                prefixedMessage = "[ГЕНЕРАЦИЯ] " + _message;
             }
             else if (_message.StartsWith("Применяем") || _message.StartsWith("Обработка"))
             {
                 Console.ForegroundColor = ConsoleColor.DarkGray;
                 prefixedMessage = "[ПРОЦЕСС] " + _message;
             }
-            else if (_message.Contains("сгенерирована") || _message.Contains("успешно"))
+            else if (_message.Contains("успешно"))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 prefixedMessage = "[УСПЕХ] " + _message;
             }
-            else if (_message.StartsWith("Количество"))
+            else if (_message.StartsWith("Количество") || _message.Contains("start") || _message.EndsWith("xlsx"))
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
                 prefixedMessage = "[СТАТИСТИКА] " + _message;
+            }
+            else if (_message.StartsWith("GENERATE"))
+            {
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                prefixedMessage = "[СИСТЕМА] " + _message;
+            }
+            else if (_message.StartsWith("String with ID"))
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                prefixedMessage = "[ПЕРЕВОД] " + _message;
             }
             else
             {

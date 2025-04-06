@@ -23,12 +23,12 @@ namespace StoriesLinker
 
         private Dictionary<string, string> XMLTableToDict(string _path, int _column = 1)
         {
-            if (_savedXMLDicts.TryGetValue(_path, out var columnsDict) && columnsDict.TryGetValue(_column, out var cachedDict))
+            if (_savedXMLDicts.TryGetValue(_path, out Dictionary<int, Dictionary<string, string>> columnsDict) && columnsDict.TryGetValue(_column, out Dictionary<string, string> cachedDict))
             {
                 return cachedDict;
             }
 
-            Dictionary<string, string> _nativeDict = new Dictionary<string, string>();
+            Dictionary<string, string> nativeDict = new Dictionary<string, string>();
 
             using (ExcelPackage xlPackage = new ExcelPackage(new FileInfo(_path)))
             {
@@ -36,31 +36,33 @@ namespace StoriesLinker
                 {
                     throw new InvalidOperationException("The workbook contains no worksheets.");
                 }
-                var myWorksheet = xlPackage.Workbook.Worksheets.First();
-                var totalRows = myWorksheet.Dimension.End.Row;
-                var totalColumns = myWorksheet.Dimension.End.Column;
+                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                int totalRows = myWorksheet.Dimension.End.Row;
+                int totalColumns = myWorksheet.Dimension.End.Column;
 
                 for (int rowNum = 1; rowNum <= totalRows; rowNum++)
                 {
-                    ExcelRange _first_row = myWorksheet.Cells[rowNum, 1];
-                    ExcelRange _second_row = myWorksheet.Cells[rowNum, _column + 1];
+                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                    ExcelRange secondRow = myWorksheet.Cells[rowNum, _column + 1];
 
-                    string _first_row_str = _first_row != null && _first_row.Value != null
-                                                ? _first_row.Value.ToString()
-                                                : "";
-                    string _second_row_str = _second_row != null && _second_row.Value != null
-                                                 ? _second_row.Value.ToString()
-                                                 : " ";
+                    string firstRowStr = firstRow?.Value != null
+                                                ? firstRow.Value.ToString().Trim()
+                                                : string.Empty;
+                    string secondRowStr = secondRow?.Value != null
+                                                 ? secondRow.Value.ToString().Trim()
+                                                 : string.Empty;
 
-                    if (string.IsNullOrEmpty(_first_row_str)) continue;
+                    // Пропускаем строки с пустым ключом или пустым значением
+                    if (string.IsNullOrWhiteSpace(firstRowStr)) 
+                        continue;
 
-                    if (!_nativeDict.ContainsKey(_first_row_str))
+                    if (!nativeDict.ContainsKey(firstRowStr))
                     {
-                        _nativeDict.Add(_first_row_str, _second_row_str);
+                        nativeDict.Add(firstRowStr, secondRowStr);
                     }
                     else
                     {
-                        Console.WriteLine("double key critical error " + _first_row_str);
+                        Console.WriteLine($"Обнаружен дублирующийся ключ: {firstRowStr}");
                     }
                 }
             }
@@ -69,9 +71,9 @@ namespace StoriesLinker
             {
                 _savedXMLDicts[_path] = new Dictionary<int, Dictionary<string, string>>();
             }
-            _savedXMLDicts[_path][_column] = _nativeDict;
+            _savedXMLDicts[_path][_column] = nativeDict;
 
-            return _nativeDict;
+            return nativeDict;
         }
 
         public Dictionary<string, string> GetNativeDict() { return XMLTableToDict(GetLocalizTablesPath(ProjectPath)); }
@@ -101,8 +103,8 @@ namespace StoriesLinker
 
             using (ExcelPackage xlPackage = new ExcelPackage(new FileInfo(_meta_xml_path)))
             {
-                var myWorksheet = xlPackage.Workbook.Worksheets.First();
-                var totalRows = myWorksheet.Dimension.End.Row;
+                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                int totalRows = myWorksheet.Dimension.End.Row;
 
                 for (int rowNum = 2; rowNum <= totalRows; rowNum++)
                 {
@@ -175,7 +177,7 @@ namespace StoriesLinker
 
                             _json_obj.UITextPlateLimits = new List<int>();
 
-                            foreach (var el in _values)
+                            foreach (string el in _values)
                             {
                                 _json_obj.UITextPlateLimits.Add(int.Parse(el));
                             }
@@ -195,7 +197,7 @@ namespace StoriesLinker
 
                             _json_obj.UITextColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UITextColor.Add(int.Parse(el));
+                            foreach (string el in _values) _json_obj.UITextColor.Add(int.Parse(el));
 
                             break;
                         case "UIBlockedTextColor":
@@ -203,7 +205,7 @@ namespace StoriesLinker
 
                             _json_obj.UIBlockedTextColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UIBlockedTextColor.Add(int.Parse(el));
+                            foreach (string el in _values) _json_obj.UIBlockedTextColor.Add(int.Parse(el));
 
                             break;
                         case "UIChNameTextColor":
@@ -211,7 +213,7 @@ namespace StoriesLinker
 
                             _json_obj.UIChNameTextColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UIChNameTextColor.Add(int.Parse(el));
+                            foreach (string el in _values) _json_obj.UIChNameTextColor.Add(int.Parse(el));
 
                             break;
                         case "UIOutlineColor":
@@ -219,7 +221,7 @@ namespace StoriesLinker
 
                             _json_obj.UIOutlineColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UIOutlineColor.Add(int.Parse(el));
+                            foreach (string el in _values) _json_obj.UIOutlineColor.Add(int.Parse(el));
 
                             break;
                         case "UIResTextColor":
@@ -227,7 +229,7 @@ namespace StoriesLinker
 
                             _json_obj.UIResTextColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UIResTextColor.Add(int.Parse(el));
+                            foreach (string el in _values) _json_obj.UIResTextColor.Add(int.Parse(el));
 
                             break;
                         case "WardrobeEnabled":
@@ -251,7 +253,7 @@ namespace StoriesLinker
                 myWorksheet = xlPackage.Workbook.Worksheets[2];
                 totalRows = myWorksheet.Dimension.End.Row;
 
-                var _check_row = CheckRow();
+                Func<object[], int> _check_row = CheckRow();
 
                 List<AJMetaCharacterData> _characters = new List<AJMetaCharacterData>();
 
@@ -439,7 +441,7 @@ namespace StoriesLinker
                 _chapters_id_names.Add(_kobj.Value.Properties.Id, _int_value);
             }
 
-            var sorted_chapter_names = from entry in _chapters_id_names orderby entry.Value ascending select entry;
+            IOrderedEnumerable<KeyValuePair<string, int>> sorted_chapter_names = from entry in _chapters_id_names orderby entry.Value ascending select entry;
 
             foreach (KeyValuePair<string, int> _pair in sorted_chapter_names)
             {
@@ -668,7 +670,7 @@ namespace StoriesLinker
             using (var eP = new ExcelPackage())
             {
                 bool _for_translating = _name.Contains("for_translating");
-                var sheet = eP.Workbook.Worksheets.Add("Data");
+                ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Data");
 
                 bool _for_localizators_mode = Form1.ForLocalizatorsMode;
 
@@ -714,7 +716,7 @@ namespace StoriesLinker
 
                             if (_repeated_values.Count == 1 || (_repeated_values.Count > 1 && _value.Contains("?")))
                             {
-                                foreach (var el in _repeated_values)
+                                foreach (string el in _repeated_values)
                                 {
                                     _nativeDict[el] = "*SystemLinkTo*" + _id + "*";
                                     _replaced_ids.Add(el);
@@ -743,7 +745,7 @@ namespace StoriesLinker
                     row++;
                 }
 
-                var bin = eP.GetAsByteArray();
+                byte[] bin = eP.GetAsByteArray();
 
                 File.WriteAllBytes(ProjectPath + @"\Localization\Russian\" + _name + ".xlsx", bin);
 
@@ -833,9 +835,9 @@ namespace StoriesLinker
 
                 int _clothes_ns_index = _ajfile.GlobalVariables.FindIndex(_ns => _ns.Namespace == "Clothes");
 
-                var state1 = _clothes_ns_index != -1;
-                var state2 = _ajfile.GlobalVariables[_clothes_ns_index].Variables
-                                    .FindIndex(_v => _v.Variable == _c_obj.ClothesVariableName) != -1;
+                bool state1 = _clothes_ns_index != -1;
+                bool state2 = _ajfile.GlobalVariables[_clothes_ns_index].Variables
+                                     .FindIndex(_v => _v.Variable == _c_obj.ClothesVariableName) != -1;
                 if (_c_obj.ClothesVariableName.Trim() == "-" || (state1 && state2))
                     continue;
                 
@@ -869,7 +871,7 @@ namespace StoriesLinker
                 }
             }
 
-            var _get_version_name = GetVersionName();
+            Func<string, string, string> _get_version_name = GetVersionName();
 
             if (Directory.Exists(_temp_folder)) Directory.Delete(_temp_folder, true);
 
@@ -907,11 +909,11 @@ namespace StoriesLinker
 
             AJAssetGridLinker _grid_linker = new AJAssetGridLinker();
 
-            var _check_add_ch = CheckAddCh(_native_dict, _objects_list, _meta, _grid_linker);
+            Action<string> _check_add_ch = CheckAddCh(_native_dict, _objects_list, _meta, _grid_linker);
 
-            var _check_add_loc_int = CheckAddLocINT(_meta, _grid_linker);
+            Action<int> _check_add_loc_int = CheckAddLocINT(_meta, _grid_linker);
 
-            var _check_add_loc = CheckAddLoc(_native_dict, _objects_list, _meta, _grid_linker);
+            Action<string> _check_add_loc = CheckAddLoc(_native_dict, _objects_list, _meta, _grid_linker);
 
             List<string> _copiedChAtlasses = new List<string>();
             List<string> _copiedLocSprites = new List<string>();
@@ -941,7 +943,7 @@ namespace StoriesLinker
                 SharedObjs.Add(_pair.Value);
             }
 
-            foreach (var el in _meta.Locations.Where(el => string.IsNullOrEmpty(el.AID)))
+            foreach (AJMetaLocationData el in _meta.Locations.Where(el => string.IsNullOrEmpty(el.AID)))
             {
                 el.AID = "fake_location_aid" + el.ID;
             }
@@ -955,8 +957,8 @@ namespace StoriesLinker
             if (_multi_lang_output)
             {
                 // Получаем все папки в директории TranslatedData
-                var languageFolders = Directory.GetDirectories(_translated_data_folder);
-                foreach (var folder in languageFolders)
+                string[] languageFolders = Directory.GetDirectories(_translated_data_folder);
+                foreach (string folder in languageFolders)
                 {
                     // Получаем имя папки (язык)
                     string language = Path.GetFileName(folder);
@@ -1008,7 +1010,7 @@ namespace StoriesLinker
                         {
                             List<string> _attachments = _dfobj.Properties.Attachments;
 
-                            foreach (var el in _attachments)
+                            foreach (string el in _attachments)
                             {
                                 AJObj _at_obj = _objects_list[el];
 
@@ -1030,7 +1032,7 @@ namespace StoriesLinker
                                                                .Replace("\\r", "")
                                                                .Split(';');
 
-                                foreach (var _uscript in _scripts)
+                                foreach (string _uscript in _scripts)
                                 {
                                     if (!_uscript.Contains("Location.loc")) continue;
                                     
@@ -1061,7 +1063,7 @@ namespace StoriesLinker
                 string[] _chapter_chs = _grid_linker.GetCharactersNamesFromCurChapter();
                 string[] _locations_chs = _grid_linker.GetLocationsNamesFromCurChapter();
 
-                foreach (var el in _chapter_chs)
+                foreach (string el in _chapter_chs)
                 {
                     AJMetaCharacterData _ch = _meta.Characters.Find(_lch => _lch.DisplayName.Trim() == el.Trim());
 
@@ -1080,7 +1082,7 @@ namespace StoriesLinker
                         _atlases.AddRange(_atlas_strs.Where(t => !string.IsNullOrEmpty(t)));
                     }
 
-                    foreach (var _atlasFileName in _atlases)
+                    foreach (string _atlasFileName in _atlases)
                     {
                         if (_ch.BaseNameInAtlas == "-" 
                             || _atlasFileName == "-" 
@@ -1107,7 +1109,7 @@ namespace StoriesLinker
                     }
                 }
 
-                foreach (var el in _locations_chs)
+                foreach (string el in _locations_chs)
                 {
                     AJMetaLocationData _loc = _meta.Locations.Find(_lloc => _lloc.DisplayName == el);
 
@@ -1142,7 +1144,7 @@ namespace StoriesLinker
                 List<string> knownLanguagesList = _langs_cols.Keys.ToList();
 
                 // Передаем список языков в GenerateLjson при создании Func
-                var _generate_ljson = GenerateLjson(_allDicts, _orig_lang_data);
+                Func<string, string, string[], string, int, List<string>, string> _generate_ljson = GenerateLjson(_allDicts, _orig_lang_data);
 
                 string _lang_origin_folder = ProjectPath + @"\Localization\Russian";
 
@@ -1259,7 +1261,7 @@ namespace StoriesLinker
                 Directory.CreateDirectory(musicTempPath);
             }
 
-            foreach (var srcPath in Directory.GetFiles(musicSourcePath))
+            foreach (string srcPath in Directory.GetFiles(musicSourcePath))
             {
                 //Copy the file from sourcepath and place into mentioned target path, 
                 //Overwrite the file if same file is exist in target path
@@ -1388,27 +1390,27 @@ namespace StoriesLinker
         {
             return (language, id, inPaths, outputPath, colN, knownLanguages) =>
                    {
-                       if (!allDicts.TryGetValue(language, out var allStrings))
+                       if (!allDicts.TryGetValue(language, out Dictionary<string, string> allStrings))
                        {
                            allStrings = new Dictionary<string, string>();
                            allDicts[language] = allStrings;
                        }
 
-                       var jsonData = GetXMLFile(inPaths, colN, knownLanguages);
-                       var origLang = !origLangData.ContainsKey(id);
+                       AJLocalizInJSONFile jsonData = GetXMLFile(inPaths, colN, knownLanguages);
+                       bool origLang = !origLangData.ContainsKey(id);
 
                        if (origLang) origLangData[id] = jsonData;
 
-                       var origJsonData = origLangData[id];
+                       AJLocalizInJSONFile origJsonData = origLangData[id];
                        if (origLang) jsonData = GetXMLFile(inPaths, colN, knownLanguages);
 
                        if (Form1.ForLocalizatorsMode)
                        {
                            Console.WriteLine($"start {id} {allStrings.Count}");
-                           foreach (var pair in origJsonData.Data)
+                           foreach (KeyValuePair<string, string> pair in origJsonData.Data)
                            {
-                               var origValue = pair.Value.Trim();
-                               if (!jsonData.Data.TryGetValue(pair.Key, out var translatedValue))
+                               string origValue = pair.Value.Trim();
+                               if (!jsonData.Data.TryGetValue(pair.Key, out string translatedValue))
                                {
                                    Console.WriteLine($"String with ID {pair.Key} not found");
                                    continue;
@@ -1420,8 +1422,8 @@ namespace StoriesLinker
 
                                if (origValue.Contains("*SystemLinkTo*"))
                                {
-                                   var linkId = origValue.Split('*')[2];
-                                   if (!jsonData.Data.TryGetValue(linkId, out var linkedValue)
+                                   string linkId = origValue.Split('*')[2];
+                                   if (!jsonData.Data.TryGetValue(linkId, out string linkedValue)
                                        && !allStrings.TryGetValue(linkId, out linkedValue))
                                    {
                                        Console.WriteLine($"String with {linkId} is not found");
@@ -1440,7 +1442,7 @@ namespace StoriesLinker
                            }
                        }
 
-                       var localizationIssue = CheckLocalizationIssues(origJsonData, jsonData, origLang);
+                       string localizationIssue = CheckLocalizationIssues(origJsonData, jsonData, origLang);
                        WriteJSONFile(jsonData, outputPath);
 
                        return localizationIssue;
@@ -1465,10 +1467,12 @@ namespace StoriesLinker
                                                AJLocalizInJSONFile jsonData,
                                                bool origLang)
         {
-            foreach (var pair in origJsonData.Data)
-                if (!jsonData.Data.ContainsKey(pair.Key)
-                    || string.IsNullOrEmpty(jsonData.Data[pair.Key].Trim()))
+            foreach (KeyValuePair<string, string> pair in origJsonData.Data)
+            {
+                // Проверяем только наличие ключа, игнорируем пустые значения
+                if (!jsonData.Data.ContainsKey(pair.Key))
                     return pair.Key;
+            }
 
             return string.Empty;
         }
@@ -1480,7 +1484,7 @@ namespace StoriesLinker
             var knownLanguagesSet = new HashSet<string>(_known_languages ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
 
             Console.WriteLine("\n=== Начало обработки файлов локализации ===");
-            foreach (var path in _paths_to_xmls)
+            foreach (string path in _paths_to_xmls)
             {
                 if (!File.Exists(path))
                 {
@@ -1502,29 +1506,37 @@ namespace StoriesLinker
                     {
                         // Для файлов из BookDescriptions используем логику D->B
                         Console.WriteLine($"Применяем логику D->B для файла описания книги: {path}");
-                        Dictionary<string, string> dictD = XMLTableToDict(path, 3); // Колонка D
-                        Dictionary<string, string> dictB = XMLTableToDict(path, 1); // Колонка B
+                        
+                        // Получаем данные из колонок D и B
+                        Dictionary<string, string> dictD = XMLTableToDict(path, 3).Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                                                                                  .ToDictionary(x => x.Key, x => x.Value.Trim());
+                        Dictionary<string, string> dictB = XMLTableToDict(path, 1).Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                                                                                  .ToDictionary(x => x.Key, x => x.Value.Trim());
 
-                        Console.WriteLine($"Количество ключей в колонке D: {dictD.Count}");
-                        Console.WriteLine($"Количество ключей в колонке B: {dictB.Count}");
+                        // Выводим статистику по непустым значениям
+                        Console.WriteLine($"Количество непустых значений в колонке D: {dictD.Count}");
+                        Console.WriteLine($"Количество непустых значений в колонке B: {dictB.Count}");
 
+                        // Создаем итоговый словарь, приоритет отдаем значениям из колонки D
                         _file_dict = new Dictionary<string, string>();
-                        var allKeys = dictD.Keys.Union(dictB.Keys).Distinct();
-
-                        foreach (var key in allKeys)
+                        
+                        // Сначала добавляем все непустые значения из D
+                        foreach (KeyValuePair<string, string> pair in dictD)
                         {
-                            string valueD = dictD.TryGetValue(key, out var valD) ? valD?.Trim() : null;
-                            string valueB = dictB.TryGetValue(key, out var valB) ? valB?.Trim() : null;
-
-                            if (!string.IsNullOrEmpty(valueD))
+                            _file_dict[pair.Key] = pair.Value;
+                        }
+                        
+                        // Добавляем значения из B только если ключа нет в D
+                        foreach (KeyValuePair<string, string> pair in dictB)
+                        {
+                            if (!_file_dict.ContainsKey(pair.Key))
                             {
-                                _file_dict[key] = valueD;
-                            }
-                            else
-                            {
-                                _file_dict[key] = valueB ?? string.Empty;
+                                _file_dict[pair.Key] = pair.Value;
                             }
                         }
+
+                        // Выводим итоговую статистику
+                        Console.WriteLine($"Итоговое количество уникальных непустых значений: {_file_dict.Count}");
                     }
                     else if (isTranslatedData)
                     {
@@ -1541,7 +1553,7 @@ namespace StoriesLinker
 
                     if (_file_dict != null)
                     {
-                        foreach (var pair in _file_dict.Where(p => p.Key != "ID"))
+                        foreach (KeyValuePair<string, string> pair in _file_dict.Where(p => p.Key != "ID"))
                         {
                             if (!_total.ContainsKey(pair.Key))
                             {
@@ -1574,11 +1586,11 @@ namespace StoriesLinker
         {
             Dictionary<string, string> _total = new Dictionary<string, string>();
 
-            foreach (var el in _paths_to_xmls)
+            foreach (string el in _paths_to_xmls)
             {
                 Dictionary<string, string> _file_dict = XMLTableToDict(el, _column);
 
-                foreach (var _pair in _file_dict.Where(_pair => _pair.Key != "ID"))
+                foreach (KeyValuePair<string, string> _pair in _file_dict.Where(_pair => _pair.Key != "ID"))
                 {
                     _total.Add(_pair.Key, _pair.Value);
                 }
