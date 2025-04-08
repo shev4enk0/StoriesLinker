@@ -11,10 +11,15 @@ namespace StoriesLinker
     public class LinkerBin(string projectPath)
     {
         private readonly string _projectPath = projectPath;
-
         private readonly Dictionary<string, Dictionary<int, Dictionary<string, string>>> _savedXmlDicts = new();
-     
-        private Dictionary<string, string> XmlTableToDict(string path, int column = 1)
+        private int _allWordsCount = 0;
+        private static Dictionary<string, string> missingFiles = new Dictionary<string, string>();
+
+        #region Работа с Excel файлами и преобразование в словари
+        /// <summary>
+        /// Преобразует Excel таблицу в словарь ключ-значение
+        /// </summary>
+        private Dictionary<string, string> ConvertExcelToKeyValueDictionary(string path, int column = 1)
         {
             if (_savedXmlDicts.TryGetValue(path, out Dictionary<int, Dictionary<string, string>> columnsDict) && columnsDict.TryGetValue(column, out Dictionary<string, string> cachedDict))
             {
@@ -69,24 +74,31 @@ namespace StoriesLinker
             return nativeDict;
         }
 
-        public Dictionary<string, string> GetNativeDict() { return XmlTableToDict(GetLocalizTablesPath(_projectPath)); }
+        /// <summary>
+        /// Получает словарь локализации из Excel файла
+        /// </summary>
+        public Dictionary<string, string> GetLocalizationDictionary() { return ConvertExcelToKeyValueDictionary(GetLocalizationTablesPath(_projectPath)); }
+        #endregion
 
-        public AjFile GetParsedFlowJsonFile()
+        #region Парсинг JSON файлов
+        /// <summary>
+        /// Парсит Flow.json файл
+        /// </summary>
+        public AjFile ParseFlowJsonFile()
         {
-            AjFile jsonObj;
-
             using StreamReader r = new StreamReader(GetFlowJsonPath(_projectPath));
             string json = r.ReadToEnd();
-            jsonObj = JsonConvert.DeserializeObject<AjFile>(json);
+            var jsonObj = JsonConvert.DeserializeObject<AjFile>(json);
 
             return jsonObj;
         }
 
-        public AjLinkerMeta GetParsedMetaInputJsonFile()
+        /// <summary>
+        /// Парсит Meta.json файл и связанные Excel таблицы
+        /// </summary>
+        public AjLinkerMeta ParseMetaDataFromExcel()
         {
-            AjLinkerMeta jsonObj = new AjLinkerMeta();
-
-            jsonObj.Version = new BookVersionInfo();
+            AjLinkerMeta jsonObj = new AjLinkerMeta { Version = new BookVersionInfo() };
 
             string metaXmlPath = _projectPath + @"\Raw\Meta.xlsx";
 
@@ -244,7 +256,7 @@ namespace StoriesLinker
             myWorksheet = xlPackage.Workbook.Worksheets[2];
             totalRows = myWorksheet.Dimension.End.Row;
 
-            Func<object[], int> checkRow = CheckRow();
+            Func<object[], int> checkRow = ValidateExcelRow();
 
             List<AjMetaCharacterData> characters = new List<AjMetaCharacterData>();
 
@@ -321,8 +333,13 @@ namespace StoriesLinker
 
             return jsonObj;
         }
+        #endregion
 
-        private static Func<object[], int> CheckRow()
+        #region Вспомогательные методы для проверки данных
+        /// <summary>
+        /// Проверяет строку на пустоту и корректность данных
+        /// </summary>
+        private static Func<object[], int> ValidateExcelRow()
         {
             int Row(object[] cells)
             {
@@ -344,8 +361,13 @@ namespace StoriesLinker
 
             return Row;
         }
+        #endregion
 
-        public Dictionary<string, AjObj> GetAricyBookEntities(AjFile ajfile, Dictionary<string, string> nativeDict)
+        #region Работа с сущностями книги
+        /// <summary>
+        /// Получает все сущности книги из Flow.json
+        /// </summary>
+        public Dictionary<string, AjObj> ExtractBookEntities(AjFile ajfile, Dictionary<string, string> nativeDict)
         {
             Dictionary<string, AjObj> objectsList = new Dictionary<string, AjObj>();
 
@@ -403,8 +425,10 @@ namespace StoriesLinker
             return objectsList;
         }
 
-        private List<string> GetSortedChaptersList(Dictionary<string, AjObj> objList,
-                                                   Dictionary<string, string> nativeDict)
+        /// <summary>
+        /// Получает отсортированный список глав
+        /// </summary>
+        private List<string> GetSortedChapterIds(Dictionary<string, AjObj> objList, Dictionary<string, string> nativeDict)
         {
             List<string> chaptersIds = new List<string>();
 
@@ -431,8 +455,10 @@ namespace StoriesLinker
             return chaptersIds;
         }
 
-        private List<string>[] GetChaptersAndSubchaptersParentsIDs(List<string> chaptersIds,
-                                                                   Dictionary<string, AjObj> objList)
+        /// <summary>
+        /// Получает ID глав и подглав
+        /// </summary>
+        private List<string>[] GetChapterAndSubchapterHierarchy(List<string> chaptersIds, Dictionary<string, AjObj> objList)
         {
             List<List<string>> ids = new List<List<string>>();
 
@@ -475,17 +501,13 @@ namespace StoriesLinker
 
             return ids.ToArray();
         }
+        #endregion
 
-        public enum EChEmotion
-        {
-            Angry, //red
-            Happy, //green
-            Sad, //purple
-            Surprised, //yellow
-            IsntSetOrNeutral //blue
-        }
-
-        public bool GenerateLocalizTables()
+        #region Генерация таблиц локализации
+        /// <summary>
+        /// Генерирует таблицы локализации для всех глав
+        /// </summary>
+        public bool GenerateLocalizationTables()
         {
             if (Directory.Exists(_projectPath + @"\Localization"))
                 Directory.Delete(_projectPath + @"\Localization", true);
@@ -493,12 +515,12 @@ namespace StoriesLinker
             Directory.CreateDirectory(_projectPath + @"\Localization");
             Directory.CreateDirectory(_projectPath + @"\Localization\Russian");
 
-            AjFile ajfile = GetParsedFlowJsonFile();
+            AjFile ajfile = ParseFlowJsonFile();
 
-            Dictionary<string, string> nativeDict = GetNativeDict();
-            Dictionary<string, AjObj> objectsList = GetAricyBookEntities(ajfile, nativeDict);
+            Dictionary<string, string> nativeDict = GetLocalizationDictionary();
+            Dictionary<string, AjObj> objectsList = ExtractBookEntities(ajfile, nativeDict);
 
-            List<string> chaptersIds = GetSortedChaptersList(objectsList, nativeDict);
+            List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
 
             if (chaptersIds.Count < Form1.AvailableChapters)
             {
@@ -535,7 +557,7 @@ namespace StoriesLinker
                 return emotion.ToString();
             }
 
-            List<string>[] csparentsIds = GetChaptersAndSubchaptersParentsIDs(chaptersIds, objectsList);
+            List<string>[] csparentsIds = GetChapterAndSubchapterHierarchy(chaptersIds, objectsList);
 
             List<string> charactersIds = new List<string>();
             List<LocalizEntity> charactersLocalizIds = new List<LocalizEntity>();
@@ -605,18 +627,19 @@ namespace StoriesLinker
                     }
                 }
 
-                CreateLocalizTable($"Chapter_{chapterN}_for_translating", forTranslating, nativeDict);
-                CreateLocalizTable($"Chapter_{chapterN}_internal", nonTranslating, nativeDict);
+                CreateLocalizationTable($"Chapter_{chapterN}_for_translating", forTranslating, nativeDict);
+                CreateLocalizationTable($"Chapter_{chapterN}_internal", nonTranslating, nativeDict);
             }
 
-            CreateLocalizTable(string.Format("CharacterNames"), charactersLocalizIds, nativeDict);
+            CreateLocalizationTable(string.Format("CharacterNames"), charactersLocalizIds, nativeDict);
 
             return true;
         }
 
-        private int _allWordsCount = 0;
-
-        private void CreateLocalizTable(string name, List<LocalizEntity> ids, Dictionary<string, string> nativeDict)
+        /// <summary>
+        /// Создает таблицу локализации для конкретной главы
+        /// </summary>
+        private void CreateLocalizationTable(string name, List<LocalizEntity> ids, Dictionary<string, string> nativeDict)
         {
             int wordCount = 0;
 
@@ -691,7 +714,7 @@ namespace StoriesLinker
 
                 if (forLocalizatorsMode && !replacedIds.Contains(id))
                 {
-                    wordCount += CountWords(value);
+                    wordCount += CalculateWordCount(value);
                 }
 
                 row++;
@@ -710,7 +733,10 @@ namespace StoriesLinker
             if (name.Contains("12")) Console.WriteLine("total count = " + _allWordsCount);
         }
 
-        public int CountWords(string text)
+        /// <summary>
+        /// Подсчитывает количество слов в тексте
+        /// </summary>
+        public int CalculateWordCount(string text)
         {
             int wordCount = 0, index = 0;
 
@@ -730,15 +756,20 @@ namespace StoriesLinker
 
             return wordCount;
         }
+        #endregion
 
-        public bool GenerateOutputFolder()
+        #region Генерация выходной папки
+        /// <summary>
+        /// Генерирует структуру выходной папки с ресурсами
+        /// </summary>
+        public bool GenerateOutputStructure()
         {
             Form1.ShowMessage("Начинаем...");
 
             string tempFolder = _projectPath + @"\Temp\";
 
-            AjFile ajfile = GetParsedFlowJsonFile();
-            AjLinkerMeta meta = GetParsedMetaInputJsonFile();
+            AjFile ajfile = ParseFlowJsonFile();
+            AjLinkerMeta meta = ParseMetaDataFromExcel();
 
             if (meta == null)
             {
@@ -822,7 +853,7 @@ namespace StoriesLinker
                 }
             }
 
-            Func<string, string, string> getVersionName = GetVersionName();
+            Func<string, string, string> getVersionName = GenerateVersionFolderName();
 
             if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
 
@@ -842,10 +873,10 @@ namespace StoriesLinker
             Directory.CreateDirectory(brFolder + @"\UI");
             Directory.CreateDirectory(brFolder + @"\Music");
 
-            Dictionary<string, string> nativeDict = GetNativeDict();
-            Dictionary<string, AjObj> objectsList = GetAricyBookEntities(ajfile, nativeDict);
+            Dictionary<string, string> nativeDict = GetLocalizationDictionary();
+            Dictionary<string, AjObj> objectsList = ExtractBookEntities(ajfile, nativeDict);
 
-            List<string> chaptersIds = GetSortedChaptersList(objectsList, nativeDict);
+            List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
 
             if (chaptersIds.Count < Form1.AvailableChapters)
             {
@@ -856,15 +887,15 @@ namespace StoriesLinker
 
             chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
 
-            List<string>[] csparentsIds = GetChaptersAndSubchaptersParentsIDs(chaptersIds, objectsList);
+            List<string>[] csparentsIds = GetChapterAndSubchapterHierarchy(chaptersIds, objectsList);
 
             AjAssetGridLinker gridLinker = new AjAssetGridLinker();
 
-            Action<string> checkAddCh = CheckAddCh(nativeDict, objectsList, meta, gridLinker);
+            Action<string> checkAddCh = ValidateAndAddCharacter(nativeDict, objectsList, meta, gridLinker);
 
-            Action<int> checkAddLocInt = CheckAddLocInt(meta, gridLinker);
+            Action<int> checkAddLocInt = ValidateAndAddLocationById(meta, gridLinker);
 
-            Action<string> checkAddLoc = CheckAddLoc(nativeDict, objectsList, meta, gridLinker);
+            Action<string> checkAddLoc = ValidateAndAddLocation(nativeDict, objectsList, meta, gridLinker);
 
             List<string> copiedChAtlasses = new List<string>();
             List<string> copiedLocSprites = new List<string>();
@@ -1094,12 +1125,12 @@ namespace StoriesLinker
                 // Получаем список всех известных языков из ключей _langs_cols
                 List<string> knownLanguagesList = langsCols.Keys.ToList();
 
-                // Передаем список языков в GenerateLjson при создании Func
-                Func<string, string, string[], string, int, List<string>, string> generateLjson = GenerateLjson(allDicts, origLangData);
+                // Передаем список языков в GenerateLocalizationJson при создании Func
+                Func<string, string, string[], string, int, List<string>, string> generateLocalizationJson = GenerateLocalizationJson(allDicts, origLangData);
 
                 string langOriginFolder = _projectPath + @"\Localization\Russian";
 
-                Action<string, string> showLocalizError = ShowLocalizError();
+                Action<string, string> showLocalizError = DisplayLocalizationError();
 
                 if (Form1.ONLY_ENGLISH_MODE)
                 {
@@ -1138,7 +1169,7 @@ namespace StoriesLinker
                     if (!File.Exists(langFiles[0])) break;
 
                     // Вызываем Func, передавая список языков
-                    string correct = generateLjson(lang,
+                    string correct = generateLocalizationJson(lang,
                                                    "chapter" + chapterN,
                                                    langFiles,
                                                    chapterFolder + @"\Strings\" + lang + ".json",
@@ -1160,7 +1191,7 @@ namespace StoriesLinker
                     Console.WriteLine("generate sharedstrings " + bookDescsPath);
                     
                     // Вызываем Func, передавая список языков
-                    correct = generateLjson(lang,
+                    correct = generateLocalizationJson(lang,
                                             "sharedstrings",
                                             sharedLangFiles,
                                             binFolder + @"\SharedStrings\" + lang + ".json",
@@ -1176,7 +1207,7 @@ namespace StoriesLinker
                     }
                     
                     // Вызываем Func, передавая список языков
-                    correct = generateLjson(lang,
+                    correct = generateLocalizationJson(lang,
                                             "previewstrings",
                                             stringToPreviewFile,
                                             previewFolder + @"\Strings\" + lang + ".json",
@@ -1255,17 +1286,22 @@ namespace StoriesLinker
             return true;
         }
 
-        private static Func<string, string, string> GetVersionName()
+        /// <summary>
+        /// Генерирует имя версии для папки
+        /// </summary>
+        private static Func<string, string, string> GenerateVersionFolderName()
         {
             string VersionName(string folderName, string version) => char.ToUpper(folderName[0]) + folderName.Substring(1);
 
             return VersionName;
         }
+        #endregion
 
-        private static Action<string> CheckAddCh(Dictionary<string, string> nativeDict,
-                                                 Dictionary<string, AjObj> objectsList,
-                                                 AjLinkerMeta meta,
-                                                 AjAssetGridLinker gridLinker)
+        #region Вспомогательные методы для проверки персонажей и локаций
+        /// <summary>
+        /// Проверяет и добавляет персонажа
+        /// </summary>
+        private static Action<string> ValidateAndAddCharacter(Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList, AjLinkerMeta meta, AjAssetGridLinker gridLinker)
         {
             void AddCh(string aid)
             {
@@ -1284,7 +1320,10 @@ namespace StoriesLinker
             return AddCh;
         }
 
-        private static Action<int> CheckAddLocInt(AjLinkerMeta meta, AjAssetGridLinker gridLinker)
+        /// <summary>
+        /// Проверяет и добавляет локацию по ID
+        /// </summary>
+        private static Action<int> ValidateAndAddLocationById(AjLinkerMeta meta, AjAssetGridLinker gridLinker)
         {
             void AddLocInt(int intId)
             {
@@ -1296,10 +1335,10 @@ namespace StoriesLinker
             return AddLocInt;
         }
 
-        private static Action<string> CheckAddLoc(Dictionary<string, string> nativeDict,
-                                                  Dictionary<string, AjObj> objectsList,
-                                                  AjLinkerMeta meta,
-                                                  AjAssetGridLinker gridLinker)
+        /// <summary>
+        /// Проверяет и добавляет локацию
+        /// </summary>
+        private static Action<string> ValidateAndAddLocation(Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList, AjLinkerMeta meta, AjAssetGridLinker gridLinker)
         {
             void AddLoc(string aid)
             {
@@ -1317,8 +1356,25 @@ namespace StoriesLinker
 
             return AddLoc;
         }
+        #endregion
 
-        private static Action<string, string> ShowLocalizError()
+        #region Работа с локализацией
+        /// <summary>
+        /// Перечисление эмоций персонажей в тексте
+        /// </summary>
+        public enum EChEmotion
+        {
+            Angry,    //red
+            Happy,    //green
+            Sad,      //purple
+            Surprised,//yellow
+            IsntSetOrNeutral //blue
+        }
+
+        /// <summary>
+        /// Показывает ошибки локализации
+        /// </summary>
+        private static Action<string, string> DisplayLocalizationError()
         {
             void LocalizError(string missingKey, string fileGroupId)
             {
@@ -1336,10 +1392,10 @@ namespace StoriesLinker
             return LocalizError;
         }
 
-        private static Dictionary<string, string> missingFiles = new Dictionary<string, string>();
-
-        private Func<string, string, string[], string, int, List<string>, string> GenerateLjson(Dictionary<string, Dictionary<string, string>> allDicts,
-                                                                                  Dictionary<string, AjLocalizInJsonFile> origLangData)
+        /// <summary>
+        /// Генерирует JSON файл локализации
+        /// </summary>
+        private Func<string, string, string[], string, int, List<string>, string> GenerateLocalizationJson(Dictionary<string, Dictionary<string, string>> allDicts, Dictionary<string, AjLocalizInJsonFile> origLangData)
         {
             return (language, id, inPaths, outputPath, colN, knownLanguages) =>
                    {
@@ -1349,13 +1405,13 @@ namespace StoriesLinker
                            allDicts[language] = allStrings;
                        }
 
-                       AjLocalizInJsonFile jsonData = GetXmlFile(inPaths, colN, knownLanguages);
+                       AjLocalizInJsonFile jsonData = LoadLocalizationFromXml(inPaths, colN, knownLanguages);
                        bool origLang = !origLangData.ContainsKey(id);
 
                        if (origLang) origLangData[id] = jsonData;
 
                        AjLocalizInJsonFile origJsonData = origLangData[id];
-                       if (origLang) jsonData = GetXmlFile(inPaths, colN, knownLanguages);
+                       if (origLang) jsonData = LoadLocalizationFromXml(inPaths, colN, knownLanguages);
 
                        if (Form1.FOR_LOCALIZATORS_MODE)
                        {
@@ -1387,7 +1443,7 @@ namespace StoriesLinker
                                    translatedValue = linkedValue;
                                }
 
-                               if (IsTranslationIncomplete(translatedValue,
+                               if (CheckTranslationCompleteness(translatedValue,
                                                            origValue,
                                                            origLang,
                                                            jsonData.Data[pair.Key]))
@@ -1395,15 +1451,17 @@ namespace StoriesLinker
                            }
                        }
 
-                       string localizationIssue = CheckLocalizationIssues(origJsonData, jsonData, origLang);
-                       WriteJsonFile(jsonData, outputPath);
+                       string localizationIssue = ValidateLocalizationData(origJsonData, jsonData, origLang);
+                       SaveLocalizationToJson(jsonData, outputPath);
 
                        return localizationIssue;
                    };
         }
 
-        private bool
-            IsTranslationIncomplete(string translatedValue, string origValue, bool origLang, string jsonDataValue)
+        /// <summary>
+        /// Проверяет полноту перевода
+        /// </summary>
+        private bool CheckTranslationCompleteness(string translatedValue, string origValue, bool origLang, string jsonDataValue)
         {
             return string.IsNullOrEmpty(translatedValue.Trim())
                    || (origValue.Trim() == translatedValue.Trim()
@@ -1416,7 +1474,10 @@ namespace StoriesLinker
                        && !origValue.ToLower().Contains("%pname%"));
         }
 
-        private string CheckLocalizationIssues(AjLocalizInJsonFile origJsonData,
+        /// <summary>
+        /// Проверяет проблемы локализации
+        /// </summary>
+        private string ValidateLocalizationData(AjLocalizInJsonFile origJsonData,
                                                AjLocalizInJsonFile jsonData,
                                                bool origLang)
         {
@@ -1430,8 +1491,10 @@ namespace StoriesLinker
             return string.Empty;
         }
 
-
-        private AjLocalizInJsonFile GetXmlFile(string[] pathsToXmls, int defaultColumn, List<string> knownLanguages)
+        /// <summary>
+        /// Получает данные из XML файла
+        /// </summary>
+        private AjLocalizInJsonFile LoadLocalizationFromXml(string[] pathsToXmls, int defaultColumn, List<string> knownLanguages)
         {
             Dictionary<string, string> total = new Dictionary<string, string>();
             var knownLanguagesSet = new HashSet<string>(knownLanguages ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
@@ -1465,9 +1528,9 @@ namespace StoriesLinker
                         Console.WriteLine($"Применяем логику D->B для файла описания книги: {path}");
                         
                         // Получаем данные из колонок D и B
-                        Dictionary<string, string> dictD = XmlTableToDict(path, 3).Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                        Dictionary<string, string> dictD = ConvertExcelToKeyValueDictionary(path, 3).Where(x => !string.IsNullOrWhiteSpace(x.Value))
                                                                                   .ToDictionary(x => x.Key, x => x.Value.Trim());
-                        Dictionary<string, string> dictB = XmlTableToDict(path, 1).Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                        Dictionary<string, string> dictB = ConvertExcelToKeyValueDictionary(path, 1).Where(x => !string.IsNullOrWhiteSpace(x.Value))
                                                                                   .ToDictionary(x => x.Key, x => x.Value.Trim());
 
                         // Выводим статистику по непустым значениям
@@ -1499,13 +1562,13 @@ namespace StoriesLinker
                     {
                         // Для файлов из TranslatedData используем колонку E
                         Console.WriteLine($"Применяем логику колонки E для переведенного файла: {path}");
-                        fileDict = XmlTableToDict(path, 4); // Колонка E
+                        fileDict = ConvertExcelToKeyValueDictionary(path, 4); // Колонка E
                     }
                     else
                     {
                         // Для остальных файлов используем стандартную логику
                         Console.WriteLine($"Применяем стандартную логику для колонки {defaultColumn}: {path}");
-                        fileDict = XmlTableToDict(path, defaultColumn);
+                        fileDict = ConvertExcelToKeyValueDictionary(path, defaultColumn);
                     }
 
                     if (fileDict != null)
@@ -1532,20 +1595,26 @@ namespace StoriesLinker
             return jsonFile;
         }
 
-        private AjLocalizInJsonFile WriteJsonFile(AjLocalizInJsonFile jsonFile, string pathToJson)
+        /// <summary>
+        /// Записывает JSON файл
+        /// </summary>
+        private AjLocalizInJsonFile SaveLocalizationToJson(AjLocalizInJsonFile jsonFile, string pathToJson)
         {
             File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
 
             return jsonFile;
         }
 
-        public AjLocalizInJsonFile ConvertXmlToJson(string[] pathsToXmls, string pathToJson, int column)
+        /// <summary>
+        /// Конвертирует XML в JSON
+        /// </summary>
+        public AjLocalizInJsonFile ConvertLocalizationXmlToJson(string[] pathsToXmls, string pathToJson, int column)
         {
             Dictionary<string, string> total = new Dictionary<string, string>();
 
             foreach (string el in pathsToXmls)
             {
-                Dictionary<string, string> fileDict = XmlTableToDict(el, column);
+                Dictionary<string, string> fileDict = ConvertExcelToKeyValueDictionary(el, column);
 
                 foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
                 {
@@ -1560,8 +1629,13 @@ namespace StoriesLinker
 
             return jsonFile;
         }
+        #endregion
 
-        public static string GetLocalizTablesPath(string projPath)
+        #region Пути к файлам
+        /// <summary>
+        /// Получает путь к таблицам локализации
+        /// </summary>
+        public static string GetLocalizationTablesPath(string projPath)
         {
             string path = projPath + @"\Raw\loc_All objects_en.xlsx";
 
@@ -1570,8 +1644,15 @@ namespace StoriesLinker
             return path;
         }
 
+        /// <summary>
+        /// Получает путь к Flow.json
+        /// </summary>
         public static string GetFlowJsonPath(string projPath) { return projPath + @"\Raw\Flow.json"; }
 
+        /// <summary>
+        /// Получает путь к Meta.json
+        /// </summary>
         public static string GetMetaJsonPath(string projPath) { return projPath + @"\Raw\Meta.json"; }
+        #endregion
     }
 }

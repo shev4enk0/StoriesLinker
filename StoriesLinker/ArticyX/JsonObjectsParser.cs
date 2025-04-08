@@ -123,11 +123,11 @@ namespace StoriesLinker
                 // Если словарь локализации не предоставлен, получаем его из LinkerBin
                 if (nativeDict == null)
                 {
-                    nativeDict = _linker.GetNativeDict();
+                    nativeDict = _linker.GetLocalizationDictionary();
                 }
                 
                 // Получаем объекты Articy X
-                var objects = _linker.GetAricyBookEntities(ajFile, nativeDict);
+                var objects = _linker.ExtractBookEntities(ajFile, nativeDict);
                 
                 Console.WriteLine($"Успешно получено {objects.Count} объектов Articy X");
                 return objects;

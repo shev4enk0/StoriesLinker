@@ -148,7 +148,7 @@ namespace StoriesLinker
         private void GenerateOutputFolderForBundles(object sender, EventArgs eventArgs)
         {
             string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
-            string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
+            string stringsXmlPath = LinkerBin.GetLocalizationTablesPath(_projectPath);
 
             if (File.Exists(flowJsonPath) && File.Exists(stringsXmlPath))
             {
@@ -158,7 +158,7 @@ namespace StoriesLinker
                 {
                     try
                     {
-                        bool result = linker.GenerateOutputFolder();
+                        bool result = linker.GenerateOutputStructure();
 
                         StartCheckAfterBundleGeneration(result);
                     }
@@ -172,7 +172,7 @@ namespace StoriesLinker
                 }
                 else
                 {
-                    bool result = linker.GenerateOutputFolder();
+                    bool result = linker.GenerateOutputStructure();
 
                     StartCheckAfterBundleGeneration(result);
                 }
@@ -189,12 +189,12 @@ namespace StoriesLinker
             {
                 LinkerBin linker = new LinkerBin(_projectPath);
 
-                AjLinkerMeta meta = linker.GetParsedMetaInputJsonFile();
+                AjLinkerMeta meta = linker.ParseMetaDataFromExcel();
 
                 LinkerAtlasChecker checker = new LinkerAtlasChecker(meta, meta.Characters);
 
                 Dictionary<string, AjObj> objectsList
-                    = linker.GetAricyBookEntities(linker.GetParsedFlowJsonFile(), linker.GetNativeDict());
+                    = linker.ExtractBookEntities(linker.ParseFlowJsonFile(), linker.GetLocalizationDictionary());
 
                 foreach (KeyValuePair<string, AjObj> @object in objectsList)
                 {
@@ -321,7 +321,7 @@ namespace StoriesLinker
             }
 
             string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
-            string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
+            string stringsXmlPath = LinkerBin.GetLocalizationTablesPath(_projectPath);
 
             if (File.Exists(flowJsonPath) && File.Exists(stringsXmlPath))
             {
@@ -331,7 +331,7 @@ namespace StoriesLinker
 
                 try
                 {
-                    bool result = linker.GenerateLocalizTables();
+                    bool result = linker.GenerateLocalizationTables();
 
                     if (result)
                     {
