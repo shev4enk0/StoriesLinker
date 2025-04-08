@@ -3,205 +3,43 @@ using System.Collections.Generic;
 using System.IO;
 using StoriesLinker;
 
-public class AtlasCheckerChInfo
+# region Модели данных
+public class CharacterAtlasInfo
 {
-    public AjMetaCharacterData MetaData;
+    public AjMetaCharacterData MetaData { get; set; }
+    public string SpritePrefix { get; set; }
+    public bool HasGenderVariants { get; set; }
+    public Dictionary<string, string> RequiredSprites { get; set; }
 
-    public string SpritePrefix;
-
-    public bool MainHeroWithTwoGenders;
-
-    public Dictionary<string, string> RequiredSprites;
-
-    public void AddClothesForCheck(int id, List<string> clothesNames)
+    public void AddClothesVariant(int id, List<string> clothesNames)
     {
         if (RequiredSprites.ContainsKey(id.ToString()))
         {
-            Console.WriteLine("clothes for check exist");
-
+            Console.WriteLine("Вариант одежды для проверки уже существует");
             return;
         }
 
         string clothName = id < clothesNames.Count ? clothesNames[id] : "";
 
-        if (MainHeroWithTwoGenders)
+        if (HasGenderVariants)
         {
-            if (RequiredSprites.ContainsKey("Male_" + clothName))
+            if (RequiredSprites.ContainsKey($"Male_{clothName}"))
             {
-                Console.WriteLine("clothes for check exist");
-
+                Console.WriteLine("Вариант одежды для проверки уже существует");
                 return;
             }
 
-            RequiredSprites.Add("Male_" + clothName, "Male_" + clothName);
-            RequiredSprites.Add("Female_" + clothName, "Female_" + clothName);
+            RequiredSprites.Add($"Male_{clothName}", $"Male_{clothName}");
+            RequiredSprites.Add($"Female_{clothName}", $"Female_{clothName}");
         }
         else
+        {
             RequiredSprites.Add(id.ToString(), clothName);
+        }
     }
 }
 
-public class LinkerAtlasChecker
-{
-    public AjLinkerMeta MetaData;
-    public List<AtlasCheckerChInfo> CheckCharactersList;
-
-    public LinkerAtlasChecker(AjLinkerMeta meta, List<AjMetaCharacterData> chs)
-    {
-        MetaData = meta;
-        CheckCharactersList = new List<AtlasCheckerChInfo>();
-
-        foreach (AjMetaCharacterData mch in chs)
-        {
-            if (mch.AtlasFileName == "-" || mch.AtlasFileName.Contains("Sec_")) continue;
-
-            var ch = new AtlasCheckerChInfo();
-
-            ch.SpritePrefix = meta.SpritePrefix + mch.BaseNameInAtlas + "_";
-            ch.MetaData = mch;
-
-            ch.RequiredSprites = new Dictionary<string, string>();
-
-            bool mainHero = mch.BaseNameInAtlas == "Main";
-
-            var genderPrefix = new List<string>();
-
-            ch.MainHeroWithTwoGenders = mainHero && meta.MainHeroHasDifferentGenders;
-
-            if (mainHero && meta.MainHeroHasDifferentGenders)
-            {
-                genderPrefix.Add("Male_");
-                genderPrefix.Add("Female_");
-
-                ch.SpritePrefix = meta.SpritePrefix + "Main";
-            }
-            else
-                genderPrefix.Add("");
-
-            foreach (string gPrefix in genderPrefix)
-            {
-                ch.RequiredSprites.Add(gPrefix + "Base", "");
-                ch.RequiredSprites.Add(gPrefix + "Emotions_Angry", "");
-                ch.RequiredSprites.Add(gPrefix + "Emotions_Happy", "");
-                ch.RequiredSprites.Add(gPrefix + "Emotions_Standart", "");
-                ch.RequiredSprites.Add(gPrefix + "Emotions_Surprised", "");
-                ch.RequiredSprites.Add(gPrefix + "Emotions_Sad", "");
-
-                if (!mainHero || meta.RacesList == null || meta.RacesList.Count <= 0) continue;
-
-                foreach (string el in meta.RacesList)
-                {
-                    string rPrefix = el + "_";
-
-                    ch.RequiredSprites.Add(gPrefix + rPrefix + "Base", "");
-                    ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Angry", "");
-                    ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Happy", "");
-                    ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Standart", "");
-                    ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Surprised", "");
-                    ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Sad", "");
-                }
-            }
-
-            if (mainHero && meta.CustomHairCount > 0)
-            {
-                ch.RequiredSprites.Add("Hair1", "");
-                ch.RequiredSprites.Add("Hair2", "");
-                ch.RequiredSprites.Add("Hair3", "");
-            }
-
-            CheckCharactersList.Add(ch);
-        }
-    }
-
-    public void PassClothesInstruction(string rawScript)
-    {
-        string[] scripts = rawScript.EscapeString().Replace("\\n", "").Replace("\\r", "").Split(';');
-
-        foreach (string script in scripts)
-        {
-            if (string.IsNullOrEmpty(script) || !script.Contains("Clothes.")) continue;
-
-            Console.WriteLine("_script " + script);
-
-            var instr = new AInstruction(script);
-
-            if (instr.BadParse) continue;
-
-            string var = instr.Variable;
-
-            AtlasCheckerChInfo ch = CheckCharactersList.Find(c => "Clothes." + c.MetaData.ClothesVariableName == var);
-
-            ch?.AddClothesForCheck(instr.Value, MetaData.ClothesSpriteNames);
-        }
-    }
-
-    public string BeginFinalCheck(string path)
-    {
-        foreach (AtlasCheckerChInfo ch in CheckCharactersList)
-        {
-            var checkedSprites = new List<string>();
-
-            string[] atlasses = ch.MetaData.AtlasFileName.Split(',');
-
-            for (var i = 0; i < atlasses.Length; i++)
-            {
-                if (string.IsNullOrEmpty(atlasses[i])) continue;
-
-                string atlasPath = string.Format(path + @"\Art\Characters\{0}.tpsheet", atlasses[i]);
-
-                StreamReader reader = File.OpenText(atlasPath);
-
-                string text = reader.ReadToEnd();
-
-                foreach (KeyValuePair<string, string> spPair in ch.RequiredSprites)
-                {
-                    if (checkedSprites.Contains(spPair.Key)) continue;
-
-                    string spriteName1 = ch.SpritePrefix + spPair.Key;
-
-                    Console.WriteLine(spriteName1 + " in " + atlasPath);
-
-                    if (!text.Contains(spriteName1))
-                    {
-                        string spriteName2 = ch.SpritePrefix + spPair.Value;
-
-                        Console.WriteLine(spriteName2 + " in " + atlasPath);
-
-                        if (text.Contains(spriteName2) && !string.IsNullOrEmpty(spPair.Value))
-                        {
-                            checkedSprites.Add(spPair.Key);
-
-                            //Console.WriteLine("ok");
-
-                            //всё ок
-                        }
-                        else
-                        {
-                            //Console.WriteLine("error");
-
-                            if (ch.MetaData.BaseNameInAtlas == "Main" &&
-                                MetaData.CustomClothesCount >
-                                0) // если история с выбором одежды в начале игры, делаем исключения для главного героя
-                            { }
-                            else if (i + 1 >= atlasses.Length) return $"Спрайт {spriteName1}/{spriteName2} не найден";
-                        }
-                    }
-                    else
-                    {
-                        checkedSprites.Add(spPair.Key);
-
-                        Console.WriteLine("ok");
-                    }
-                }
-            }
-        }
-
-        return "";
-    }
-}
-
-
-public enum DInstuctionAction
+public enum InstructionAction
 {
     Minus,
     Plus,
@@ -209,85 +47,254 @@ public enum DInstuctionAction
     Equal
 }
 
-public enum DInstuctionVarType
+public enum InstructionVarType
 {
     Integer,
     Boolean
 }
 
-public class AInstruction
+public class ScriptInstruction
 {
-    public int Value;
-    public string Variable;
+    public int Value { get; set; }
+    public string Variable { get; set; }
+    public InstructionVarType VarType { get; set; }
+    public InstructionAction ActionType { get; set; }
+    public bool HasParseError { get; set; }
 
-    public DInstuctionVarType VarType;
-
-    public DInstuctionAction ActionType;
-
-    public bool BadParse;
-
-    public AInstruction(string rawScript)
+    public ScriptInstruction(string rawScript)
     {
-        rawScript = rawScript.Trim(' ');
-        rawScript = rawScript.TrimEnd(';');
-        rawScript = rawScript.Replace(";", "");
+        ParseInstruction(rawScript.Trim());
+    }
+
+    private void ParseInstruction(string script)
+    {
+        script = script.TrimEnd(';');
 
         string[] signs = ["-=", "+=", "/=", "="];
-
         int signIndex = -1;
 
         for (var i = 0; i < signs.Length; i++)
         {
-            if (rawScript.IndexOf(signs[i], StringComparison.Ordinal) == -1) continue;
-
-            signIndex = i;
-            break;
+            if (script.IndexOf(signs[i], StringComparison.Ordinal) != -1)
+            {
+                signIndex = i;
+                break;
+            }
         }
 
-        if (signIndex != -1)
+        if (signIndex == -1)
         {
-            string[] parts = rawScript.Replace(signs[signIndex], "|").Split('|');
+            LogParseError("Не найден оператор присваивания", script);
+            return;
+        }
 
-            ActionType = (DInstuctionAction)signIndex;
+        string[] parts = script.Replace(signs[signIndex], "|").Split('|');
+        ActionType = (InstructionAction)signIndex;
+        Variable = parts[0].Trim();
+        string valueStr = parts[1].Trim();
 
-            Variable = parts[0].Trim(' ');
-            string valueStr = parts[1].Trim(' ');
-
-            int result;
-
-            if (int.TryParse(valueStr, out result))
-            {
-                if (int.TryParse(valueStr, out result))
-                {
-                    Value = int.Parse(valueStr);
-
-                    VarType = DInstuctionVarType.Integer;
-                }
-                else
-                {
-                    Console.WriteLine("bad value " + valueStr);
-
-                    BadParse = true;
-                }
-            }
-            else if (valueStr == "true" || valueStr == "false")
-            {
-                VarType = DInstuctionVarType.Boolean;
-
-                Value = valueStr == "true" ? 1 : 0;
-            }
-            else
-                BadParse = true;
+        if (int.TryParse(valueStr, out int result))
+        {
+            Value = result;
+            VarType = InstructionVarType.Integer;
+        }
+        else if (valueStr is "true" or "false")
+        {
+            VarType = InstructionVarType.Boolean;
+            Value = valueStr == "true" ? 1 : 0;
         }
         else
         {
-            Console.WriteLine("bad sign index" + rawScript);
-
-            BadParse = true;
+            LogParseError("Некорректное значение", script);
+            return;
         }
 
-        if (VarType == DInstuctionVarType.Boolean && ActionType != DInstuctionAction.Equal) BadParse = true;
+        if (VarType == InstructionVarType.Boolean && ActionType != InstructionAction.Equal)
+        {
+            LogParseError("Некорректная операция для boolean", script);
+        }
+    }
 
-        if (BadParse) Console.WriteLine("INSTRUCTION PARSE ERROR!" + rawScript);
+    private void LogParseError(string error, string script)
+    {
+        HasParseError = true;
+        Console.WriteLine($"ОШИБКА РАЗБОРА ИНСТРУКЦИИ: {error}. Скрипт: {script}");
     }
 }
+#endregion
+
+#region Проверка атласов
+public class LinkerAtlasChecker
+{
+    private readonly AjLinkerMeta _metaData;
+    private readonly List<CharacterAtlasInfo> _charactersToCheck;
+
+    public LinkerAtlasChecker(AjLinkerMeta meta, List<AjMetaCharacterData> characters)
+    {
+        _metaData = meta;
+        _charactersToCheck = InitializeCharactersList(characters);
+    }
+
+    private List<CharacterAtlasInfo> InitializeCharactersList(List<AjMetaCharacterData> characters)
+    {
+        var result = new List<CharacterAtlasInfo>();
+
+        foreach (AjMetaCharacterData character in characters)
+        {
+            if (character.AtlasFileName == "-" || character.AtlasFileName.Contains("Sec_"))
+                continue;
+
+            var characterInfo = new CharacterAtlasInfo
+            {
+                MetaData = character,
+                SpritePrefix = _metaData.SpritePrefix + character.BaseNameInAtlas + "_",
+                RequiredSprites = new Dictionary<string, string>()
+            };
+
+            bool isMainHero = character.BaseNameInAtlas == "Main";
+            characterInfo.HasGenderVariants = isMainHero && _metaData.MainHeroHasDifferentGenders;
+
+            InitializeRequiredSprites(characterInfo, isMainHero);
+            result.Add(characterInfo);
+        }
+
+        return result;
+    }
+
+    private void InitializeRequiredSprites(CharacterAtlasInfo characterInfo, bool isMainHero)
+    {
+        var genderPrefixes = new List<string>();
+
+        if (characterInfo.HasGenderVariants)
+        {
+            genderPrefixes.Add("Male_");
+            genderPrefixes.Add("Female_");
+            characterInfo.SpritePrefix = _metaData.SpritePrefix + "Main";
+        }
+        else
+        {
+            genderPrefixes.Add("");
+        }
+
+        foreach (string genderPrefix in genderPrefixes)
+        {
+            AddBaseEmotionSprites(characterInfo, genderPrefix);
+
+            if (isMainHero && _metaData.RacesList?.Count > 0)
+            {
+                AddRaceSpecificSprites(characterInfo, genderPrefix);
+            }
+        }
+
+        if (isMainHero && _metaData.CustomHairCount > 0)
+        {
+            AddCustomHairSprites(characterInfo);
+        }
+    }
+
+    private static void AddBaseEmotionSprites(CharacterAtlasInfo characterInfo, string genderPrefix)
+    {
+        var emotions = new[] { "Base", "Emotions_Angry", "Emotions_Happy", "Emotions_Standart", 
+                             "Emotions_Surprised", "Emotions_Sad" };
+        
+        foreach (string emotion in emotions)
+        {
+            characterInfo.RequiredSprites.Add(genderPrefix + emotion, "");
+        }
+    }
+
+    private void AddRaceSpecificSprites(CharacterAtlasInfo characterInfo, string genderPrefix)
+    {
+        foreach (string race in _metaData.RacesList)
+        {
+            string racePrefix = race + "_";
+            AddBaseEmotionSprites(characterInfo, genderPrefix + racePrefix);
+        }
+    }
+
+    private static void AddCustomHairSprites(CharacterAtlasInfo characterInfo)
+    {
+        for (int i = 1; i <= 3; i++)
+        {
+            characterInfo.RequiredSprites.Add($"Hair{i}", "");
+        }
+    }
+
+    public void ProcessClothesInstruction(string rawScript)
+    {
+        string[] scripts = rawScript.EscapeString()
+                                  .Replace("\\n", "")
+                                  .Replace("\\r", "")
+                                  .Split(';');
+
+        foreach (string script in scripts)
+        {
+            if (string.IsNullOrEmpty(script) || !script.Contains("Clothes."))
+                continue;
+
+            Console.WriteLine($"Обработка скрипта: {script}");
+
+            var instruction = new ScriptInstruction(script);
+            if (instruction.HasParseError)
+                continue;
+
+            string variableName = instruction.Variable;
+            CharacterAtlasInfo character = _charactersToCheck.Find(c => 
+                "Clothes." + c.MetaData.ClothesVariableName == variableName);
+
+            character?.AddClothesVariant(instruction.Value, _metaData.ClothesSpriteNames);
+        }
+    }
+
+    public string ValidateAtlases(string projectPath)
+    {
+        foreach (CharacterAtlasInfo character in _charactersToCheck)
+        {
+            var verifiedSprites = new List<string>();
+            string[] atlases = character.MetaData.AtlasFileName.Split(',');
+
+            for (var i = 0; i < atlases.Length; i++)
+            {
+                if (string.IsNullOrEmpty(atlases[i]))
+                    continue;
+
+                string atlasPath = $"{projectPath}\\Art\\Characters\\{atlases[i]}.tpsheet";
+                string atlasContent = File.ReadAllText(atlasPath);
+
+                foreach (KeyValuePair<string, string> sprite in character.RequiredSprites)
+                {
+                    if (verifiedSprites.Contains(sprite.Key))
+                        continue;
+
+                    string primarySpriteName = character.SpritePrefix + sprite.Key;
+                    Console.WriteLine($"Проверка спрайта {primarySpriteName} в {atlasPath}");
+
+                    if (atlasContent.Contains(primarySpriteName))
+                    {
+                        verifiedSprites.Add(sprite.Key);
+                        continue;
+                    }
+
+                    string alternativeSpriteName = character.SpritePrefix + sprite.Value;
+                    Console.WriteLine($"Проверка альтернативного спрайта {alternativeSpriteName} в {atlasPath}");
+
+                    if (atlasContent.Contains(alternativeSpriteName) && !string.IsNullOrEmpty(sprite.Value))
+                    {
+                        verifiedSprites.Add(sprite.Key);
+                        continue;
+                    }
+
+                    // Пропускаем проверку для главного героя с кастомной одеждой
+                    if (character.MetaData.BaseNameInAtlas == "Main" && _metaData.CustomClothesCount > 0)
+                        continue;
+
+                    if (i + 1 >= atlases.Length)
+                        return $"Спрайт {primarySpriteName}/{alternativeSpriteName} не найден";
+                }
+            }
+        }
+
+        return string.Empty;
+    }
+}
+#endregion

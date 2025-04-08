@@ -215,7 +215,7 @@ namespace StoriesLinker
                     string expr = @object.Value.Properties.Expression;
                     if (expr.Contains("Clothes."))
                     {
-                        checker.PassClothesInstruction(expr);
+                        checker.ProcessClothesInstruction(expr);
                     }
                 }
             }
@@ -223,7 +223,7 @@ namespace StoriesLinker
             string checkResult = "";
             if (meta.UniqueId != "Shism_1" && meta.UniqueId != "Shism_2")
             {
-                checkResult = checker.BeginFinalCheck(_projectPath);
+                checkResult = checker.ValidateAtlases(_projectPath);
             }
 
             ShowMessage(string.IsNullOrEmpty(checkResult) 
