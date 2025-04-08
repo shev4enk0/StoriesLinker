@@ -80,7 +80,7 @@
             this.button1.TabIndex = 3;
             this.button1.Text = "Обзор...";
             this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
+            this.button1.Click += new System.EventHandler(this.SelectProjectFolder);
             // 
             // proj_name_label
             // 
@@ -118,7 +118,7 @@
             this.button3.TabIndex = 11;
             this.button3.Text = "Сформировать таблицы локализациии";
             this.button3.UseVisualStyleBackColor = true;
-            this.button3.Click += new System.EventHandler(this.GenerateLocalizTables);
+            this.button3.Click += new System.EventHandler(this.GenerateLocalizationTables);
             // 
             // button4
             // 
@@ -128,7 +128,7 @@
             this.button4.TabIndex = 12;
             this.button4.Text = "Сформировать папки для упаковки бандлов";
             this.button4.UseVisualStyleBackColor = true;
-            this.button4.Click += new System.EventHandler(this.GenerateOutputFolderForBundles);
+            this.button4.Click += new System.EventHandler(this.GenerateOutputBundles);
             // 
             // textBox2
             // 
@@ -149,7 +149,6 @@
             this.chapters_count_label.Size = new System.Drawing.Size(70, 13);
             this.chapters_count_label.TabIndex = 14;
             this.chapters_count_label.Text = "Кол-во глав:";
-            this.chapters_count_label.Click += new System.EventHandler(this.ChaptersCountLabel_Click);
             // 
             // chapters_count_value
             // 
