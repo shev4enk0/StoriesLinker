@@ -4,8 +4,6 @@ using System.IO;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using OfficeOpenXml;
-using System.Diagnostics;
-using System.Text;
 
 namespace StoriesLinker
 {

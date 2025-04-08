@@ -8,27 +8,12 @@ using OfficeOpenXml;
 
 namespace StoriesLinker
 {
-    public class LinkerBin
+    public class LinkerBin(string projectPath)
     {
-        private string _projectPath;
+        private readonly string _projectPath = projectPath;
 
-        private Dictionary<string, Dictionary<int, Dictionary<string, string>>> _savedXmlDicts;
-
-        public LinkerBin(string projectPath)
-        {
-            _projectPath = projectPath;
-
-            _savedXmlDicts = new Dictionary<string, Dictionary<int, Dictionary<string, string>>>();
-        }
-
-        /// <summary>
-        /// Создает парсер для работы с форматом Articy X
-        /// </summary>
-        public ArticyXParser CreateArticyXParser()
-        {
-            return new ArticyXParser(this);
-        }
-
+        private readonly Dictionary<string, Dictionary<int, Dictionary<string, string>>> _savedXmlDicts = new();
+     
         private Dictionary<string, string> XmlTableToDict(string path, int column = 1)
         {
             if (_savedXmlDicts.TryGetValue(path, out Dictionary<int, Dictionary<string, string>> columnsDict) && columnsDict.TryGetValue(column, out Dictionary<string, string> cachedDict))
@@ -90,11 +75,9 @@ namespace StoriesLinker
         {
             AjFile jsonObj;
 
-            using (StreamReader r = new StreamReader(GetFlowJsonPath(_projectPath)))
-            {
-                string json = r.ReadToEnd();
-                jsonObj = JsonConvert.DeserializeObject<AjFile>(json);
-            }
+            using StreamReader r = new StreamReader(GetFlowJsonPath(_projectPath));
+            string json = r.ReadToEnd();
+            jsonObj = JsonConvert.DeserializeObject<AjFile>(json);
 
             return jsonObj;
         }
@@ -109,264 +92,257 @@ namespace StoriesLinker
 
             Dictionary<string, string> nativeDict = new Dictionary<string, string>();
 
-            using (ExcelPackage xlPackage = new ExcelPackage(new FileInfo(metaXmlPath)))
+            using ExcelPackage xlPackage = new ExcelPackage(new FileInfo(metaXmlPath));
+            
+            ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+            int totalRows = myWorksheet.Dimension.End.Row;
+
+            for (int rowNum = 2; rowNum <= totalRows; rowNum++)
             {
-                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
-                int totalRows = myWorksheet.Dimension.End.Row;
+                ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                ExcelRange secondRow = myWorksheet.Cells[rowNum, 2];
 
-                for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+                string fieldName = firstRow.Value.ToString();
+                string fieldValue = secondRow.Value.ToString();
+
+                string[] values;
+
+                switch (fieldName)
                 {
-                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
-                    ExcelRange secondRow = myWorksheet.Cells[rowNum, 2];
+                    case "UniqueID":
+                        jsonObj.UniqueId = fieldValue;
+                        break;
+                    case "SpritePrefix":
+                        jsonObj.SpritePrefix = fieldValue;
+                        break;
+                    case "VersionBin":
+                        jsonObj.Version.BinVersion = fieldValue;
+                        break;
+                    case "VersionPreview":
+                        jsonObj.Version.PreviewVersion = fieldValue;
+                        break;
+                    case "VersionBaseResources":
+                        jsonObj.Version.BaseResourcesVersion = fieldValue;
+                        break;
+                    case "StandartizedUI":
+                        jsonObj.StandartizedUi = fieldValue == "1";
+                        break;
+                    case "UITextBlockFontSize":
+                        jsonObj.UiTextBlockFontSize = int.Parse(fieldValue);
+                        break;
+                    case "UIChoiceBlockFontSize":
+                        jsonObj.UiChoiceBlockFontSize = int.Parse(fieldValue);
+                        break;
+                    case "KarmaCurrency":
+                        jsonObj.KarmaCurrency = fieldValue;
+                        break;
+                    case "KarmaBadBorder":
+                        jsonObj.KarmaBadBorder = int.Parse(fieldValue);
+                        break;
+                    case "KarmaGoodBorder":
+                        jsonObj.KarmaGoodBorder = int.Parse(fieldValue);
+                        break;
+                    case "KarmaTopLimit":
+                        jsonObj.KarmaTopLimit = int.Parse(fieldValue);
+                        break;
+                    case "CurrenciesInOrderOfUI":
+                        jsonObj.CurrenciesInOrderOfUi = new List<string>(fieldValue.Split(','));
+                        break;
+                    case "RacesList":
+                        jsonObj.RacesList = fieldValue != "-" 
+                                                ? new List<string>(fieldValue.Split(',')) 
+                                                : new List<string>();
 
-                    string fieldName = firstRow.Value.ToString();
-                    string fieldValue = secondRow.Value.ToString();
+                        break;
+                    case "ClothesSpriteNames":
+                        jsonObj.ClothesSpriteNames = new List<string>(fieldValue.Split(','));
+                        break;
+                    case "UndefinedClothesFuncVariant":
+                        jsonObj.UndefinedClothesFuncVariant = int.Parse(fieldValue);
+                        break;
+                    case "ExceptionsWeaponLayer":
+                        jsonObj.ExceptionsWeaponLayer = fieldValue == "1";
+                        break;
+                    case "UITextPlateLimits":
+                        values = fieldValue.Split(',');
 
-                    string[] values;
+                        jsonObj.UiTextPlateLimits = new List<int>();
 
-                    switch (fieldName)
-                    {
-                        case "UniqueID":
-                            jsonObj.UniqueId = fieldValue;
-                            break;
-                        case "SpritePrefix":
-                            jsonObj.SpritePrefix = fieldValue;
-                            break;
-                        case "VersionBin":
-                            jsonObj.Version.BinVersion = fieldValue;
-                            break;
-                        case "VersionPreview":
-                            jsonObj.Version.PreviewVersion = fieldValue;
-                            break;
-                        case "VersionBaseResources":
-                            jsonObj.Version.BaseResourcesVersion = fieldValue;
-                            break;
-                        case "StandartizedUI":
-                            jsonObj.StandartizedUi = fieldValue == "1";
-                            break;
-                        case "UITextBlockFontSize":
-                            jsonObj.UiTextBlockFontSize = int.Parse(fieldValue);
-                            break;
-                        case "UIChoiceBlockFontSize":
-                            jsonObj.UiChoiceBlockFontSize = int.Parse(fieldValue);
-                            break;
-                        case "KarmaCurrency":
-                            jsonObj.KarmaCurrency = fieldValue;
-                            break;
-                        case "KarmaBadBorder":
-                            jsonObj.KarmaBadBorder = int.Parse(fieldValue);
-                            break;
-                        case "KarmaGoodBorder":
-                            jsonObj.KarmaGoodBorder = int.Parse(fieldValue);
-                            break;
-                        case "KarmaTopLimit":
-                            jsonObj.KarmaTopLimit = int.Parse(fieldValue);
-                            break;
-                        case "CurrenciesInOrderOfUI":
-                            jsonObj.CurrenciesInOrderOfUi = new List<string>(fieldValue.Split(','));
-                            break;
-                        case "RacesList":
-                            jsonObj.RacesList = fieldValue != "-" 
-                                                      ? new List<string>(fieldValue.Split(',')) 
-                                                      : new List<string>();
+                        foreach (string el in values)
+                        {
+                            jsonObj.UiTextPlateLimits.Add(int.Parse(el));
+                        }
 
-                            break;
-                        case "ClothesSpriteNames":
-                            jsonObj.ClothesSpriteNames = new List<string>(fieldValue.Split(','));
-                            break;
-                        case "UndefinedClothesFuncVariant":
-                            jsonObj.UndefinedClothesFuncVariant = int.Parse(fieldValue);
-                            break;
-                        case "ExceptionsWeaponLayer":
-                            jsonObj.ExceptionsWeaponLayer = fieldValue == "1";
-                            break;
-                        case "UITextPlateLimits":
-                            values = fieldValue.Split(',');
+                        break;
+                    case "UIPaintFirstLetterInRedException":
+                        jsonObj.UiPaintFirstLetterInRedException = fieldValue == "1";
+                        break;
+                    case "UITextPlateOffset":
+                        jsonObj.UiTextPlateOffset = int.Parse(fieldValue);
+                        break;
+                    case "UIOverridedTextColor":
+                        jsonObj.UiOverridedTextColor = fieldValue == "1";
+                        break;
+                    case "UITextColor":
+                        values = fieldValue.Split(',');
 
-                            jsonObj.UiTextPlateLimits = new List<int>();
+                        jsonObj.UiTextColor = new List<int>();
 
-                            foreach (string el in values)
-                            {
-                                jsonObj.UiTextPlateLimits.Add(int.Parse(el));
-                            }
+                        foreach (string el in values) jsonObj.UiTextColor.Add(int.Parse(el));
 
-                            break;
-                        case "UIPaintFirstLetterInRedException":
-                            jsonObj.UiPaintFirstLetterInRedException = fieldValue == "1";
-                            break;
-                        case "UITextPlateOffset":
-                            jsonObj.UiTextPlateOffset = int.Parse(fieldValue);
-                            break;
-                        case "UIOverridedTextColor":
-                            jsonObj.UiOverridedTextColor = fieldValue == "1";
-                            break;
-                        case "UITextColor":
-                            values = fieldValue.Split(',');
+                        break;
+                    case "UIBlockedTextColor":
+                        values = fieldValue.Split(',');
 
-                            jsonObj.UiTextColor = new List<int>();
+                        jsonObj.UiBlockedTextColor = new List<int>();
 
-                            foreach (string el in values) jsonObj.UiTextColor.Add(int.Parse(el));
+                        foreach (string el in values) jsonObj.UiBlockedTextColor.Add(int.Parse(el));
 
-                            break;
-                        case "UIBlockedTextColor":
-                            values = fieldValue.Split(',');
+                        break;
+                    case "UIChNameTextColor":
+                        values = fieldValue.Split(',');
 
-                            jsonObj.UiBlockedTextColor = new List<int>();
+                        jsonObj.UiChNameTextColor = new List<int>();
 
-                            foreach (string el in values) jsonObj.UiBlockedTextColor.Add(int.Parse(el));
+                        foreach (string el in values) jsonObj.UiChNameTextColor.Add(int.Parse(el));
 
-                            break;
-                        case "UIChNameTextColor":
-                            values = fieldValue.Split(',');
+                        break;
+                    case "UIOutlineColor":
+                        values = fieldValue.Split(',');
 
-                            jsonObj.UiChNameTextColor = new List<int>();
+                        jsonObj.UiOutlineColor = new List<int>();
 
-                            foreach (string el in values) jsonObj.UiChNameTextColor.Add(int.Parse(el));
+                        foreach (string el in values) jsonObj.UiOutlineColor.Add(int.Parse(el));
 
-                            break;
-                        case "UIOutlineColor":
-                            values = fieldValue.Split(',');
+                        break;
+                    case "UIResTextColor":
+                        values = fieldValue.Split(',');
 
-                            jsonObj.UiOutlineColor = new List<int>();
+                        jsonObj.UiResTextColor = new List<int>();
 
-                            foreach (string el in values) jsonObj.UiOutlineColor.Add(int.Parse(el));
+                        foreach (string el in values) jsonObj.UiResTextColor.Add(int.Parse(el));
 
-                            break;
-                        case "UIResTextColor":
-                            values = fieldValue.Split(',');
-
-                            jsonObj.UiResTextColor = new List<int>();
-
-                            foreach (string el in values) jsonObj.UiResTextColor.Add(int.Parse(el));
-
-                            break;
-                        case "WardrobeEnabled":
-                            jsonObj.WardrobeEnabled = fieldValue == "1";
-                            break;
-                        case "MainHeroHasDifferentGenders":
-                            jsonObj.MainHeroHasDifferentGenders = fieldValue == "1";
-                            break;
-                        case "MainHeroHasSplittedHairSprite":
-                            jsonObj.MainHeroHasSplittedHairSprite = fieldValue == "1";
-                            break;
-                        case "CustomClothesCount":
-                            jsonObj.CustomClothesCount = int.Parse(fieldValue);
-                            break;
-                        case "CustomHairsCount":
-                            jsonObj.CustomHairCount = int.Parse(fieldValue);
-                            break;
-                    }
+                        break;
+                    case "WardrobeEnabled":
+                        jsonObj.WardrobeEnabled = fieldValue == "1";
+                        break;
+                    case "MainHeroHasDifferentGenders":
+                        jsonObj.MainHeroHasDifferentGenders = fieldValue == "1";
+                        break;
+                    case "MainHeroHasSplittedHairSprite":
+                        jsonObj.MainHeroHasSplittedHairSprite = fieldValue == "1";
+                        break;
+                    case "CustomClothesCount":
+                        jsonObj.CustomClothesCount = int.Parse(fieldValue);
+                        break;
+                    case "CustomHairsCount":
+                        jsonObj.CustomHairCount = int.Parse(fieldValue);
+                        break;
                 }
-
-                myWorksheet = xlPackage.Workbook.Worksheets[2];
-                totalRows = myWorksheet.Dimension.End.Row;
-
-                Func<object[], int> checkRow = CheckRow();
-
-                List<AjMetaCharacterData> characters = new List<AjMetaCharacterData>();
-
-                for (int rowNum = 2; rowNum <= totalRows; rowNum++)
-                {
-                    object[] cells = new object[]
-                                      {
-                                          myWorksheet.Cells[rowNum, 1].Value,
-                                          myWorksheet.Cells[rowNum, 2].Value,
-                                          myWorksheet.Cells[rowNum, 3].Value,
-                                          myWorksheet.Cells[rowNum, 4].Value
-                                      };
-
-                    int chResult = checkRow(cells);
-
-                    switch (chResult)
-                    {
-                        case -1: continue;
-                        case 0: return null;
-                    }
-
-                    AjMetaCharacterData ch = new AjMetaCharacterData();
-
-                    ch.DisplayName = cells[0].ToString();
-                    ch.ClothesVariableName = cells[1].ToString();
-                    ch.AtlasFileName = cells[2].ToString();
-                    ch.BaseNameInAtlas = cells[3].ToString();
-
-                    characters.Add(ch);
-                }
-
-                jsonObj.Characters = characters;
-
-                myWorksheet = xlPackage.Workbook.Worksheets[3];
-                totalRows = myWorksheet.Dimension.End.Row;
-
-                List<AjMetaLocationData> locations = new List<AjMetaLocationData>();
-
-                for (int rowNum = 2; rowNum <= totalRows; rowNum++)
-                {
-                    object[] cells = new object[]
-                                      {
-                                          myWorksheet.Cells[rowNum, 1].Value,
-                                          myWorksheet.Cells[rowNum, 2].Value,
-                                          myWorksheet.Cells[rowNum, 3].Value,
-                                          myWorksheet.Cells[rowNum, 4].Value,
-                                          myWorksheet.Cells[rowNum, 5].Value
-                                      };
-
-                    int chResult = checkRow(cells);
-
-                    switch (chResult)
-                    {
-                        case -1: continue;
-                        case 0: return null;
-                    }
-
-                    AjMetaLocationData loc = new AjMetaLocationData
-                                              {
-                                                  Id = int.Parse(cells[0].ToString()), DisplayName = cells[1].ToString(),
-                                                  SpriteName = cells[2].ToString(),
-                                                  SoundIdleName = cells[3].ToString()
-                                              };
-
-                    if (cells[4].ToString() == "1")
-                    {
-                        jsonObj.IntroLocation = rowNum - 1;
-                    }
-
-                    locations.Add(loc);
-                }
-
-                jsonObj.Locations = locations;
             }
+
+            myWorksheet = xlPackage.Workbook.Worksheets[2];
+            totalRows = myWorksheet.Dimension.End.Row;
+
+            Func<object[], int> checkRow = CheckRow();
+
+            List<AjMetaCharacterData> characters = new List<AjMetaCharacterData>();
+
+            for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+            {
+                object[] cells =
+                [
+                    myWorksheet.Cells[rowNum, 1].Value,
+                                     myWorksheet.Cells[rowNum, 2].Value,
+                                     myWorksheet.Cells[rowNum, 3].Value,
+                                     myWorksheet.Cells[rowNum, 4].Value
+                ];
+
+                int chResult = checkRow(cells);
+
+                switch (chResult)
+                {
+                    case -1: continue;
+                    case 0: return null;
+                }
+
+                AjMetaCharacterData ch = new AjMetaCharacterData();
+
+                ch.DisplayName = cells[0].ToString();
+                ch.ClothesVariableName = cells[1].ToString();
+                ch.AtlasFileName = cells[2].ToString();
+                ch.BaseNameInAtlas = cells[3].ToString();
+
+                characters.Add(ch);
+            }
+
+            jsonObj.Characters = characters;
+
+            myWorksheet = xlPackage.Workbook.Worksheets[3];
+            totalRows = myWorksheet.Dimension.End.Row;
+
+            List<AjMetaLocationData> locations = new List<AjMetaLocationData>();
+
+            for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+            {
+                object[] cells =
+                [
+                    myWorksheet.Cells[rowNum, 1].Value,
+                                     myWorksheet.Cells[rowNum, 2].Value,
+                                     myWorksheet.Cells[rowNum, 3].Value,
+                                     myWorksheet.Cells[rowNum, 4].Value,
+                                     myWorksheet.Cells[rowNum, 5].Value
+                ];
+
+                int chResult = checkRow(cells);
+
+                switch (chResult)
+                {
+                    case -1: continue;
+                    case 0: return null;
+                }
+
+                AjMetaLocationData loc = new AjMetaLocationData
+                                         {
+                                             Id = int.Parse(cells[0].ToString()), DisplayName = cells[1].ToString(),
+                                             SpriteName = cells[2].ToString(),
+                                             SoundIdleName = cells[3].ToString()
+                                         };
+
+                if (cells[4].ToString() == "1")
+                {
+                    jsonObj.IntroLocation = rowNum - 1;
+                }
+
+                locations.Add(loc);
+            }
+
+            jsonObj.Locations = locations;
 
             return jsonObj;
         }
 
         private static Func<object[], int> CheckRow()
         {
-            Func<object[], int> checkRow = (cells) =>
-                                             {
-                                                 bool rowIsCompletelyEmpty = true;
-                                                 bool rowHasEmptyField = false;
+            int Row(object[] cells)
+            {
+                bool rowIsCompletelyEmpty = true;
+                bool rowHasEmptyField = false;
 
-                                                 foreach (object cell in cells)
-                                                 {
-                                                     if (cell == null
-                                                         || string.IsNullOrEmpty(cell.ToString().Trim()))
-                                                     {
-                                                         rowHasEmptyField = true;
-                                                     }
-                                                     else
-                                                     {
-                                                         rowIsCompletelyEmpty = false;
-                                                     }
-                                                 }
+                foreach (object cell in cells)
+                {
+                    if (cell == null || string.IsNullOrEmpty(cell.ToString().Trim())) { rowHasEmptyField = true; }
+                    else { rowIsCompletelyEmpty = false; }
+                }
 
-                                                 if (rowIsCompletelyEmpty)
-                                                     return -1;
-                                                 else if (rowHasEmptyField) return 0;
+                if (rowIsCompletelyEmpty)
+                    return -1;
+                else if (rowHasEmptyField) return 0;
 
-                                                 return 1;
-                                             };
-            return checkRow;
+                return 1;
+            }
+
+            return Row;
         }
 
         public Dictionary<string, AjObj> GetAricyBookEntities(AjFile ajfile, Dictionary<string, string> nativeDict)
@@ -395,11 +371,7 @@ namespace StoriesLinker
                         type = AjType.Dialogue;
                         break;
                     case "Entity":
-                        type = AjType.Entity;
-                        break;
                     case "DefaultSupportingCharacterTemplate":
-                        type = AjType.Entity;
-                        break;
                     case "DefaultMainCharacterTemplate":
                         type = AjType.Entity;
                         break;
@@ -537,54 +509,31 @@ namespace StoriesLinker
 
             chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
 
-            Func<AjColor, string> recognizeEmotion = (color) =>
-                                                       {
-                                                           EChEmotion emotion = EChEmotion.IsntSetOrNeutral;
+            string RecognizeEmotion(AjColor color)
+            {
+                EChEmotion emotion = EChEmotion.IsntSetOrNeutral;
 
-                                                           Func<Color32, Color32, bool> colorsEquals = (a, b) =>
-                                                                                                         {
-                                                                                                             return
-                                                                                                                 (Math
-                                                                                                                      .Abs(a
-                                                                                                                               .R
-                                                                                                                           - b
-                                                                                                                               .R)
-                                                                                                                  < 20
-                                                                                                                  && Math
-                                                                                                                      .Abs(a
-                                                                                                                               .G
-                                                                                                                           - b
-                                                                                                                               .G)
-                                                                                                                  < 20
-                                                                                                                  && Math
-                                                                                                                      .Abs(a
-                                                                                                                               .B
-                                                                                                                           - b
-                                                                                                                               .B)
-                                                                                                                  < 20);
-                                                                                                         };
+                bool ColorsEquals(Color32 a, Color32 b) { return (Math.Abs(a.R - b.R) < 20 && Math.Abs(a.G - b.G) < 20 && Math.Abs(a.B - b.B) < 20); }
 
-                                                           Color32 fragColor = color.ToColor32();
-                                                           Color32[] emotionsColor
-                                                               = new Color32[]
-                                                                 {
-                                                                     new Color32(255, 0, 0, 0),
-                                                                     new Color32(0, 110, 20, 0),
-                                                                     new Color32(41, 6, 88, 0),
-                                                                     new Color32(255, 134, 0, 0)
-                                                                 };
+                Color32 fragColor = color.ToColor32();
+                Color32[] emotionsColor =
+                [
+                    new Color32(255, 0, 0, 0),
+                    new Color32(0, 110, 20, 0),
+                    new Color32(41, 6, 88, 0),
+                    new Color32(255, 134, 0, 0)
+                ];
 
-                                                           for (int i = 0; i < emotionsColor.Length; i++)
-                                                           {
-                                                               if (colorsEquals(emotionsColor[i], fragColor))
-                                                               {
-                                                                   emotion = (EChEmotion)i;
-                                                                   break;
-                                                               }
-                                                           }
+                for (int i = 0; i < emotionsColor.Length; i++)
+                {
+                    if (!ColorsEquals(emotionsColor[i], fragColor)) continue;
+                    
+                    emotion = (EChEmotion)i;
+                    break;
+                }
 
-                                                           return emotion.ToString();
-                                                       };
+                return emotion.ToString();
+            }
 
             List<string>[] csparentsIds = GetChaptersAndSubchaptersParentsIDs(chaptersIds, objectsList);
 
@@ -603,65 +552,61 @@ namespace StoriesLinker
 
                 foreach (KeyValuePair<string, AjObj> scobj in objectsList)
                 {
-                    if (parentsIds.Contains(scobj.Value.Properties.Parent))
+                    if (!parentsIds.Contains(scobj.Value.Properties.Parent)) continue;
+                    
+                    AjObj dfobj = scobj.Value;
+
+                    if (dfobj.EType != AjType.DialogueFragment) continue;
+
+                    string chId = dfobj.Properties.Speaker;
+
+                    if (!charactersIds.Contains(chId))
                     {
-                        AjObj dfobj = scobj.Value;
+                        LocalizEntity entity = new LocalizEntity();
 
-                        if (dfobj.EType != AjType.DialogueFragment) continue;
+                        entity.LocalizId = objectsList[chId].Properties.DisplayName;
 
-                        string chId = dfobj.Properties.Speaker;
+                        charactersIds.Add(chId);
+                        charactersLocalizIds.Add(entity);
 
-                        if (!charactersIds.Contains(chId))
-                        {
-                            LocalizEntity entity = new LocalizEntity();
+                        charactersNames.Add(chId, nativeDict[objectsList[chId].Properties.DisplayName]);
+                    }
 
-                            entity.LocalizId = objectsList[chId].Properties.DisplayName;
+                    if (!string.IsNullOrEmpty(dfobj.Properties.Text))
+                    {
+                        LocalizEntity entity = new LocalizEntity();
 
-                            charactersIds.Add(chId);
-                            charactersLocalizIds.Add(entity);
+                        entity.LocalizId = dfobj.Properties.Text;
+                        entity.SpeakerDisplayName = charactersNames[chId];
+                        entity.Emotion = RecognizeEmotion(dfobj.Properties.Color);
 
-                            charactersNames.Add(chId, nativeDict[objectsList[chId].Properties.DisplayName]);
-                        }
+                        forTranslating.Add(entity);
+                    }
 
+                    if (!string.IsNullOrEmpty(dfobj.Properties.MenuText))
+                    {
+                        LocalizEntity entity = new LocalizEntity();
 
-                        if (!string.IsNullOrEmpty(dfobj.Properties.Text))
-                        {
-                            LocalizEntity entity = new LocalizEntity();
+                        entity.LocalizId = dfobj.Properties.MenuText;
+                        entity.SpeakerDisplayName = charactersNames[chId];
+                        entity.Emotion = RecognizeEmotion(dfobj.Properties.Color);
 
-                            entity.LocalizId = dfobj.Properties.Text;
-                            entity.SpeakerDisplayName = charactersNames[chId];
-                            entity.Emotion = recognizeEmotion(dfobj.Properties.Color);
+                        forTranslating.Add(entity);
+                    }
 
-                            forTranslating.Add(entity);
-                        }
+                    if (!string.IsNullOrEmpty(dfobj.Properties.StageDirections))
+                    {
+                        LocalizEntity entity = new LocalizEntity();
 
-                        if (!string.IsNullOrEmpty(dfobj.Properties.MenuText))
-                        {
-                            LocalizEntity entity = new LocalizEntity();
+                        entity.LocalizId = dfobj.Properties.StageDirections;
+                        entity.SpeakerDisplayName = "";
 
-                            entity.LocalizId = dfobj.Properties.MenuText;
-                            entity.SpeakerDisplayName = charactersNames[chId];
-                            entity.Emotion = recognizeEmotion(dfobj.Properties.Color);
-
-                            forTranslating.Add(entity);
-                        }
-
-                        if (!string.IsNullOrEmpty(dfobj.Properties.StageDirections))
-                        {
-                            LocalizEntity entity = new LocalizEntity();
-
-                            entity.LocalizId = dfobj.Properties.StageDirections;
-                            entity.SpeakerDisplayName = "";
-
-                            nonTranslating.Add(entity);
-                        }
+                        nonTranslating.Add(entity);
                     }
                 }
 
-                CreateLocalizTable(string.Format("Chapter_{0}_for_translating", chapterN),
-                                   forTranslating,
-                                   nativeDict);
-                CreateLocalizTable(string.Format("Chapter_{0}_internal", chapterN), nonTranslating, nativeDict);
+                CreateLocalizTable($"Chapter_{chapterN}_for_translating", forTranslating, nativeDict);
+                CreateLocalizTable($"Chapter_{chapterN}_internal", nonTranslating, nativeDict);
             }
 
             CreateLocalizTable(string.Format("CharacterNames"), charactersLocalizIds, nativeDict);
@@ -675,96 +620,94 @@ namespace StoriesLinker
         {
             int wordCount = 0;
 
-            using (var eP = new ExcelPackage())
+            using var eP = new ExcelPackage();
+            bool forTranslating = name.Contains("for_translating");
+            ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Data");
+
+            bool forLocalizatorsMode = Form1.FOR_LOCALIZATORS_MODE;
+
+            var row = 1;
+            var col = 1;
+
+            sheet.Cells[row, col].Value = "ID";
+
+            if (forLocalizatorsMode)
             {
-                bool forTranslating = name.Contains("for_translating");
-                ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Data");
+                sheet.Cells[row, col + 1].Value = "Speaker";
+                sheet.Cells[row, col + 2].Value = "Emotion";
+            }
 
-                bool forLocalizatorsMode = Form1.FOR_LOCALIZATORS_MODE;
+            sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = "Text";
 
-                var row = 1;
-                var col = 1;
+            row++;
 
-                sheet.Cells[row, col].Value = "ID";
+            List<string> replacedIds = new List<string>();
 
-                if (forLocalizatorsMode)
+            foreach (LocalizEntity item in ids)
+            {
+                string id = item.LocalizId;
+
+                string value = nativeDict[id];
+
+                if (forTranslating && forLocalizatorsMode)
                 {
-                    sheet.Cells[row, col + 1].Value = "Speaker";
-                    sheet.Cells[row, col + 2].Value = "Emotion";
-                }
+                    value = value.Replace("pname", "%pname%");
+                    value = value.Replace("Pname", "%pname%");
 
-                sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = "Text";
-
-                row++;
-
-                List<string> replacedIds = new List<string>();
-
-                foreach (LocalizEntity item in ids)
-                {
-                    string id = item.LocalizId;
-
-                    string value = nativeDict[id];
-
-                    if (forTranslating && forLocalizatorsMode)
+                    if (!replacedIds.Contains(id))
                     {
-                        value = value.Replace("pname", "%pname%");
-                        value = value.Replace("Pname", "%pname%");
+                        List<string> repeatedValues = new List<string>();
 
-                        if (!replacedIds.Contains(id))
+                        foreach (KeyValuePair<string, string> pair in nativeDict)
                         {
-                            List<string> repeatedValues = new List<string>();
-
-                            foreach (KeyValuePair<string, string> pair in nativeDict)
+                            if (pair.Value == value && pair.Key != id)
                             {
-                                if (pair.Value == value && pair.Key != id)
-                                {
-                                    repeatedValues.Add(pair.Key);
-                                }
+                                repeatedValues.Add(pair.Key);
                             }
+                        }
 
-                            if (repeatedValues.Count == 1 || (repeatedValues.Count > 1 && value.Contains("?")))
+                        if (repeatedValues.Count == 1 || (repeatedValues.Count > 1 && value.Contains("?")))
+                        {
+                            foreach (string el in repeatedValues)
                             {
-                                foreach (string el in repeatedValues)
-                                {
-                                    nativeDict[el] = "*SystemLinkTo*" + id + "*";
-                                    replacedIds.Add(el);
-                                }
+                                nativeDict[el] = "*SystemLinkTo*" + id + "*";
+                                replacedIds.Add(el);
                             }
                         }
                     }
-
-                    if (string.IsNullOrEmpty(value.Trim())) continue;
-
-                    sheet.Cells[row, col].Value = item.LocalizId;
-
-                    if (forLocalizatorsMode)
-                    {
-                        sheet.Cells[row, col + 1].Value = item.SpeakerDisplayName;
-                        sheet.Cells[row, col + 2].Value = item.Emotion;
-                    }
-
-                    sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = value;
-
-                    if (forLocalizatorsMode && !replacedIds.Contains(id))
-                    {
-                        wordCount += CountWords(value);
-                    }
-
-                    row++;
                 }
 
-                byte[] bin = eP.GetAsByteArray();
+                if (string.IsNullOrEmpty(value.Trim())) continue;
 
-                File.WriteAllBytes(_projectPath + @"\Localization\Russian\" + name + ".xlsx", bin);
+                sheet.Cells[row, col].Value = item.LocalizId;
 
-                if (name.Contains("internal") || !forLocalizatorsMode) return;
-                
-                Console.WriteLine("Таблица " + name + " сгенерирована, количество слов: " + wordCount);
+                if (forLocalizatorsMode)
+                {
+                    sheet.Cells[row, col + 1].Value = item.SpeakerDisplayName;
+                    sheet.Cells[row, col + 2].Value = item.Emotion;
+                }
 
-                _allWordsCount += wordCount;
+                sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = value;
 
-                if (name.Contains("12")) Console.WriteLine("total count = " + _allWordsCount);
+                if (forLocalizatorsMode && !replacedIds.Contains(id))
+                {
+                    wordCount += CountWords(value);
+                }
+
+                row++;
             }
+
+            byte[] bin = eP.GetAsByteArray();
+
+            File.WriteAllBytes(_projectPath + @"\Localization\Russian\" + name + ".xlsx", bin);
+
+            if (name.Contains("internal") || !forLocalizatorsMode) return;
+                
+            Console.WriteLine("Таблица " + name + " сгенерирована, количество слов: " + wordCount);
+
+            _allWordsCount += wordCount;
+
+            if (name.Contains("12")) Console.WriteLine("total count = " + _allWordsCount);
         }
 
         public int CountWords(string text)
@@ -1186,51 +1129,45 @@ namespace StoriesLinker
 
                     if (!Directory.Exists(langFolder)) continue;
                     
-                    string[] langFiles = new string[]
-                                           {
-                                               string.Format(langFolder + @"\Chapter_{0}_for_translating.xlsx",
-                                                             chapterN),
-                                               string.Format(langOriginFolder + @"\Chapter_{0}_internal.xlsx",
-                                                             chapterN)
-                                           };
+                    string[] langFiles =
+                    [
+                        string.Format(langFolder + @"\Chapter_{0}_for_translating.xlsx", chapterN),
+                        string.Format(langOriginFolder + @"\Chapter_{0}_internal.xlsx", chapterN)
+                    ];
 
                     if (!File.Exists(langFiles[0])) break;
 
                     // Вызываем Func, передавая список языков
                     string correct = generateLjson(lang,
-                                                      "chapter" + chapterN,
-                                                      langFiles,
-                                                      chapterFolder + @"\Strings\" + lang + ".json",
-                                                      colNum != -1 ? colNum : 1,
-                                                      knownLanguagesList);
+                                                   "chapter" + chapterN,
+                                                   langFiles,
+                                                   chapterFolder + @"\Strings\" + lang + ".json",
+                                                   colNum != -1 ? colNum : 1,
+                                                   knownLanguagesList);
 
                     if (!string.IsNullOrEmpty(correct))
                     {
                         showLocalizError(correct, "chapter" + chapterN);
-
-                        //return false;
                     }
 
                     if (chapterN != 1) continue;
-                        
-                    string[] sharedLangFiles = new string[]
-                                                  {
-                                                      string.Format(langFolder + @"\CharacterNames.xlsx",
-                                                                    chapterN),
-                                                      bookDescsPath
-                                                  };
+
+                    string[] sharedLangFiles =
+                    [
+                        string.Format(langFolder + @"\CharacterNames.xlsx", chapterN), bookDescsPath
+                    ];
 
                     Console.WriteLine("generate sharedstrings " + bookDescsPath);
                     
                     // Вызываем Func, передавая список языков
                     correct = generateLjson(lang,
-                                               "sharedstrings",
-                                               sharedLangFiles,
-                                               binFolder + @"\SharedStrings\" + lang + ".json",
-                                               colNum != -1 ? colNum : 1,
-                                               knownLanguagesList);
+                                            "sharedstrings",
+                                            sharedLangFiles,
+                                            binFolder + @"\SharedStrings\" + lang + ".json",
+                                            colNum != -1 ? colNum : 1,
+                                            knownLanguagesList);
 
-                    string[] stringToPreviewFile = new string[] { bookDescsPath };
+                    string[] stringToPreviewFile = [bookDescsPath];
 
                     if (!string.IsNullOrEmpty(correct))
                     {
@@ -1240,11 +1177,11 @@ namespace StoriesLinker
                     
                     // Вызываем Func, передавая список языков
                     correct = generateLjson(lang,
-                                               "previewstrings",
-                                               stringToPreviewFile,
-                                               previewFolder + @"\Strings\" + lang + ".json",
-                                               colNum != -1 ? colNum : 1,
-                                               knownLanguagesList);
+                                            "previewstrings",
+                                            stringToPreviewFile,
+                                            previewFolder + @"\Strings\" + lang + ".json",
+                                            colNum != -1 ? colNum : 1,
+                                            knownLanguagesList);
 
                     if (string.IsNullOrEmpty(correct)) continue;
                             
@@ -1320,9 +1257,9 @@ namespace StoriesLinker
 
         private static Func<string, string, string> GetVersionName()
         {
-            Func<string, string, string> getVersionName = (folderName, version) => char.ToUpper(folderName[0])
-                                                                                   + folderName.Substring(1);
-            return getVersionName;
+            string VersionName(string folderName, string version) => char.ToUpper(folderName[0]) + folderName.Substring(1);
+
+            return VersionName;
         }
 
         private static Action<string> CheckAddCh(Dictionary<string, string> nativeDict,
@@ -1330,34 +1267,33 @@ namespace StoriesLinker
                                                  AjLinkerMeta meta,
                                                  AjAssetGridLinker gridLinker)
         {
-            Action<string> checkAddCh = aid =>
-                                           {
-                                               string dname = nativeDict[objectsList[aid].Properties.DisplayName];
+            void AddCh(string aid)
+            {
+                string dname = nativeDict[objectsList[aid].Properties.DisplayName];
 
-                                               if (meta.Characters.Find(l => l.DisplayName == dname) == null)
-                                               {
-                                                   Form1.ShowMessage("В таблице нет персонажа с именем " + dname);
+                if (meta.Characters.Find(l => l.DisplayName == dname) == null)
+                {
+                    Form1.ShowMessage("В таблице нет персонажа с именем " + dname);
 
-                                                   throw new Exception("В таблице нет персонажа с именем " + dname);
-                                               }
+                    throw new Exception("В таблице нет персонажа с именем " + dname);
+                }
 
-                                               if (!gridLinker.IsChExist(dname))
-                                                   gridLinker.AddCharacter(dname, aid);
-                                           };
-            return checkAddCh;
+                if (!gridLinker.IsChExist(dname)) gridLinker.AddCharacter(dname, aid);
+            }
+
+            return AddCh;
         }
 
         private static Action<int> CheckAddLocInt(AjLinkerMeta meta, AjAssetGridLinker gridLinker)
         {
-            Action<int> checkAddLocInt = intId =>
-                                             {
-                                                 AjMetaLocationData mdata
-                                                     = meta.Locations.Find(chf => chf.Id == intId);
+            void AddLocInt(int intId)
+            {
+                AjMetaLocationData mdata = meta.Locations.Find(chf => chf.Id == intId);
 
-                                                 if (!gridLinker.IsLocExist(mdata.DisplayName))
-                                                     gridLinker.AddLocation(mdata.DisplayName, mdata.Aid);
-                                             };
-            return checkAddLocInt;
+                if (!gridLinker.IsLocExist(mdata.DisplayName)) gridLinker.AddLocation(mdata.DisplayName, mdata.Aid);
+            }
+
+            return AddLocInt;
         }
 
         private static Action<string> CheckAddLoc(Dictionary<string, string> nativeDict,
@@ -1365,33 +1301,42 @@ namespace StoriesLinker
                                                   AjLinkerMeta meta,
                                                   AjAssetGridLinker gridLinker)
         {
-            Action<string> checkAddLoc = aid =>
-                                            {
-                                                string dname
-                                                    = nativeDict[objectsList[aid].Properties.DisplayName];
+            void AddLoc(string aid)
+            {
+                string dname = nativeDict[objectsList[aid].Properties.DisplayName];
 
-                                                if (meta.Locations.Find(l => l.DisplayName == dname) == null)
-                                                {
-                                                    Form1.ShowMessage("В таблице нет локации с именем " + dname);
+                if (meta.Locations.Find(l => l.DisplayName == dname) == null)
+                {
+                    Form1.ShowMessage("В таблице нет локации с именем " + dname);
 
-                                                    throw new Exception("В таблице нет локации с именем " + dname);
-                                                }
+                    throw new Exception("В таблице нет локации с именем " + dname);
+                }
 
-                                                if (!gridLinker.IsLocExist(dname))
-                                                    gridLinker.AddLocation(dname, objectsList[aid].Properties.Id);
-                                            };
-            return checkAddLoc;
+                if (!gridLinker.IsLocExist(dname)) gridLinker.AddLocation(dname, objectsList[aid].Properties.Id);
+            }
+
+            return AddLoc;
         }
 
         private static Action<string, string> ShowLocalizError()
         {
-            Action<string, string> showLocalizError = (missingKey, fileGroupId) =>
-                                                         {
-                                                             // Добавляем уточнение, что ключ отсутствует в данных для этой группы файлов
-                                                             Form1.ShowMessage($"Ошибка мультиязыкового вывода: Ключ '{missingKey}' отсутствует или пуст в данных для группы файлов '{fileGroupId}'");
-                                                         };
-            return showLocalizError;
+            void LocalizError(string missingKey, string fileGroupId)
+            {
+                string errorMessage = $"Ошибка мультиязыкового вывода: Ключ '{missingKey}' отсутствует или пуст в данных для группы файлов '{fileGroupId}'";
+                
+                // Проверяем, был ли файл не найден
+                if (missingFiles.ContainsKey(fileGroupId))
+                {
+                    errorMessage += $"\nПричина: Файл локализации не найден: {missingFiles[fileGroupId]}";
+                }
+                
+                Form1.ShowMessage(errorMessage);
+            }
+
+            return LocalizError;
         }
+
+        private static Dictionary<string, string> missingFiles = new Dictionary<string, string>();
 
         private Func<string, string, string[], string, int, List<string>, string> GenerateLjson(Dictionary<string, Dictionary<string, string>> allDicts,
                                                                                   Dictionary<string, AjLocalizInJsonFile> origLangData)
@@ -1497,6 +1442,10 @@ namespace StoriesLinker
                 if (!File.Exists(path))
                 {
                     Console.WriteLine($"ВНИМАНИЕ: Файл не найден: {path}");
+                    // Сохраняем информацию об отсутствующем файле
+                    string fileGroupId = path.Contains("BookDescriptions") ? "sharedstrings" : 
+                                       path.Contains("CharacterNames") ? "sharedstrings" : "chapter1";
+                    missingFiles[fileGroupId] = path;
                     continue;
                 }
 

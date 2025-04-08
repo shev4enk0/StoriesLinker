@@ -17,15 +17,15 @@ namespace StoriesLinker
         public LocalizationEntry Ru { get; set; }
     }
 
-    public class LocalizationParser
+    public class JsonLocalizationParser
     {
-        private Dictionary<string, LocalizationEntry> _localizations = new Dictionary<string, LocalizationEntry>();
+        private readonly Dictionary<string, LocalizationEntry> _localizations = new ();
         private const string JSON_FOLDER_NAME = "JSON_X";
         private const string LOCALIZATION_FILE_PATTERN = "package_*_localization.json";
-        private string _defaultPath;
-        private string _defaultLocalizationFile;
+        private readonly string _defaultPath;
+        private readonly string _defaultLocalizationFile;
 
-        public LocalizationParser(string defaultPath = null)
+        public JsonLocalizationParser(string defaultPath = null)
         {
             if (string.IsNullOrEmpty(defaultPath)) return;
             
@@ -99,11 +99,10 @@ namespace StoriesLinker
                 
                 foreach (KeyValuePair<string, LocalizationLanguageData> entry in rawData)
                 {
-                    if (entry.Value.Ru != null)
-                    {
-                        string key = entry.Key;
-                        _localizations[key] = entry.Value.Ru;
-                    }
+                    if (entry.Value.Ru == null) continue;
+                    
+                    string key = entry.Key;
+                    _localizations[key] = entry.Value.Ru;
                 }
 
                 return _localizations;

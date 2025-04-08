@@ -74,6 +74,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ArticyX\JsonObjectsParser.cs" />
+    <Compile Include="ArticyX\JsonLocalizationParser.cs" />
     <Compile Include="Models\AJTypes.cs" />
     <Compile Include="Data\BooksDB.cs" />
     <Compile Include="UI\Form1.cs">
@@ -86,10 +88,8 @@
     <Compile Include="Core\LinkerBin.cs" />
     <Compile Include="Models\LocalizEntity.cs" />
     <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />    
-    <Compile Include="Core\Processors\LocalizationParser.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utils\StringExtensions.cs" />
-    <Compile Include="Core\ArticyXParser.cs" />
     <EmbeddedResource Include="UI\Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>

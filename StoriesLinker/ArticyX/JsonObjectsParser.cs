@@ -2,25 +2,24 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.IO;
-using System.Linq;
 
 namespace StoriesLinker
 {
-    public class ArticyXParser
+    public class JsonObjectsParser
     {
         private readonly LinkerBin _linker;
         private const string JSON_FOLDER_NAME = "JSON_X";
-        private const string FLOW_FILE_NAME = "package_0100000000000102_objects.json";
+        private const string FILE_PATTERN_NAME = "package_*_objects.json";
         private const string GLOBAL_VARS_FILE_NAME = "global_variables.json";
         private string _defaultPath;
-        private string _flowJsonPath;
-        private string _globalVarsJsonPath;
+        private readonly string _flowJsonPath;
+        private readonly string _globalVarsJsonPath;
 
         /// <summary>
         /// Создает парсер Articy X с указанным путем к проекту
         /// </summary>
         /// <param name="projectPath">Путь к корневой папке проекта</param>
-        public ArticyXParser(string projectPath)
+        public JsonObjectsParser(string projectPath)
         {
             if (string.IsNullOrEmpty(projectPath)) return;
             
@@ -29,7 +28,7 @@ namespace StoriesLinker
 
             if (!Directory.Exists(jsonFolder)) return;
 
-            _flowJsonPath = Path.Combine(jsonFolder, FLOW_FILE_NAME);
+            _flowJsonPath = Path.Combine(jsonFolder, FILE_PATTERN_NAME);
             _globalVarsJsonPath = Path.Combine(jsonFolder, GLOBAL_VARS_FILE_NAME);
 
             if (!File.Exists(_flowJsonPath) || !File.Exists(_globalVarsJsonPath)) return;
@@ -51,7 +50,7 @@ namespace StoriesLinker
         /// </summary>
         /// <param name="linker">Экземпляр LinkerBin для работы с проектом</param>
         /// <param name="defaultPath">Опциональный путь к корневой папке проекта</param>
-        public ArticyXParser(LinkerBin linker, string defaultPath = null)
+        public JsonObjectsParser(LinkerBin linker, string defaultPath = null)
         {
             _linker = linker;
             if (string.IsNullOrEmpty(defaultPath)) return;
@@ -61,7 +60,7 @@ namespace StoriesLinker
 
             if (!Directory.Exists(jsonFolder)) return;
 
-            _flowJsonPath = Path.Combine(jsonFolder, FLOW_FILE_NAME);
+            _flowJsonPath = Path.Combine(jsonFolder, FILE_PATTERN_NAME);
             _globalVarsJsonPath = Path.Combine(jsonFolder, GLOBAL_VARS_FILE_NAME);
 
             if (!File.Exists(_flowJsonPath) || !File.Exists(_globalVarsJsonPath)) return;

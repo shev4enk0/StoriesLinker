@@ -1,4 +1,3 @@
-using System;
 using System.Text.RegularExpressions;
 
 namespace StoriesLinker
@@ -7,11 +6,10 @@ namespace StoriesLinker
     {
         public static string EscapeString(this string str)
         {
-            if (string.IsNullOrEmpty(str))
-                return str;
-
-            // Заменяем специальные символы на их экранированные версии
-            return Regex.Replace(str, @"[\\\""']", match => "\\" + match.Value);
+            return string.IsNullOrEmpty(str) 
+                       ? str 
+                       : // Заменяем специальные символы на их экранированные версии
+                       Regex.Replace(str, @"[\\\""']", match => "\\" + match.Value);
         }
     }
 } 
