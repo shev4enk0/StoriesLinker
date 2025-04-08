@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 
-public enum EBookID
+public enum EBookId
 {
     War,
     Fantasy,
@@ -22,35 +22,35 @@ public enum WarBookCharacter
     Dansaran,
     Vukashyn,
     Arseniy,
-    Sec_Man_Barman,
-    Sec_Man_Crusader_Andrzej_Prisoner,
-    Sec_Man_Crusader_Andrzej_Weapon,
-    Sec_Man_Crusader_Common,
-    Sec_Man_Crusader_Sergeant,
-    Sec_Man_Marine_Common,
-    Sec_Man_Marine_Corporal,
-    Sec_Man_Marine_Pilot,
-    Sec_Man_Marine_Sergeant,
-    Sec_Man_Marine_Wounded,
-    Sec_Man_Terrorist_Common,
-    Sec_Man_Terrorist_Guard1Weapon,
-    Sec_Man_Terrorist_Guard2Weapon,
-    Sec_Man_Terrorist_Jean_Jacques,
-    Sec_Man_Terrorist_Patrol,
-    Sec_Man_Terrorist_Sleep,
-    Sec_Man_Terrorist_TruckDriver,
-    Sec_Man_Terrorist_WatchmanNoWeapon,
-    Sec_Man_Terrorist_WatchmanWeapon,
-    Sec_Man_Terrorist_WeaponDealer,
-    Sec_Man_TerroristHOF_Commandant,
-    Sec_Man_TerroristHOF_Warlord
+    SecManBarman,
+    SecManCrusaderAndrzejPrisoner,
+    SecManCrusaderAndrzejWeapon,
+    SecManCrusaderCommon,
+    SecManCrusaderSergeant,
+    SecManMarineCommon,
+    SecManMarineCorporal,
+    SecManMarinePilot,
+    SecManMarineSergeant,
+    SecManMarineWounded,
+    SecManTerroristCommon,
+    SecManTerroristGuard1Weapon,
+    SecManTerroristGuard2Weapon,
+    SecManTerroristJeanJacques,
+    SecManTerroristPatrol,
+    SecManTerroristSleep,
+    SecManTerroristTruckDriver,
+    SecManTerroristWatchmanNoWeapon,
+    SecManTerroristWatchmanWeapon,
+    SecManTerroristWeaponDealer,
+    SecManTerroristHofCommandant,
+    SecManTerroristHofWarlord
 }
 
 public enum WarBookLocation
 {
     BazaTersio,
     BazaUni,
-    BazaUSA,
+    BazaUsa,
     BazaDlani,
     BazaTerrGory,
     Cityeace,
@@ -104,28 +104,28 @@ public static class WarBook
         Characters.Add("Вукашин Йованович", WarBookCharacter.Vukashyn);
         Characters.Add("Арсений Козлов", WarBookCharacter.Arseniy);
 
-        Characters.Add("Анджей", WarBookCharacter.Sec_Man_Crusader_Andrzej_Weapon);
-        Characters.Add("Анджей2", WarBookCharacter.Sec_Man_Crusader_Andrzej_Prisoner);
-        Characters.Add("Бармен", WarBookCharacter.Sec_Man_Barman);
-        Characters.Add("Водитель грузовика", WarBookCharacter.Sec_Man_Terrorist_TruckDriver);
-        Characters.Add("Второй охранник", WarBookCharacter.Sec_Man_Terrorist_Guard2Weapon);
-        Characters.Add("Жан Жак", WarBookCharacter.Sec_Man_Terrorist_Jean_Jacques);
-        Characters.Add("Капрал", WarBookCharacter.Sec_Man_Marine_Corporal);
-        Characters.Add("Караульный", WarBookCharacter.Sec_Man_Terrorist_WatchmanWeapon);
-        Characters.Add("Комендант базы", WarBookCharacter.Sec_Man_TerroristHOF_Commandant);
-        Characters.Add("Неокрестоносец", WarBookCharacter.Sec_Man_Crusader_Common);
-        Characters.Add("Охранник", WarBookCharacter.Sec_Man_Terrorist_Guard1Weapon);
-        Characters.Add("Пилот", WarBookCharacter.Sec_Man_Marine_Pilot);
-        Characters.Add("Полевой командир Длани", WarBookCharacter.Sec_Man_TerroristHOF_Warlord);
-        Characters.Add("Раненый морпех", WarBookCharacter.Sec_Man_Marine_Wounded);
-        Characters.Add("Сержант", WarBookCharacter.Sec_Man_Marine_Sergeant);
-        Characters.Add("Сержант неокрестоносцев", WarBookCharacter.Sec_Man_Crusader_Sergeant);
-        Characters.Add("Солдат США", WarBookCharacter.Sec_Man_Marine_Common);
-        Characters.Add("Спящий террорист", WarBookCharacter.Sec_Man_Terrorist_Sleep);
-        Characters.Add("Террорист", WarBookCharacter.Sec_Man_Terrorist_Common);
-        Characters.Add("Террорист-патрульный", WarBookCharacter.Sec_Man_Terrorist_Patrol);
-        Characters.Add("Террорист-часовой", WarBookCharacter.Sec_Man_Terrorist_WatchmanNoWeapon);
-        Characters.Add("Торговец оружием", WarBookCharacter.Sec_Man_Terrorist_WeaponDealer);
+        Characters.Add("Анджей", WarBookCharacter.SecManCrusaderAndrzejWeapon);
+        Characters.Add("Анджей2", WarBookCharacter.SecManCrusaderAndrzejPrisoner);
+        Characters.Add("Бармен", WarBookCharacter.SecManBarman);
+        Characters.Add("Водитель грузовика", WarBookCharacter.SecManTerroristTruckDriver);
+        Characters.Add("Второй охранник", WarBookCharacter.SecManTerroristGuard2Weapon);
+        Characters.Add("Жан Жак", WarBookCharacter.SecManTerroristJeanJacques);
+        Characters.Add("Капрал", WarBookCharacter.SecManMarineCorporal);
+        Characters.Add("Караульный", WarBookCharacter.SecManTerroristWatchmanWeapon);
+        Characters.Add("Комендант базы", WarBookCharacter.SecManTerroristHofCommandant);
+        Characters.Add("Неокрестоносец", WarBookCharacter.SecManCrusaderCommon);
+        Characters.Add("Охранник", WarBookCharacter.SecManTerroristGuard1Weapon);
+        Characters.Add("Пилот", WarBookCharacter.SecManMarinePilot);
+        Characters.Add("Полевой командир Длани", WarBookCharacter.SecManTerroristHofWarlord);
+        Characters.Add("Раненый морпех", WarBookCharacter.SecManMarineWounded);
+        Characters.Add("Сержант", WarBookCharacter.SecManMarineSergeant);
+        Characters.Add("Сержант неокрестоносцев", WarBookCharacter.SecManCrusaderSergeant);
+        Characters.Add("Солдат США", WarBookCharacter.SecManMarineCommon);
+        Characters.Add("Спящий террорист", WarBookCharacter.SecManTerroristSleep);
+        Characters.Add("Террорист", WarBookCharacter.SecManTerroristCommon);
+        Characters.Add("Террорист-патрульный", WarBookCharacter.SecManTerroristPatrol);
+        Characters.Add("Террорист-часовой", WarBookCharacter.SecManTerroristWatchmanNoWeapon);
+        Characters.Add("Торговец оружием", WarBookCharacter.SecManTerroristWeaponDealer);
 
 
         ChAtalsMathcing = new Dictionary<WarBookCharacter, string>();
@@ -160,7 +160,7 @@ public static class WarBook
 
         LocSpriteMatching.Add(WarBookLocation.BazaTersio, "warLocBaseUniSword_6");
         LocSpriteMatching.Add(WarBookLocation.BazaUni, "warLocBaseUniTerr_6");
-        LocSpriteMatching.Add(WarBookLocation.BazaUSA, "warLocBaseUniUSA_6");
+        LocSpriteMatching.Add(WarBookLocation.BazaUsa, "warLocBaseUniUSA_6");
         LocSpriteMatching.Add(WarBookLocation.BazaDlani, "warLocBaseUniHands_6");
         LocSpriteMatching.Add(WarBookLocation.BazaTerrGory, "warLocTerrBaseDay_12-5");
         LocSpriteMatching.Add(WarBookLocation.Cityeace, "warLocCityPeace_0");
@@ -187,7 +187,7 @@ public static class WarBook
 
         LocSoundMatching.Add(WarBookLocation.BazaTersio, "War_base");
         LocSoundMatching.Add(WarBookLocation.BazaUni, "War_base");
-        LocSoundMatching.Add(WarBookLocation.BazaUSA, "War_base");
+        LocSoundMatching.Add(WarBookLocation.BazaUsa, "War_base");
         LocSoundMatching.Add(WarBookLocation.BazaDlani, "War_base");
         LocSoundMatching.Add(WarBookLocation.BazaTerrGory, "War_base");
         LocSoundMatching.Add(WarBookLocation.Cityeace, "War_city");
@@ -214,27 +214,27 @@ public static class WarBook
 
 public enum FantBookCharacter
 {
-    Sec_Peasant1,
-    Sec_Peasant2,
-    Sec_Peasant3,
-    Sec_Peasant4,
-    Sec_Peasant5,
-    Sec_Rebel1,
-    Sec_Rebel2,
-    Sec_Rebel3,
-    Sec_Man_Robber1,
-    Sec_Man_Robber2,
-    Sec_Man_Robber3,
-    Sec_Man_Issagur_Sergeant,
-    Sec_Man_Tuan_Sergeant,
-    Sec_Man_Issagur_Common1,
-    Sec_Man_Issagur_Common2,
-    Sec_Man_Torion_Common1,
-    Sec_Man_Torion_Common2,
-    Sec_Man_Tuan_Common,
-    Sec_Man_Issagur_Elite,
-    Sec_PleasantUlv,
-    Sec_Unnamed,
+    SecPeasant1,
+    SecPeasant2,
+    SecPeasant3,
+    SecPeasant4,
+    SecPeasant5,
+    SecRebel1,
+    SecRebel2,
+    SecRebel3,
+    SecManRobber1,
+    SecManRobber2,
+    SecManRobber3,
+    SecManIssagurSergeant,
+    SecManTuanSergeant,
+    SecManIssagurCommon1,
+    SecManIssagurCommon2,
+    SecManTorionCommon1,
+    SecManTorionCommon2,
+    SecManTuanCommon,
+    SecManIssagurElite,
+    SecPleasantUlv,
+    SecUnnamed,
     Amir,
     Bassil,
     Veronika,
@@ -307,28 +307,28 @@ public static class FantasyBook
         Characters.Add("Ифиза", FantBookCharacter.Ifiza);
         Characters.Add("Главный герой", FantBookCharacter.Main);
         Characters.Add("Орин", FantBookCharacter.Orin);
-        Characters.Add("Крестьянин 1", FantBookCharacter.Sec_Peasant1);
-        Characters.Add("Крестьянин 2", FantBookCharacter.Sec_Peasant2);
-        Characters.Add("Крестьянин 3", FantBookCharacter.Sec_Peasant3);
-        Characters.Add("Крестьянин 4", FantBookCharacter.Sec_Peasant4);
-        Characters.Add("Мятежник 1", FantBookCharacter.Sec_Rebel1);
-        Characters.Add("Мятежник 2", FantBookCharacter.Sec_Rebel2);
-        Characters.Add("Мятежник 3", FantBookCharacter.Sec_Rebel3);
-        Characters.Add("Разбойник 1", FantBookCharacter.Sec_Man_Robber1);
-        Characters.Add("Разбойник 2", FantBookCharacter.Sec_Man_Robber2);
-        Characters.Add("Разбойник 3", FantBookCharacter.Sec_Man_Robber3);
-        Characters.Add("Сержант Иссагура", FantBookCharacter.Sec_Man_Issagur_Sergeant);
-        Characters.Add("Сержант Туана", FantBookCharacter.Sec_Man_Tuan_Sergeant);
-        Characters.Add("Солдат Архамена", FantBookCharacter.Sec_Man_Issagur_Common1);
-        Characters.Add("Солдат Иссагура 1", FantBookCharacter.Sec_Man_Issagur_Common1);
-        Characters.Add("Солдат Иссагура 2", FantBookCharacter.Sec_Man_Issagur_Common2);
-        Characters.Add("Солдат Ториона 1", FantBookCharacter.Sec_Man_Torion_Common1);
-        Characters.Add("Солдат Ториона 2", FantBookCharacter.Sec_Man_Torion_Common2);
-        Characters.Add("Солдат Туана", FantBookCharacter.Sec_Man_Tuan_Common);
-        Characters.Add("Стража Иссагура 1", FantBookCharacter.Sec_Man_Issagur_Elite);
-        Characters.Add("Воин Безымянного братства", FantBookCharacter.Sec_Unnamed);
-        Characters.Add("Ульв Свирепый", FantBookCharacter.Sec_PleasantUlv);
-        Characters.Add("Элитный солдат Иссагура", FantBookCharacter.Sec_Man_Issagur_Elite);
+        Characters.Add("Крестьянин 1", FantBookCharacter.SecPeasant1);
+        Characters.Add("Крестьянин 2", FantBookCharacter.SecPeasant2);
+        Characters.Add("Крестьянин 3", FantBookCharacter.SecPeasant3);
+        Characters.Add("Крестьянин 4", FantBookCharacter.SecPeasant4);
+        Characters.Add("Мятежник 1", FantBookCharacter.SecRebel1);
+        Characters.Add("Мятежник 2", FantBookCharacter.SecRebel2);
+        Characters.Add("Мятежник 3", FantBookCharacter.SecRebel3);
+        Characters.Add("Разбойник 1", FantBookCharacter.SecManRobber1);
+        Characters.Add("Разбойник 2", FantBookCharacter.SecManRobber2);
+        Characters.Add("Разбойник 3", FantBookCharacter.SecManRobber3);
+        Characters.Add("Сержант Иссагура", FantBookCharacter.SecManIssagurSergeant);
+        Characters.Add("Сержант Туана", FantBookCharacter.SecManTuanSergeant);
+        Characters.Add("Солдат Архамена", FantBookCharacter.SecManIssagurCommon1);
+        Characters.Add("Солдат Иссагура 1", FantBookCharacter.SecManIssagurCommon1);
+        Characters.Add("Солдат Иссагура 2", FantBookCharacter.SecManIssagurCommon2);
+        Characters.Add("Солдат Ториона 1", FantBookCharacter.SecManTorionCommon1);
+        Characters.Add("Солдат Ториона 2", FantBookCharacter.SecManTorionCommon2);
+        Characters.Add("Солдат Туана", FantBookCharacter.SecManTuanCommon);
+        Characters.Add("Стража Иссагура 1", FantBookCharacter.SecManIssagurElite);
+        Characters.Add("Воин Безымянного братства", FantBookCharacter.SecUnnamed);
+        Characters.Add("Ульв Свирепый", FantBookCharacter.SecPleasantUlv);
+        Characters.Add("Элитный солдат Иссагура", FantBookCharacter.SecManIssagurElite);
         Characters.Add("Рассказчик", FantBookCharacter.Teller);
         Characters.Add("Вероника", FantBookCharacter.Veronika);
         Characters.Add("Влас", FantBookCharacter.Vlas);

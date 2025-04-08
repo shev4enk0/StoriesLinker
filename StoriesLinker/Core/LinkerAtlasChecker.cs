@@ -16,7 +16,7 @@ using Microsoft.Win32;
 using StoriesLinker;
 
 public class AtlasCheckerChInfo {
-    public AJMetaCharacterData MetaData;
+    public AjMetaCharacterData MetaData;
 
     public string SpritePrefix;
 
@@ -24,108 +24,108 @@ public class AtlasCheckerChInfo {
 
     public Dictionary<string, string> RequiredSprites;
 
-    public void AddClothesForCheck(int _id, List<string> _clothes_names) {
+    public void AddClothesForCheck(int id, List<string> clothesNames) {
         //Console.WriteLine("AddClothesForCheck " + _id + ", prefix: " + SpritePrefix);
 
-        if (RequiredSprites.ContainsKey(_id.ToString())) {
+        if (RequiredSprites.ContainsKey(id.ToString())) {
             Console.WriteLine("clothes for check exist");
 
             return;
         }
 
-        string _cloth_name = (_id < _clothes_names.Count ? _clothes_names[_id] : "");
+        string clothName = (id < clothesNames.Count ? clothesNames[id] : "");
 
         //Console.WriteLine("RequiredSprites add " + _cloth_name);
 
         if (MainHeroWithTwoGenders)
         {
-            if (RequiredSprites.ContainsKey("Male_" + _cloth_name))
+            if (RequiredSprites.ContainsKey("Male_" + clothName))
             {
                 Console.WriteLine("clothes for check exist");
 
                 return;
             }
 
-            RequiredSprites.Add("Male_" + _cloth_name, "Male_" + _cloth_name);
-            RequiredSprites.Add("Female_" + _cloth_name, "Female_" + _cloth_name);
+            RequiredSprites.Add("Male_" + clothName, "Male_" + clothName);
+            RequiredSprites.Add("Female_" + clothName, "Female_" + clothName);
         }
         else {
-            RequiredSprites.Add(_id.ToString(), _cloth_name);
+            RequiredSprites.Add(id.ToString(), clothName);
         }
     }
 }
 
 public class LinkerAtlasChecker
 {
-    public AJLinkerMeta MetaData;
+    public AjLinkerMeta MetaData;
     public List<AtlasCheckerChInfo> CheckCharactersList;
 
-    public LinkerAtlasChecker(AJLinkerMeta _meta, List<AJMetaCharacterData> _chs)
+    public LinkerAtlasChecker(AjLinkerMeta meta, List<AjMetaCharacterData> chs)
     {
-        MetaData = _meta;
+        MetaData = meta;
         CheckCharactersList = new List<AtlasCheckerChInfo>();
 
-        foreach (AJMetaCharacterData _mch in _chs) {
-            if (_mch.AtlasFileName == "-" || _mch.AtlasFileName.Contains("Sec_")) continue;
+        foreach (AjMetaCharacterData mch in chs) {
+            if (mch.AtlasFileName == "-" || mch.AtlasFileName.Contains("Sec_")) continue;
 
-            AtlasCheckerChInfo _ch = new AtlasCheckerChInfo();
+            AtlasCheckerChInfo ch = new AtlasCheckerChInfo();
 
-            _ch.SpritePrefix = _meta.SpritePrefix + _mch.BaseNameInAtlas + "_";
-            _ch.MetaData = _mch;
+            ch.SpritePrefix = meta.SpritePrefix + mch.BaseNameInAtlas + "_";
+            ch.MetaData = mch;
 
-            _ch.RequiredSprites = new Dictionary<string, string>();
+            ch.RequiredSprites = new Dictionary<string, string>();
 
-            bool _main_hero = _mch.BaseNameInAtlas == "Main";
+            bool mainHero = mch.BaseNameInAtlas == "Main";
 
-            List<string> _gender_prefix = new List<string>();
+            List<string> genderPrefix = new List<string>();
 
-            _ch.MainHeroWithTwoGenders = _main_hero && _meta.MainHeroHasDifferentGenders;
+            ch.MainHeroWithTwoGenders = mainHero && meta.MainHeroHasDifferentGenders;
 
-            if (_main_hero && _meta.MainHeroHasDifferentGenders)
+            if (mainHero && meta.MainHeroHasDifferentGenders)
             {
-                _gender_prefix.Add("Male_");
-                _gender_prefix.Add("Female_");
+                genderPrefix.Add("Male_");
+                genderPrefix.Add("Female_");
 
-                _ch.SpritePrefix = _meta.SpritePrefix + "Main";
+                ch.SpritePrefix = meta.SpritePrefix + "Main";
             }
             else {
-                _gender_prefix.Add("");
+                genderPrefix.Add("");
             }
 
-            for (int g = 0; g < _gender_prefix.Count; g++)
+            for (int g = 0; g < genderPrefix.Count; g++)
             {
-                string _g_prefix = _gender_prefix[g];
+                string gPrefix = genderPrefix[g];
 
-                _ch.RequiredSprites.Add(_g_prefix + "Base", "");
-                _ch.RequiredSprites.Add(_g_prefix + "Emotions_Angry", "");
-                _ch.RequiredSprites.Add(_g_prefix + "Emotions_Happy", "");
-                _ch.RequiredSprites.Add(_g_prefix + "Emotions_Standart", "");
-                _ch.RequiredSprites.Add(_g_prefix + "Emotions_Surprised", "");
-                _ch.RequiredSprites.Add(_g_prefix + "Emotions_Sad", "");
+                ch.RequiredSprites.Add(gPrefix + "Base", "");
+                ch.RequiredSprites.Add(gPrefix + "Emotions_Angry", "");
+                ch.RequiredSprites.Add(gPrefix + "Emotions_Happy", "");
+                ch.RequiredSprites.Add(gPrefix + "Emotions_Standart", "");
+                ch.RequiredSprites.Add(gPrefix + "Emotions_Surprised", "");
+                ch.RequiredSprites.Add(gPrefix + "Emotions_Sad", "");
 
-                if (_main_hero && _meta.RacesList != null && _meta.RacesList.Count > 0)
+                if (mainHero && meta.RacesList != null && meta.RacesList.Count > 0)
                 {
-                    for (int r = 0; r < _meta.RacesList.Count; r++)
+                    for (int r = 0; r < meta.RacesList.Count; r++)
                     {
-                        string _r_prefix = _meta.RacesList[r] + "_";
+                        string rPrefix = meta.RacesList[r] + "_";
 
-                        _ch.RequiredSprites.Add(_g_prefix + _r_prefix + "Base", "");
-                        _ch.RequiredSprites.Add(_g_prefix + _r_prefix + "Emotions_Angry", "");
-                        _ch.RequiredSprites.Add(_g_prefix + _r_prefix + "Emotions_Happy", "");
-                        _ch.RequiredSprites.Add(_g_prefix + _r_prefix + "Emotions_Standart", "");
-                        _ch.RequiredSprites.Add(_g_prefix + _r_prefix + "Emotions_Surprised", "");
-                        _ch.RequiredSprites.Add(_g_prefix + _r_prefix + "Emotions_Sad", "");
+                        ch.RequiredSprites.Add(gPrefix + rPrefix + "Base", "");
+                        ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Angry", "");
+                        ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Happy", "");
+                        ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Standart", "");
+                        ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Surprised", "");
+                        ch.RequiredSprites.Add(gPrefix + rPrefix + "Emotions_Sad", "");
                     }
                 }
             }
 
-            if (_main_hero && _meta.CustomHairCount > 0) {
-                _ch.RequiredSprites.Add("Hair1", "");
-                _ch.RequiredSprites.Add("Hair2", "");
-                _ch.RequiredSprites.Add("Hair3", "");
+            if (mainHero && meta.CustomHairCount > 0) {
+                ch.RequiredSprites.Add("Hair1", "");
+                ch.RequiredSprites.Add("Hair2", "");
+                ch.RequiredSprites.Add("Hair3", "");
             }
 
-            CheckCharactersList.Add(_ch);
+            CheckCharactersList.Add(ch);
         }
 
         /*foreach (AtlasCheckerChInfo _ch in CheckCharactersList)
@@ -137,71 +137,71 @@ public class LinkerAtlasChecker
         }*/
     }
 
-    public void PassClothesInstruction(string _raw_script)
+    public void PassClothesInstruction(string rawScript)
     {
-        string[] _scripts = _raw_script.EscapeString().Replace("\\n", "").Replace("\\r", "").Split(';');
+        string[] scripts = rawScript.EscapeString().Replace("\\n", "").Replace("\\r", "").Split(';');
 
         //Console.WriteLine("pass instr " + _raw_script);
 
-        for (int i = 0; i < _scripts.Length; i++)
+        for (int i = 0; i < scripts.Length; i++)
         {
-            string _script = _scripts[i];
+            string script = scripts[i];
 
-            if (string.IsNullOrEmpty(_script) || !_script.Contains("Clothes.")) continue;
+            if (string.IsNullOrEmpty(script) || !script.Contains("Clothes.")) continue;
 
-            Console.WriteLine("_script " + _script);
+            Console.WriteLine("_script " + script);
 
-            AInstruction _instr = new AInstruction(_script);
+            AInstruction instr = new AInstruction(script);
 
-            if (!_instr.BadParse) {
-                string _var = _instr.Variable;
+            if (!instr.BadParse) {
+                string var = instr.Variable;
 
-                AtlasCheckerChInfo _ch = CheckCharactersList.Find(_c => "Clothes." + _c.MetaData.ClothesVariableName == _var);
+                AtlasCheckerChInfo ch = CheckCharactersList.Find(c => "Clothes." + c.MetaData.ClothesVariableName == var);
 
                 //!!!!
-                if (_ch == null) {
+                if (ch == null) {
                     continue;
                 }
 
-                _ch.AddClothesForCheck(_instr.Value, MetaData.ClothesSpriteNames);
+                ch.AddClothesForCheck(instr.Value, MetaData.ClothesSpriteNames);
             }
         }
     }
 
-    public string BeginFinalCheck(string _path) {
-        foreach (AtlasCheckerChInfo _ch in CheckCharactersList)
+    public string BeginFinalCheck(string path) {
+        foreach (AtlasCheckerChInfo ch in CheckCharactersList)
         {
-            List<string> _checked_sprites = new List<string>();
+            List<string> checkedSprites = new List<string>();
 
-            string[] _atlasses = _ch.MetaData.AtlasFileName.Split(',');
+            string[] atlasses = ch.MetaData.AtlasFileName.Split(',');
 
-            for (int i = 0; i < _atlasses.Length; i++)
+            for (int i = 0; i < atlasses.Length; i++)
             {
-                if (string.IsNullOrEmpty(_atlasses[i])) continue;
+                if (string.IsNullOrEmpty(atlasses[i])) continue;
 
-                string _atlas_path = string.Format(_path + @"\Art\Characters\{0}.tpsheet", _atlasses[i]);
+                string atlasPath = string.Format(path + @"\Art\Characters\{0}.tpsheet", atlasses[i]);
 
-                StreamReader _reader = File.OpenText(_atlas_path);
+                StreamReader reader = File.OpenText(atlasPath);
 
-                string _text = _reader.ReadToEnd();
+                string text = reader.ReadToEnd();
 
-                foreach (KeyValuePair<string, string> _sp_pair in _ch.RequiredSprites)
+                foreach (KeyValuePair<string, string> spPair in ch.RequiredSprites)
                 {
-                    if (_checked_sprites.Contains(_sp_pair.Key)) continue;
+                    if (checkedSprites.Contains(spPair.Key)) continue;
 
-                    string _sprite_name1 = _ch.SpritePrefix + _sp_pair.Key;
+                    string spriteName1 = ch.SpritePrefix + spPair.Key;
 
-                    Console.WriteLine(_sprite_name1 + " in " + _atlas_path);
+                    Console.WriteLine(spriteName1 + " in " + atlasPath);
 
-                    if (!_text.Contains(_sprite_name1))
+                    if (!text.Contains(spriteName1))
                     {
-                        string _sprite_name2 = _ch.SpritePrefix+ _sp_pair.Value;
+                        string spriteName2 = ch.SpritePrefix+ spPair.Value;
 
-                        Console.WriteLine(_sprite_name2 + " in " + _atlas_path);
+                        Console.WriteLine(spriteName2 + " in " + atlasPath);
 
-                        if (_text.Contains(_sprite_name2) && !string.IsNullOrEmpty(_sp_pair.Value))
+                        if (text.Contains(spriteName2) && !string.IsNullOrEmpty(spPair.Value))
                         {
-                            _checked_sprites.Add(_sp_pair.Key);
+                            checkedSprites.Add(spPair.Key);
 
                             //Console.WriteLine("ok");
 
@@ -210,17 +210,17 @@ public class LinkerAtlasChecker
                         else {
                             //Console.WriteLine("error");
 
-                            if (_ch.MetaData.BaseNameInAtlas == "Main" && MetaData.CustomClothesCount > 0) // если история с выбором одежды в начале игры, делаем исключения для главного героя
+                            if (ch.MetaData.BaseNameInAtlas == "Main" && MetaData.CustomClothesCount > 0) // если история с выбором одежды в начале игры, делаем исключения для главного героя
                             {
 
                             }
-                            else if(i + 1 >= _atlasses.Length) {
-                                return string.Format("Спрайт {0}/{1} не найден", _sprite_name1, _sprite_name2);
+                            else if(i + 1 >= atlasses.Length) {
+                                return string.Format("Спрайт {0}/{1} не найден", spriteName1, spriteName2);
                             }
                         }
                     }
                     else {
-                        _checked_sprites.Add(_sp_pair.Key);
+                        checkedSprites.Add(spPair.Key);
 
                         Console.WriteLine("ok");
                     }
@@ -258,21 +258,21 @@ public class AInstruction
 
     public bool BadParse;
 
-    public AInstruction(string _raw_script)
+    public AInstruction(string rawScript)
     {
-        _raw_script = _raw_script.Trim(' ');
-        _raw_script = _raw_script.TrimEnd(';');
-        _raw_script = _raw_script.Replace(";", "");
+        rawScript = rawScript.Trim(' ');
+        rawScript = rawScript.TrimEnd(';');
+        rawScript = rawScript.Replace(";", "");
 
-        string[] _signs = new string[] { "-=", "+=", "/=", "=" };
+        string[] signs = new string[] { "-=", "+=", "/=", "=" };
 
-        int _sign_index = -1;
+        int signIndex = -1;
 
-        for (int i = 0; i < _signs.Length; i++)
+        for (int i = 0; i < signs.Length; i++)
         {
-            if (_raw_script.IndexOf(_signs[i]) != -1)
+            if (rawScript.IndexOf(signs[i]) != -1)
             {
-                _sign_index = i;
+                signIndex = i;
 
                 break;
             }
@@ -280,40 +280,40 @@ public class AInstruction
 
         //Debug.Log("_sign_index " + _sign_index);
 
-        if (_sign_index != -1)
+        if (signIndex != -1)
         {
-            string[] _parts = _raw_script.Replace(_signs[_sign_index], "|").Split('|');
+            string[] parts = rawScript.Replace(signs[signIndex], "|").Split('|');
 
-            ActionType = (DInstuctionAction)_sign_index;
+            ActionType = (DInstuctionAction)signIndex;
 
-            Variable = _parts[0].Trim(' ');
-            string _value_str = _parts[1].Trim(' ');
+            Variable = parts[0].Trim(' ');
+            string valueStr = parts[1].Trim(' ');
 
-            int _result;
+            int result;
 
 
             //Debug.Log(Variable + ", _value_str " + _value_str + " - " + int.TryParse(_value_str, out _result));
 
 
-                if (int.TryParse(_value_str, out _result))
+                if (int.TryParse(valueStr, out result))
                 {
-                    if (int.TryParse(_value_str, out _result))
+                    if (int.TryParse(valueStr, out result))
                     {
-                        Value = int.Parse(_value_str);
+                        Value = int.Parse(valueStr);
 
                         VarType = DInstuctionVarType.Integer;
                     }
                     else {
-                        Console.WriteLine("bad value " + _value_str);
+                        Console.WriteLine("bad value " + valueStr);
 
                         BadParse = true;
                     }
                 }
-                else if (_value_str == "true" || _value_str == "false")
+                else if (valueStr == "true" || valueStr == "false")
                 {
                     VarType = DInstuctionVarType.Boolean;
 
-                    Value = (_value_str == "true" ? 1 : 0);
+                    Value = (valueStr == "true" ? 1 : 0);
                 }
                 else {
                         BadParse = true;
@@ -321,7 +321,7 @@ public class AInstruction
 
         }
         else {
-            Console.WriteLine("bad sign index" + _raw_script);
+            Console.WriteLine("bad sign index" + rawScript);
 
             BadParse = true;
         }
@@ -331,7 +331,7 @@ public class AInstruction
 
         if (BadParse)
         {
-            Console.WriteLine("INSTRUCTION PARSE ERROR!" + _raw_script);
+            Console.WriteLine("INSTRUCTION PARSE ERROR!" + rawScript);
         }
     }
 }
