@@ -45,6 +45,10 @@ namespace StoriesLinker
                 string path = key.GetValue("LastPath").ToString();
                 folderBrowserDialog1.SelectedPath = path;
                 path_value.Text = path;
+                textBox1.Text = path;
+
+                string[] pathParts = path.Split('/', '\\');
+                proj_name_value.Text = pathParts[pathParts.Length - 1];
             }
             else
             {
@@ -59,9 +63,13 @@ namespace StoriesLinker
         private void SelectProjectFolder(object sender, EventArgs e)
         {
             if (folderBrowserDialog1.ShowDialog() != DialogResult.OK) return;
-            
+
             _projectPath = folderBrowserDialog1.SelectedPath;
             path_value.Text = _projectPath;
+            textBox1.Text = _projectPath;
+
+            string[] pathParts = _projectPath.Split('/', '\\');
+            proj_name_value.Text = pathParts[pathParts.Length - 1];
 
             SaveProjectPathToRegistry();
             UpdateProjectInfo();
@@ -205,7 +213,7 @@ namespace StoriesLinker
             AjLinkerMeta meta = linker.ParseMetaDataFromExcel();
             LinkerAtlasChecker checker = new LinkerAtlasChecker(meta, meta.Characters);
 
-            Dictionary<string, AjObj> objectsList = 
+            Dictionary<string, AjObj> objectsList =
                 linker.ExtractBookEntities(linker.ParseFlowJsonFile(), linker.GetLocalizationDictionary());
 
             foreach (KeyValuePair<string, AjObj> @object in objectsList)
@@ -226,8 +234,8 @@ namespace StoriesLinker
                 checkResult = checker.ValidateAtlases(_projectPath);
             }
 
-            ShowMessage(string.IsNullOrEmpty(checkResult) 
-                ? "Иерархия для бандлов успешно сгенерирована." 
+            ShowMessage(string.IsNullOrEmpty(checkResult)
+                ? "Иерархия для бандлов успешно сгенерирована."
                 : "Ошибка: " + checkResult);
         }
 
@@ -304,14 +312,14 @@ namespace StoriesLinker
                 return "[СИСТЕМА] " + message;
             if (message.StartsWith("String with ID"))
                 return "[ПЕРЕВОД] " + message;
-            
+
             return "[ИНФО] " + message;
         }
 
         private static void WriteToConsole(string prefixedMessage)
         {
             ConsoleColor originalColor = Console.ForegroundColor;
-            
+
             if (prefixedMessage.StartsWith("[ОШИБКА]"))
                 Console.ForegroundColor = ConsoleColor.Red;
             else if (prefixedMessage.StartsWith("[СЕКЦИЯ]"))
@@ -330,7 +338,7 @@ namespace StoriesLinker
                 Console.ForegroundColor = ConsoleColor.Yellow;
             else
                 Console.ForegroundColor = ConsoleColor.White;
-            
+
             Console.WriteLine(prefixedMessage);
             Console.ForegroundColor = originalColor;
         }
