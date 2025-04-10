@@ -120,10 +120,26 @@ namespace StoriesLinker
         /// </summary>
         public Dictionary<string, string> GetLocalizationDictionary()
         {
-            if (_cachedLocalizationDict != null) return _cachedLocalizationDict;
+            try
+            {
+                if (_cachedLocalizationDict != null)
+                    return _cachedLocalizationDict;
 
-            _cachedLocalizationDict = ConvertExcelToDictionary(GetLocalizationTablesPath(_projectPath));
-            return _cachedLocalizationDict;
+                string path = GetLocalizationTablesPath(_projectPath);
+                if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                {
+                    Console.WriteLine("Файлы локализации отсутствуют. Создаем новые файлы...");
+                    return new Dictionary<string, string>();
+                }
+
+                _cachedLocalizationDict = ConvertExcelToDictionary(path);
+                return _cachedLocalizationDict ?? new Dictionary<string, string>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при загрузке словаря локализации: {ex.Message}");
+                return new Dictionary<string, string>();
+            }
         }
 
         #endregion
@@ -545,31 +561,38 @@ namespace StoriesLinker
 
         #region Генерация таблиц локализации
 
-        private (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList)
-            LoadBaseData()
+        /// <summary>
+        /// Загружает базовые данные: словарь локализации, Flow.json и список объектов
+        /// </summary>
+        /// <returns>Кортеж из словаря локализации, объекта AjFile и словаря объектов</returns>
+        public (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList) LoadBaseData()
         {
-            Dictionary<string, string> nativeDict = GetLocalizationDictionary();
-            AjFile ajfile = ParseFlowJsonFile();
-            Dictionary<string, AjObj> objectsList = ExtractBookEntities(ajfile, nativeDict);
-
-            _cachedLocalizationData["base"] = new Dictionary<string, LocalizationEntry>();
-            foreach (AjObj obj in objectsList.Values)
+            try
             {
-                if (obj.Properties?.DisplayName == null) continue;
+                Dictionary<string, string> nativeDict = GetLocalizationDictionary() ?? new Dictionary<string, string>();
+                AjFile ajfile = ParseFlowJsonFile();
 
-                _cachedLocalizationData["base"][obj.Properties.DisplayName] =
-                    new LocalizationEntry
-                    {
-                        Text = nativeDict
-                                   .TryGetValue(obj.Properties.DisplayName,
-                                                out string text)
-                                   ? _stringPool.Intern(text)
-                                   : string.Empty,
-                        IsInternal = false
-                    };
+                if (ajfile == null)
+                {
+                    Console.WriteLine("Ошибка: Flow.json не может быть загружен");
+                    return (nativeDict, null, new Dictionary<string, AjObj>());
+                }
+
+                Dictionary<string, AjObj> objectsList = ExtractBookEntities(ajfile, nativeDict);
+
+                if (objectsList == null || objectsList.Count == 0)
+                {
+                    Console.WriteLine("Предупреждение: Список объектов пуст");
+                    objectsList = new Dictionary<string, AjObj>();
+                }
+
+                return (nativeDict, ajfile, objectsList);
             }
-
-            return (nativeDict, ajfile, objectsList);
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при инициализации локализации: {ex.Message}");
+                return (new Dictionary<string, string>(), null, new Dictionary<string, AjObj>());
+            }
         }
 
         /// <summary>
@@ -593,6 +616,35 @@ namespace StoriesLinker
 
                 chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
                 List<string>[] csparentsIds = GetChapterAndSubchapterHierarchy(chaptersIds, objectsList);
+
+                // Проверяем наличие файлов локализации
+                string russianFolder = Path.Combine(_projectPath, "Localization", "Russian");
+                bool needInitialization = !Directory.Exists(russianFolder);
+
+                if (!needInitialization)
+                {
+                    // Проверяем наличие файлов для каждой главы
+                    for (var i = 0; i < csparentsIds.Length; i++)
+                    {
+                        string forTranslatingPath = Path.Combine(russianFolder, $"Chapter_{i + 1}_for_translating.xlsx");
+                        string internalPath = Path.Combine(russianFolder, $"Chapter_{i + 1}_internal.xlsx");
+
+                        if (!File.Exists(forTranslatingPath) || !File.Exists(internalPath))
+                        {
+                            needInitialization = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (needInitialization)
+                {
+                    Console.WriteLine("Файлы локализации отсутствуют. Создаем новые файлы...");
+                    if (!InitializeLocalization())
+                    {
+                        return false;
+                    }
+                }
 
                 var charactersIds = new List<string>();
                 Dictionary<string, LocalizationEntry> charactersLocalizData = new();
@@ -773,20 +825,28 @@ namespace StoriesLinker
             // Обработка сценических указаний
             if (string.IsNullOrEmpty(dfobj.Properties.StageDirections)) return;
 
-            if (!nativeDict.TryGetValue(dfobj.Properties.StageDirections, out string translatedDirections))
+            try
             {
-                Console.WriteLine($"Отсутствует перевод для сценических указаний: {dfobj.Properties.StageDirections} в главе {chapterN}");
-                translatedDirections = string.Empty;
-            }
-
-            if (translatedDirections != string.Empty)
-            {
-                internalData[dfobj.Properties.StageDirections] = new LocalizationEntry
+                if (!nativeDict.TryGetValue(dfobj.Properties.StageDirections, out string translatedDirections))
                 {
-                    Text = _stringPool.Intern(translatedDirections),
-                    SpeakerDisplayName = string.Empty,
-                    IsInternal = true
-                };
+                    Console.WriteLine($"Отсутствует перевод для сценических указаний: {dfobj.Properties.StageDirections} в главе {chapterN}");
+                    translatedDirections = string.Empty;
+                }
+
+                if (translatedDirections != string.Empty)
+                {
+                    internalData[dfobj.Properties.StageDirections] = new LocalizationEntry
+                    {
+                        Text = _stringPool.Intern(translatedDirections),
+                        SpeakerDisplayName = string.Empty,
+                        IsInternal = true
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при обработке сценических указаний: {ex.Message}");
+                // Продолжаем выполнение, не выбрасывая исключение
             }
         }
 
@@ -864,20 +924,17 @@ namespace StoriesLinker
         {
             Form1.ShowMessage("Начинаем...");
 
-            ajfile = _cachedAjFile ??= ParseFlowJsonFile();
+            (_, ajfile, _) = LoadBaseData();
             meta = _cachedMeta ??= ParseMetaDataFromExcel();
 
             if (meta != null && ajfile != null)
             {
                 return ValidateCharactersData(meta, ajfile) &&
-                       // Проверка на дубль имён и спрайтов локаций
                        ValidateLocationsData(meta);
             }
 
             Form1.ShowMessage("Ошибка загрузки данных: Meta или Flow JSON не могут быть загружены.");
             return false;
-
-            // Проверка на дубль имён персонажей и их имён в атласах
         }
 
         /// <summary>
@@ -905,7 +962,6 @@ namespace StoriesLinker
                 return true;
             Form1.ShowMessage($"В артиси не определена переменная с именем Clothes.{character.ClothesVariableName}");
             return false;
-
         }
 
         private bool ValidateCharactersData(AjLinkerMeta meta, AjFile ajfile)
@@ -1033,16 +1089,13 @@ namespace StoriesLinker
             foreach (string folder in subFolders) Directory.CreateDirectory(Path.Combine(baseFolder, folder));
         }
 
-        private (Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList) LoadAndPrepareData(
-            AjFile ajfile)
+        private (Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList) LoadAndPrepareData(AjFile ajfile)
         {
-            Dictionary<string, string> nativeDict = GetLocalizationDictionary();
-            Dictionary<string, AjObj> objectsList = ExtractBookEntities(ajfile, nativeDict);
+            (Dictionary<string, string> nativeDict, _, Dictionary<string, AjObj> objectsList) = LoadBaseData();
             return (nativeDict, objectsList);
         }
 
-        private List<string> PrepareChaptersData(Dictionary<string, AjObj> objectsList,
-                                                 Dictionary<string, string> nativeDict)
+        private List<string> PrepareChaptersData(Dictionary<string, AjObj> objectsList, Dictionary<string, string> nativeDict)
         {
             List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
             if (chaptersIds.Count > Form1.AvailableChapters)
@@ -1415,7 +1468,8 @@ namespace StoriesLinker
                                                           colNum != -1 ? colNum : 1,
                                                           langsCols.Keys.ToList());
 
-                if (!string.IsNullOrEmpty(correct)) showLocalizError(correct, "chapter" + chapterN);
+                if (!string.IsNullOrEmpty(correct))
+                    showLocalizError(correct, "chapter" + chapterN);
 
                 if (chapterN != 1) continue;
 
@@ -1670,7 +1724,7 @@ namespace StoriesLinker
         {
             foreach (KeyValuePair<string, string> pair in origJsonData.Data)
                 // Проверяем только наличие ключа, игнорируем пустые значения
-                if (!jsonData.Data.ContainsKey(pair.Key))
+                if (!jsonData.Data.ContainsKey(pair.Key) && origLang)
                     return pair.Key;
 
             return string.Empty;
@@ -1692,11 +1746,13 @@ namespace StoriesLinker
 
             if (IsCacheValid(cacheKey) && _localizationCache.TryGetValue(cacheKey, out var cachedData))
             {
-                var result = new AjLocalizInJsonFile();
-                result.Data = cachedData.ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => kvp.Value.Text
-                );
+                var result = new AjLocalizInJsonFile
+                {
+                    Data = cachedData.ToDictionary(
+                                                              kvp => kvp.Key,
+                                                              kvp => kvp.Value.Text
+                                                             )
+                };
                 return result;
             }
 
@@ -1774,8 +1830,7 @@ namespace StoriesLinker
                 }
             }
 
-            var jsonFile = new AjLocalizInJsonFile();
-            jsonFile.Data = total;
+            var jsonFile = new AjLocalizInJsonFile { Data = total };
 
             // Кэшируем результат
             _localizationCache[cacheKey] = total.ToDictionary(
@@ -1817,6 +1872,266 @@ namespace StoriesLinker
             File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
 
             return jsonFile;
+        }
+
+        /// <summary>
+        /// Создает структуру папок для локализации
+        /// </summary>
+        private void CreateLocalizationStructure()
+        {
+            string localizationFolder = Path.Combine(_projectPath, "Localization");
+            string russianFolder = Path.Combine(localizationFolder, "Russian");
+
+            if (!Directory.Exists(localizationFolder))
+                Directory.CreateDirectory(localizationFolder);
+
+            if (!Directory.Exists(russianFolder))
+                Directory.CreateDirectory(russianFolder);
+
+            Console.WriteLine($"✅ Создана структура папок локализации в {russianFolder}");
+        }
+
+        /// <summary>
+        /// Генерирует Excel файлы локализации из Flow.json
+        /// </summary>
+        private void GenerateLocalizationExcelFiles(Dictionary<string, AjObj> objectsList,
+                                                   List<string>[] csparentsIds,
+                                                   Dictionary<string, string> nativeDict)
+        {
+            Console.WriteLine("Начинаем генерацию Excel файлов локализации...");
+            string russianFolder = Path.Combine(_projectPath, "Localization", "Russian");
+
+            // Для каждой главы создаем отдельный пакет Excel
+            for (var i = 0; i < csparentsIds.Length; i++)
+            {
+                Console.WriteLine($"Обрабатываем главу {i + 1}...");
+                int chapterN = i + 1;
+
+                using var package = new ExcelPackage();
+                var forTranslatingWorksheet = package.Workbook.Worksheets.Add($"Chapter_{chapterN}");
+                var internalWorksheet = package.Workbook.Worksheets.Add($"Chapter_{chapterN}_internal");
+
+                // Заголовки для основного файла
+                forTranslatingWorksheet.Cells[1, 1].Value = "ID";
+                forTranslatingWorksheet.Cells[1, 2].Value = "Speaker";
+                forTranslatingWorksheet.Cells[1, 3].Value = "Emotion";
+                forTranslatingWorksheet.Cells[1, 4].Value = "Text";
+
+                // Заголовки для internal файла
+                internalWorksheet.Cells[1, 1].Value = "ID";
+                internalWorksheet.Cells[1, 2].Value = "Text";
+
+                int mainRow = 2;
+                int internalRow = 2;
+
+                foreach (string parentId in csparentsIds[i])
+                {
+                    Console.WriteLine($"Обрабатываем parentId: {parentId}");
+                    foreach (KeyValuePair<string, AjObj> pair in objectsList.Where(p => p.Value.Properties.Parent == parentId))
+                    {
+                        AjObj dfobj = pair.Value;
+                        if (dfobj.EType != AjType.DialogueFragment) continue;
+
+                        // Обработка основного текста
+                        if (!string.IsNullOrEmpty(dfobj.Properties.Text))
+                        {
+                            try
+                            {
+                                forTranslatingWorksheet.Cells[mainRow, 1].Value = dfobj.Properties.Text;
+
+                                if (!string.IsNullOrEmpty(dfobj.Properties.Speaker) &&
+                                    objectsList.TryGetValue(dfobj.Properties.Speaker, out AjObj speaker))
+                                {
+                                    forTranslatingWorksheet.Cells[mainRow, 2].Value = nativeDict[speaker.Properties.DisplayName];
+                                }
+
+                                forTranslatingWorksheet.Cells[mainRow, 3].Value = RecognizeEmotion(dfobj.Properties.Color);
+                                forTranslatingWorksheet.Cells[mainRow, 4].Value = nativeDict[dfobj.Properties.Text];
+                                mainRow++;
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Ошибка при обработке текста: {ex.Message}");
+                                throw;
+                            }
+                        }
+
+                        // Обработка сценических указаний
+                        if (!string.IsNullOrEmpty(dfobj.Properties.StageDirections))
+                        {
+                            try
+                            {
+                                internalWorksheet.Cells[internalRow, 1].Value = dfobj.Properties.StageDirections;
+
+                                // Проверяем наличие ключа в словаре
+                                if (nativeDict.TryGetValue(dfobj.Properties.StageDirections, out string translatedDirections))
+                                {
+                                    internalWorksheet.Cells[internalRow, 2].Value = translatedDirections;
+                                }
+                                else
+                                {
+                                    // Если перевод отсутствует, используем оригинальный текст
+                                    internalWorksheet.Cells[internalRow, 2].Value = dfobj.Properties.StageDirections;
+                                    Console.WriteLine($"Предупреждение: Отсутствует перевод для сценических указаний: {dfobj.Properties.StageDirections}");
+                                }
+
+                                internalRow++;
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Предупреждение при обработке сценических указаний: {ex.Message}");
+                                // Продолжаем выполнение, не выбрасывая исключение
+                            }
+                        }
+                    }
+                }
+
+                Console.WriteLine($"Сохраняем файлы для главы {chapterN}...");
+
+                try
+                {
+                    // Сохраняем файлы
+                    string forTranslatingPath = Path.Combine(russianFolder, $"Chapter_{chapterN}_for_translating.xlsx");
+                    string internalPath = Path.Combine(russianFolder, $"Chapter_{chapterN}_internal.xlsx");
+
+                    Console.WriteLine($"Путь для основного файла: {forTranslatingPath}");
+                    Console.WriteLine($"Путь для internal файла: {internalPath}");
+
+                    // Проверяем, есть ли данные для сохранения
+                    if (mainRow > 2)
+                    {
+                        File.WriteAllBytes(forTranslatingPath, package.GetAsByteArray());
+                        Console.WriteLine("Основной файл сохранен");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Нет данных для основного файла");
+                    }
+
+                    // Создаем новый пакет для internal файла
+                    if (internalRow > 2)
+                    {
+                        using var internalPackage = new ExcelPackage();
+                        var ws = internalPackage.Workbook.Worksheets.Add("Internal");
+                        ws.Cells["A1:B" + (internalRow - 1)].Value = internalWorksheet.Cells["A1:B" + (internalRow - 1)].Value;
+                        File.WriteAllBytes(internalPath, internalPackage.GetAsByteArray());
+                        Console.WriteLine("Internal файл сохранен");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Нет данных для internal файла");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка при сохранении файлов: {ex.Message}");
+                    throw;
+                }
+            }
+
+            Console.WriteLine("✅ Генерация Excel файлов локализации завершена");
+        }
+
+        private void GenerateCharacterLocalizationFiles(Dictionary<string, AjObj> objectsList,
+                                                    Dictionary<string, string> nativeDict)
+        {
+            string russianFolder = Path.Combine(_projectPath, "Localization", "Russian");
+            string characterNamesPath = Path.Combine(russianFolder, "CharacterNames.xlsx");
+
+            using var package = new ExcelPackage();
+            var worksheet = package.Workbook.Worksheets.Add("Characters");
+
+            // Заголовки
+            worksheet.Cells[1, 1].Value = "ID";
+            worksheet.Cells[1, 2].Value = "Text";
+
+            int row = 2;
+
+            // Собираем всех персонажей
+            foreach (KeyValuePair<string, AjObj> pair in objectsList)
+            {
+                if (pair.Value.EType != AjType.Entity) continue;
+
+                string displayName = pair.Value.Properties.DisplayName;
+                if (string.IsNullOrEmpty(displayName)) continue;
+
+                worksheet.Cells[row, 1].Value = displayName;
+
+                if (nativeDict.TryGetValue(displayName, out string translatedName))
+                {
+                    worksheet.Cells[row, 2].Value = translatedName;
+                }
+
+                row++;
+            }
+
+            File.WriteAllBytes(characterNamesPath, package.GetAsByteArray());
+            Console.WriteLine("✅ Создан файл локализации персонажей");
+        }
+
+        /// <summary>
+        /// Создает или обновляет файлы локализации
+        /// </summary>
+        public bool InitializeLocalization()
+        {
+            try
+            {
+                CreateLocalizationStructure();
+
+                // Загружаем базовые данные
+                (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList) = LoadBaseData();
+
+                if (nativeDict == null || nativeDict.Count == 0)
+                {
+                    Console.WriteLine("Предупреждение: Словарь локализации пуст или не загружен");
+                    nativeDict = new Dictionary<string, string>();
+                }
+
+                if (ajfile == null)
+                {
+                    Form1.ShowMessage("❌ Не удалось загрузить Flow.json");
+                    return false;
+                }
+
+                List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
+
+                if (chaptersIds.Count < Form1.AvailableChapters)
+                {
+                    Form1.ShowMessage("❌ Глав в книге меньше введённого количества");
+                    return false;
+                }
+
+                chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
+                List<string>[] csparentsIds = GetChapterAndSubchapterHierarchy(chaptersIds, objectsList);
+
+                try
+                {
+                    GenerateLocalizationExcelFiles(objectsList, csparentsIds, nativeDict);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Предупреждение при генерации Excel файлов: {ex.Message}");
+                    // Продолжаем выполнение
+                }
+
+                try
+                {
+                    GenerateCharacterLocalizationFiles(objectsList, nativeDict);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Предупреждение при генерации файлов персонажей: {ex.Message}");
+                    // Продолжаем выполнение
+                }
+
+                Form1.ShowMessage("✅ Файлы локализации успешно созданы/обновлены");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Form1.ShowMessage($"❌ Ошибка при инициализации локализации: {ex.Message}");
+                return false;
+            }
         }
 
         #endregion

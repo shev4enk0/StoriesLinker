@@ -22,7 +22,7 @@ namespace StoriesLinker
         public JsonObjectsParser(string projectPath)
         {
             if (string.IsNullOrEmpty(projectPath)) return;
-            
+
             string jsonFolder = Path.Combine(projectPath, "Raw", JSON_FOLDER_NAME);
             _defaultPath = jsonFolder;
 
@@ -54,7 +54,7 @@ namespace StoriesLinker
         {
             _linker = linker;
             if (string.IsNullOrEmpty(defaultPath)) return;
-            
+
             string jsonFolder = Path.Combine(defaultPath, "Raw", JSON_FOLDER_NAME);
             _defaultPath = jsonFolder;
 
@@ -109,28 +109,31 @@ namespace StoriesLinker
             try
             {
                 Console.WriteLine("Начинаем парсинг файлов Articy X...");
-                
+
                 // Парсим файлы Articy X
                 var ajFile = ParseArticyX();
-                
+
                 // Если LinkerBin не предоставлен, возвращаем пустой словарь
                 if (_linker == null)
                 {
                     Console.WriteLine("Предупреждение: LinkerBin не предоставлен, возвращаем пустой словарь объектов");
                     return new Dictionary<string, AjObj>();
                 }
-                
+
                 // Если словарь локализации не предоставлен, получаем его из LinkerBin
+                Dictionary<string, AjObj> articyObjects;
                 if (nativeDict == null)
                 {
-                    nativeDict = _linker.GetLocalizationDictionary();
+                    (nativeDict, _, articyObjects) = _linker.LoadBaseData();
                 }
-                
-                // Получаем объекты Articy X
-                var objects = _linker.ExtractBookEntities(ajFile, nativeDict);
-                
-                Console.WriteLine($"Успешно получено {objects.Count} объектов Articy X");
-                return objects;
+                else
+                {
+                    // Если словарь предоставлен, используем его с текущим ajFile
+                    articyObjects = _linker.ExtractBookEntities(ajFile, nativeDict);
+                }
+
+                Console.WriteLine($"Успешно получено {articyObjects.Count} объектов Articy X");
+                return articyObjects;
             }
             catch (Exception ex)
             {
@@ -178,12 +181,12 @@ namespace StoriesLinker
         private AjFile ParseArticyXObjects(string jsonContent)
         {
             AjFile jsonObj = new AjFile();
-            
+
             try
             {
                 // Парсим основной файл с нодами
                 var jsonData = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonContent);
-                
+
                 // Создаем дефолтный пакет для совместимости с существующей структурой
                 jsonObj.Packages = new List<AjPackage>
                 {
@@ -200,7 +203,7 @@ namespace StoriesLinker
                 if (jsonData.ContainsKey("Objects") && jsonData["Objects"] is Newtonsoft.Json.Linq.JArray objectsArray)
                 {
                     Console.WriteLine($"Найдено {objectsArray.Count} объектов в массиве Objects");
-                    
+
                     // Парсим каждый объект из массива Objects
                     foreach (var obj in objectsArray)
                     {
@@ -305,7 +308,7 @@ namespace StoriesLinker
                 {
                     Console.WriteLine("Не удалось десериализовать как Dictionary, пробуем как массив...");
                     var nodesArray = JsonConvert.DeserializeObject<List<object>>(jsonContent);
-                    
+
                     // Создаем дефолтный пакет для совместимости с существующей структурой
                     jsonObj.Packages = new List<AjPackage>
                     {
@@ -371,7 +374,7 @@ namespace StoriesLinker
                     throw;
                 }
             }
-          
+
             return jsonObj;
         }
 
@@ -381,7 +384,7 @@ namespace StoriesLinker
         private AjFile ParseArticyXGlobalVariables(string jsonContent)
         {
             var globalVarsJson = JsonConvert.DeserializeObject<Dictionary<string, List<AjNamespace>>>(jsonContent);
-            
+
             return new AjFile
             {
                 GlobalVariables = globalVarsJson["GlobalVariables"],
@@ -389,4 +392,4 @@ namespace StoriesLinker
             };
         }
     }
-} 
+}
