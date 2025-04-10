@@ -19,10 +19,14 @@ namespace StoriesLinker
         private AjLinkerMeta _cachedMetaData;
         private Dictionary<string, string> _cachedLocalizationDict;
         private int _allWordsCount = 0;
-        private static Dictionary<string, string> missingFiles = new Dictionary<string, string>();
+        private static Dictionary<string, string> missingFiles = new();
         private List<string> _cachedSortedChapterIds;
         private AjFile _cachedAjFile;
         private AjLinkerMeta _cachedMeta;
+        private Dictionary<string, AjObj> _cachedBookEntities;
+        private AjFile _cachedEntitiesAjFile;
+        private Dictionary<string, string> _cachedEntitiesNativeDict;
+        private readonly Dictionary<LocalizationCacheKey, Dictionary<string, LocalizationEntry>> _localizationCache = new();
 
         private class LocalizationEntry
         {
@@ -40,10 +44,7 @@ namespace StoriesLinker
             {
                 if (string.IsNullOrEmpty(str)) return str;
 
-                if (_strings.TryGetValue(str, out var existing))
-                {
-                    return existing;
-                }
+                if (_strings.TryGetValue(str, out string existing)) return existing;
 
                 _strings.Add(str);
                 return str;
@@ -65,59 +66,50 @@ namespace StoriesLinker
         }
 
         #region Работа с Excel файлами и преобразование в словари
+
         /// <summary>
         /// Преобразует Excel таблицу в словарь ключ-значение
         /// </summary>
         private Dictionary<string, string> ConvertExcelToDictionary(string path, int column = 1)
         {
-            if (_savedXmlDicts.TryGetValue(path, out Dictionary<int, Dictionary<string, string>> columnsDict) && columnsDict.TryGetValue(column, out Dictionary<string, string> cachedDict))
-            {
+            if (_savedXmlDicts.TryGetValue(path, out Dictionary<int, Dictionary<string, string>> columnsDict) &&
+                columnsDict.TryGetValue(column, out Dictionary<string, string> cachedDict))
                 return cachedDict;
-            }
 
-            Dictionary<string, string> nativeDict = new Dictionary<string, string>();
+            var nativeDict = new Dictionary<string, string>();
 
-            using (ExcelPackage xlPackage = new ExcelPackage(new FileInfo(path)))
+            using (var xlPackage = new ExcelPackage(new FileInfo(path)))
             {
                 if (xlPackage.Workbook.Worksheets.Count == 0)
-                {
                     throw new InvalidOperationException("The workbook contains no worksheets.");
-                }
                 ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
                 int totalRows = myWorksheet.Dimension.End.Row;
                 int totalColumns = myWorksheet.Dimension.End.Column;
 
-                for (int rowNum = 1; rowNum <= totalRows; rowNum++)
+                for (var rowNum = 1; rowNum <= totalRows; rowNum++)
                 {
                     ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
                     ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
 
                     string firstRowStr = firstRow?.Value != null
-                                                ? firstRow.Value.ToString().Trim()
-                                                : string.Empty;
+                                             ? firstRow.Value.ToString().Trim()
+                                             : string.Empty;
                     string secondRowStr = secondRow?.Value != null
-                                                 ? secondRow.Value.ToString().Trim()
-                                                 : string.Empty;
+                                              ? secondRow.Value.ToString().Trim()
+                                              : string.Empty;
 
                     // Пропускаем строки с пустым ключом или пустым значением
-                    if (string.IsNullOrWhiteSpace(firstRowStr) || string.IsNullOrWhiteSpace(secondRowStr))
-                        continue;
+                    if (string.IsNullOrWhiteSpace(firstRowStr) || string.IsNullOrWhiteSpace(secondRowStr)) continue;
 
                     if (!nativeDict.ContainsKey(firstRowStr))
-                    {
                         nativeDict.Add(firstRowStr, secondRowStr);
-                    }
                     else
-                    {
                         Console.WriteLine($"Обнаружен дублирующийся ключ: {firstRowStr}");
-                    }
                 }
             }
 
             if (!_savedXmlDicts.ContainsKey(path))
-            {
                 _savedXmlDicts[path] = new Dictionary<int, Dictionary<string, string>>();
-            }
             _savedXmlDicts[path][column] = nativeDict;
 
             return nativeDict;
@@ -128,24 +120,24 @@ namespace StoriesLinker
         /// </summary>
         public Dictionary<string, string> GetLocalizationDictionary()
         {
-            if (_cachedLocalizationDict != null)
-                return _cachedLocalizationDict;
+            if (_cachedLocalizationDict != null) return _cachedLocalizationDict;
 
             _cachedLocalizationDict = ConvertExcelToDictionary(GetLocalizationTablesPath(_projectPath));
             return _cachedLocalizationDict;
         }
+
         #endregion
 
         #region Парсинг JSON файлов
+
         /// <summary>
         /// Парсит Flow.json файл
         /// </summary>
         public AjFile ParseFlowJsonFile()
         {
-            if (_cachedFlowJson != null)
-                return _cachedFlowJson;
+            if (_cachedFlowJson != null) return _cachedFlowJson;
 
-            using StreamReader r = new StreamReader(GetFlowJsonPath(_projectPath));
+            using var r = new StreamReader(GetFlowJsonPath(_projectPath));
             string json = r.ReadToEnd();
             _cachedFlowJson = JsonConvert.DeserializeObject<AjFile>(json);
 
@@ -157,76 +149,50 @@ namespace StoriesLinker
         /// </summary>
         public AjLinkerMeta ParseMetaDataFromExcel()
         {
-            if (_cachedMetaData != null)
-                return _cachedMetaData;
+            if (_cachedMetaData != null) return _cachedMetaData;
 
             _cachedMetaData = new AjLinkerMeta { Version = new BookVersionInfo() };
 
             string metaXmlPath = _projectPath + @"\Raw\Meta.xlsx";
 
-            Dictionary<string, string> nativeDict = new Dictionary<string, string>();
+            var nativeDict = new Dictionary<string, string>();
 
-            using ExcelPackage xlPackage = new ExcelPackage(new FileInfo(metaXmlPath));
+            using var xlPackage = new ExcelPackage(new FileInfo(metaXmlPath));
 
             ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
             int totalRows = myWorksheet.Dimension.End.Row;
 
-            for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+            for (var rowNum = 2; rowNum <= totalRows; rowNum++)
             {
                 ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
                 ExcelRange secondRow = myWorksheet.Cells[rowNum, 2];
 
-                string fieldName = firstRow.Value.ToString();
-                string fieldValue = secondRow.Value.ToString();
+                var fieldName = firstRow.Value.ToString();
+                var fieldValue = secondRow.Value.ToString();
 
                 string[] values;
 
                 switch (fieldName)
                 {
-                    case "UniqueID":
-                        _cachedMetaData.UniqueId = fieldValue;
-                        break;
-                    case "SpritePrefix":
-                        _cachedMetaData.SpritePrefix = fieldValue;
-                        break;
-                    case "VersionBin":
-                        _cachedMetaData.Version.BinVersion = fieldValue;
-                        break;
-                    case "VersionPreview":
-                        _cachedMetaData.Version.PreviewVersion = fieldValue;
-                        break;
-                    case "VersionBaseResources":
-                        _cachedMetaData.Version.BaseResourcesVersion = fieldValue;
-                        break;
-                    case "StandartizedUI":
-                        _cachedMetaData.StandartizedUi = fieldValue == "1";
-                        break;
-                    case "UITextBlockFontSize":
-                        _cachedMetaData.UiTextBlockFontSize = int.Parse(fieldValue);
-                        break;
-                    case "UIChoiceBlockFontSize":
-                        _cachedMetaData.UiChoiceBlockFontSize = int.Parse(fieldValue);
-                        break;
-                    case "KarmaCurrency":
-                        _cachedMetaData.KarmaCurrency = fieldValue;
-                        break;
-                    case "KarmaBadBorder":
-                        _cachedMetaData.KarmaBadBorder = int.Parse(fieldValue);
-                        break;
-                    case "KarmaGoodBorder":
-                        _cachedMetaData.KarmaGoodBorder = int.Parse(fieldValue);
-                        break;
-                    case "KarmaTopLimit":
-                        _cachedMetaData.KarmaTopLimit = int.Parse(fieldValue);
-                        break;
+                    case "UniqueID": _cachedMetaData.UniqueId = fieldValue; break;
+                    case "SpritePrefix": _cachedMetaData.SpritePrefix = fieldValue; break;
+                    case "VersionBin": _cachedMetaData.Version.BinVersion = fieldValue; break;
+                    case "VersionPreview": _cachedMetaData.Version.PreviewVersion = fieldValue; break;
+                    case "VersionBaseResources": _cachedMetaData.Version.BaseResourcesVersion = fieldValue; break;
+                    case "StandartizedUI": _cachedMetaData.StandartizedUi = fieldValue == "1"; break;
+                    case "UITextBlockFontSize": _cachedMetaData.UiTextBlockFontSize = int.Parse(fieldValue); break;
+                    case "UIChoiceBlockFontSize": _cachedMetaData.UiChoiceBlockFontSize = int.Parse(fieldValue); break;
+                    case "KarmaCurrency": _cachedMetaData.KarmaCurrency = fieldValue; break;
+                    case "KarmaBadBorder": _cachedMetaData.KarmaBadBorder = int.Parse(fieldValue); break;
+                    case "KarmaGoodBorder": _cachedMetaData.KarmaGoodBorder = int.Parse(fieldValue); break;
+                    case "KarmaTopLimit": _cachedMetaData.KarmaTopLimit = int.Parse(fieldValue); break;
                     case "CurrenciesInOrderOfUI":
                         _cachedMetaData.CurrenciesInOrderOfUi = new List<string>(fieldValue.Split(','));
                         break;
                     case "RacesList":
                         _cachedMetaData.RacesList = fieldValue != "-"
-                                                ? new List<string>(fieldValue.Split(','))
-                                                : new List<string>();
-
+                                                        ? new List<string>(fieldValue.Split(','))
+                                                        : new List<string>();
                         break;
                     case "ClothesSpriteNames":
                         _cachedMetaData.ClothesSpriteNames = new List<string>(fieldValue.Split(','));
@@ -234,29 +200,20 @@ namespace StoriesLinker
                     case "UndefinedClothesFuncVariant":
                         _cachedMetaData.UndefinedClothesFuncVariant = int.Parse(fieldValue);
                         break;
-                    case "ExceptionsWeaponLayer":
-                        _cachedMetaData.ExceptionsWeaponLayer = fieldValue == "1";
-                        break;
+                    case "ExceptionsWeaponLayer": _cachedMetaData.ExceptionsWeaponLayer = fieldValue == "1"; break;
                     case "UITextPlateLimits":
                         values = fieldValue.Split(',');
 
                         _cachedMetaData.UiTextPlateLimits = new List<int>();
 
-                        foreach (string el in values)
-                        {
-                            _cachedMetaData.UiTextPlateLimits.Add(int.Parse(el));
-                        }
+                        foreach (string el in values) _cachedMetaData.UiTextPlateLimits.Add(int.Parse(el));
 
                         break;
                     case "UIPaintFirstLetterInRedException":
                         _cachedMetaData.UiPaintFirstLetterInRedException = fieldValue == "1";
                         break;
-                    case "UITextPlateOffset":
-                        _cachedMetaData.UiTextPlateOffset = int.Parse(fieldValue);
-                        break;
-                    case "UIOverridedTextColor":
-                        _cachedMetaData.UiOverridedTextColor = fieldValue == "1";
-                        break;
+                    case "UITextPlateOffset": _cachedMetaData.UiTextPlateOffset = int.Parse(fieldValue); break;
+                    case "UIOverridedTextColor": _cachedMetaData.UiOverridedTextColor = fieldValue == "1"; break;
                     case "UITextColor":
                         values = fieldValue.Split(',');
 
@@ -297,21 +254,15 @@ namespace StoriesLinker
                         foreach (string el in values) _cachedMetaData.UiResTextColor.Add(int.Parse(el));
 
                         break;
-                    case "WardrobeEnabled":
-                        _cachedMetaData.WardrobeEnabled = fieldValue == "1";
-                        break;
+                    case "WardrobeEnabled": _cachedMetaData.WardrobeEnabled = fieldValue == "1"; break;
                     case "MainHeroHasDifferentGenders":
                         _cachedMetaData.MainHeroHasDifferentGenders = fieldValue == "1";
                         break;
                     case "MainHeroHasSplittedHairSprite":
                         _cachedMetaData.MainHeroHasSplittedHairSprite = fieldValue == "1";
                         break;
-                    case "CustomClothesCount":
-                        _cachedMetaData.CustomClothesCount = int.Parse(fieldValue);
-                        break;
-                    case "CustomHairsCount":
-                        _cachedMetaData.CustomHairCount = int.Parse(fieldValue);
-                        break;
+                    case "CustomClothesCount": _cachedMetaData.CustomClothesCount = int.Parse(fieldValue); break;
+                    case "CustomHairsCount": _cachedMetaData.CustomHairCount = int.Parse(fieldValue); break;
                 }
             }
 
@@ -320,16 +271,16 @@ namespace StoriesLinker
 
             Func<object[], int> checkRow = ValidateExcelRow();
 
-            List<AjMetaCharacterData> characters = new List<AjMetaCharacterData>();
+            var characters = new List<AjMetaCharacterData>();
 
-            for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+            for (var rowNum = 2; rowNum <= totalRows; rowNum++)
             {
                 object[] cells =
                 [
                     myWorksheet.Cells[rowNum, 1].Value,
-                                     myWorksheet.Cells[rowNum, 2].Value,
-                                     myWorksheet.Cells[rowNum, 3].Value,
-                                     myWorksheet.Cells[rowNum, 4].Value
+                    myWorksheet.Cells[rowNum, 2].Value,
+                    myWorksheet.Cells[rowNum, 3].Value,
+                    myWorksheet.Cells[rowNum, 4].Value
                 ];
 
                 int chResult = checkRow(cells);
@@ -340,7 +291,7 @@ namespace StoriesLinker
                     case 0: return null;
                 }
 
-                AjMetaCharacterData ch = new AjMetaCharacterData();
+                var ch = new AjMetaCharacterData();
 
                 ch.DisplayName = cells[0].ToString();
                 ch.ClothesVariableName = cells[1].ToString();
@@ -355,17 +306,17 @@ namespace StoriesLinker
             myWorksheet = xlPackage.Workbook.Worksheets[3];
             totalRows = myWorksheet.Dimension.End.Row;
 
-            List<AjMetaLocationData> locations = new List<AjMetaLocationData>();
+            var locations = new List<AjMetaLocationData>();
 
-            for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+            for (var rowNum = 2; rowNum <= totalRows; rowNum++)
             {
                 object[] cells =
                 [
                     myWorksheet.Cells[rowNum, 1].Value,
-                                     myWorksheet.Cells[rowNum, 2].Value,
-                                     myWorksheet.Cells[rowNum, 3].Value,
-                                     myWorksheet.Cells[rowNum, 4].Value,
-                                     myWorksheet.Cells[rowNum, 5].Value
+                    myWorksheet.Cells[rowNum, 2].Value,
+                    myWorksheet.Cells[rowNum, 3].Value,
+                    myWorksheet.Cells[rowNum, 4].Value,
+                    myWorksheet.Cells[rowNum, 5].Value
                 ];
 
                 int chResult = checkRow(cells);
@@ -376,7 +327,7 @@ namespace StoriesLinker
                     case 0: return null;
                 }
 
-                AjMetaLocationData loc = new AjMetaLocationData
+                var loc = new AjMetaLocationData
                 {
                     Id = int.Parse(cells[0].ToString()),
                     DisplayName = cells[1].ToString(),
@@ -384,10 +335,7 @@ namespace StoriesLinker
                     SoundIdleName = cells[3].ToString()
                 };
 
-                if (cells[4].ToString() == "1")
-                {
-                    _cachedMetaData.IntroLocation = rowNum - 1;
-                }
+                if (cells[4].ToString() == "1") _cachedMetaData.IntroLocation = rowNum - 1;
 
                 locations.Add(loc);
             }
@@ -396,9 +344,11 @@ namespace StoriesLinker
 
             return _cachedMetaData;
         }
+
         #endregion
 
         #region Вспомогательные методы для проверки данных
+
         /// <summary>
         /// Проверяет строку на пустоту и корректность данных
         /// </summary>
@@ -406,14 +356,14 @@ namespace StoriesLinker
         {
             int Row(object[] cells)
             {
-                bool rowIsCompletelyEmpty = true;
-                bool rowHasEmptyField = false;
+                var rowIsCompletelyEmpty = true;
+                var rowHasEmptyField = false;
 
                 foreach (object cell in cells)
-                {
-                    if (cell == null || string.IsNullOrEmpty(cell.ToString().Trim())) { rowHasEmptyField = true; }
-                    else { rowIsCompletelyEmpty = false; }
-                }
+                    if (cell == null || string.IsNullOrEmpty(cell.ToString().Trim()))
+                        rowHasEmptyField = true;
+                    else
+                        rowIsCompletelyEmpty = false;
 
                 if (rowIsCompletelyEmpty)
                     return -1;
@@ -424,19 +374,29 @@ namespace StoriesLinker
 
             return Row;
         }
+
         #endregion
 
         #region Работа с сущностями книги
+
         /// <summary>
         /// Получает все сущности книги из Flow.json
         /// </summary>
         public Dictionary<string, AjObj> ExtractBookEntities(AjFile ajfile, Dictionary<string, string> nativeDict)
         {
-            Dictionary<string, AjObj> objectsList = new Dictionary<string, AjObj>();
+            // Проверяем кэш
+            if (_cachedBookEntities != null &&
+                _cachedEntitiesAjFile == ajfile &&
+                _cachedEntitiesNativeDict == nativeDict)
+            {
+                return _cachedBookEntities;
+            }
+
+            var objectsList = new Dictionary<string, AjObj>();
 
             List<AjObj> models = ajfile.Packages[0].Models;
 
-            Dictionary<string, int> chaptersIdNames = new Dictionary<string, int>();
+            var chaptersIdNames = new Dictionary<string, int>();
 
             foreach (AjObj ns in models)
             {
@@ -451,14 +411,12 @@ namespace StoriesLinker
                         {
                             Form1.ShowMessage($"Пустое название фрагмента с ID: {ns.Properties.Id}");
                             continue;
-                            throw new ArgumentException($"Пустое название фрагмента с ID: {ns.Properties.Id}");
                         }
 
-                        if (!nativeDict.TryGetValue(displayName, out var translatedName))
+                        if (!nativeDict.TryGetValue(displayName, out string translatedName))
                         {
                             Form1.ShowMessage($"Отсутствует перевод для названия фрагмента: {displayName}");
                             continue;
-                            throw new KeyNotFoundException($"Отсутствует перевод для названия фрагмента: {displayName}");
                         }
 
                         string value = Regex.Match(translatedName, @"\d+").Value;
@@ -472,32 +430,18 @@ namespace StoriesLinker
 
                         chaptersIdNames.Add(ns.Properties.Id, intValue);
                         break;
-                    case "Dialogue":
-                        type = AjType.Dialogue;
-                        break;
+                    case "Dialogue": type = AjType.Dialogue; break;
                     case "Entity":
                     case "DefaultSupportingCharacterTemplate":
                     case "DefaultMainCharacterTemplate":
                         type = AjType.Entity;
                         break;
-                    case "Location":
-                        type = AjType.Location;
-                        break;
-                    case "DialogueFragment":
-                        type = AjType.DialogueFragment;
-                        break;
-                    case "Instruction":
-                        type = AjType.Instruction;
-                        break;
-                    case "Condition":
-                        type = AjType.Condition;
-                        break;
-                    case "Jump":
-                        type = AjType.Jump;
-                        break;
-                    default:
-                        type = AjType.Other;
-                        break;
+                    case "Location": type = AjType.Location; break;
+                    case "DialogueFragment": type = AjType.DialogueFragment; break;
+                    case "Instruction": type = AjType.Instruction; break;
+                    case "Condition": type = AjType.Condition; break;
+                    case "Jump": type = AjType.Jump; break;
+                    default: type = AjType.Other; break;
                 }
 
                 ns.EType = type;
@@ -505,26 +449,31 @@ namespace StoriesLinker
                 objectsList.Add(ns.Properties.Id, ns);
             }
 
+            // Сохраняем в кэш
+            _cachedBookEntities = objectsList;
+            _cachedEntitiesAjFile = ajfile;
+            _cachedEntitiesNativeDict = nativeDict;
+
             return objectsList;
         }
 
         /// <summary>
         /// Получает отсортированный список глав
         /// </summary>
-        private List<string> GetSortedChapterIds(Dictionary<string, AjObj> objList, Dictionary<string, string> nativeDict)
+        private List<string> GetSortedChapterIds(Dictionary<string, AjObj> objList,
+                                                 Dictionary<string, string> nativeDict)
         {
-            if (_cachedSortedChapterIds != null)
-                return _cachedSortedChapterIds;
+            if (_cachedSortedChapterIds != null) return _cachedSortedChapterIds;
 
-            List<string> chaptersIds = new List<string>();
-            Dictionary<string, int> chaptersIdNames = new Dictionary<string, int>();
+            var chaptersIds = new List<string>();
+            var chaptersIdNames = new Dictionary<string, int>();
 
             foreach (KeyValuePair<string, AjObj> kobj in objList)
             {
                 if (kobj.Value.EType != AjType.FlowFragment) continue;
 
                 string displayName = kobj.Value.Properties.DisplayName;
-                if (!nativeDict.TryGetValue(displayName, out var translatedName))
+                if (!nativeDict.TryGetValue(displayName, out string translatedName))
                 {
                     Form1.ShowMessage($"Отсутствует перевод для названия главы: {displayName}");
                     throw new KeyNotFoundException($"Отсутствует перевод для названия главы: {displayName}");
@@ -541,12 +490,10 @@ namespace StoriesLinker
                 chaptersIdNames.Add(kobj.Value.Properties.Id, intValue);
             }
 
-            IOrderedEnumerable<KeyValuePair<string, int>> sortedChapterNames = from entry in chaptersIdNames orderby entry.Value ascending select entry;
+            IOrderedEnumerable<KeyValuePair<string, int>> sortedChapterNames =
+                from entry in chaptersIdNames orderby entry.Value ascending select entry;
 
-            foreach (KeyValuePair<string, int> pair in sortedChapterNames)
-            {
-                chaptersIds.Add(pair.Key);
-            }
+            foreach (KeyValuePair<string, int> pair in sortedChapterNames) chaptersIds.Add(pair.Key);
 
             _cachedSortedChapterIds = chaptersIds;
             return _cachedSortedChapterIds;
@@ -555,11 +502,12 @@ namespace StoriesLinker
         /// <summary>
         /// Получает ID глав и подглав
         /// </summary>
-        private List<string>[] GetChapterAndSubchapterHierarchy(List<string> chaptersIds, Dictionary<string, AjObj> objList)
+        private List<string>[] GetChapterAndSubchapterHierarchy(List<string> chaptersIds,
+                                                                Dictionary<string, AjObj> objList)
         {
-            List<List<string>> ids = new List<List<string>>();
+            var ids = new List<List<string>>();
 
-            for (int i = 0; i < chaptersIds.Count; i++)
+            for (var i = 0; i < chaptersIds.Count; i++)
             {
                 string chapterId = chaptersIds[i];
 
@@ -575,7 +523,6 @@ namespace StoriesLinker
                     string parent = kobj.Value.Properties.Parent;
 
                     while (true)
-                    {
                         if (parent == chapterId)
                         {
                             ids[i].Add(subchapterId);
@@ -583,40 +530,43 @@ namespace StoriesLinker
                         }
                         else
                         {
-                            if (objList.ContainsKey(parent))
-                            {
-                                parent = objList[parent].Properties.Parent;
-                            }
+                            if (objList.TryGetValue(parent, out AjObj value))
+                                parent = value.Properties.Parent;
                             else
-                            {
                                 break;
-                            }
                         }
-                    }
                 }
             }
 
             return ids.ToArray();
         }
+
         #endregion
 
         #region Генерация таблиц локализации
-        private (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList) LoadBaseData()
+
+        private (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList)
+            LoadBaseData()
         {
-            var nativeDict = GetLocalizationDictionary();
-            var ajfile = ParseFlowJsonFile();
-            var objectsList = ExtractBookEntities(ajfile, nativeDict);
+            Dictionary<string, string> nativeDict = GetLocalizationDictionary();
+            AjFile ajfile = ParseFlowJsonFile();
+            Dictionary<string, AjObj> objectsList = ExtractBookEntities(ajfile, nativeDict);
 
             _cachedLocalizationData["base"] = new Dictionary<string, LocalizationEntry>();
-            foreach (var obj in objectsList.Values)
+            foreach (AjObj obj in objectsList.Values)
             {
                 if (obj.Properties?.DisplayName == null) continue;
 
-                _cachedLocalizationData["base"][obj.Properties.DisplayName] = new LocalizationEntry
-                {
-                    Text = nativeDict.TryGetValue(obj.Properties.DisplayName, out var text) ? _stringPool.Intern(text) : string.Empty,
-                    IsInternal = false
-                };
+                _cachedLocalizationData["base"][obj.Properties.DisplayName] =
+                    new LocalizationEntry
+                    {
+                        Text = nativeDict
+                                   .TryGetValue(obj.Properties.DisplayName,
+                                                out string text)
+                                   ? _stringPool.Intern(text)
+                                   : string.Empty,
+                        IsInternal = false
+                    };
             }
 
             return (nativeDict, ajfile, objectsList);
@@ -630,144 +580,36 @@ namespace StoriesLinker
             try
             {
                 // Загружаем базовые данные один раз
-                var (nativeDict, ajfile, objectsList) = LoadBaseData();
+                (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList) =
+                    LoadBaseData();
 
                 List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
 
                 if (chaptersIds.Count < Form1.AvailableChapters)
                 {
-                    Form1.ShowMessage("Глав в книге меньше введённого количества");
+                    Form1.ShowMessage("❌ Глав в книге меньше введённого количества");
                     return false;
                 }
 
                 chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
                 List<string>[] csparentsIds = GetChapterAndSubchapterHierarchy(chaptersIds, objectsList);
 
-                List<string> charactersIds = new List<string>();
+                var charactersIds = new List<string>();
                 Dictionary<string, LocalizationEntry> charactersLocalizData = new();
-                Dictionary<string, string> charactersNames = new Dictionary<string, string>();
+                var charactersNames = new Dictionary<string, string>();
 
                 // Обработка глав с использованием кеша
-                for (int i = 0; i < csparentsIds.Length; i++)
+                for (var i = 0; i < csparentsIds.Length; i++)
                 {
                     try
                     {
                         int chapterN = i + 1;
-                        var chapterKey = $"chapter_{chapterN}_Russian";
-                        Dictionary<string, LocalizationEntry> chapterData = new();
-                        Dictionary<string, LocalizationEntry> internalData = new();
-                        List<string> parentsIds = csparentsIds[i];
-
-                        foreach (KeyValuePair<string, AjObj> scobj in objectsList)
-                        {
-                            if (!parentsIds.Contains(scobj.Value.Properties.Parent)) continue;
-
-                            AjObj dfobj = scobj.Value;
-
-                            if (dfobj.EType != AjType.DialogueFragment) continue;
-
-                            string chId = dfobj.Properties.Speaker;
-                            if (string.IsNullOrEmpty(chId))
-                            {
-                                Form1.ShowMessage($"Пустой ID спикера в главе {chapterN}");
-                            }
-
-                            if (!objectsList.TryGetValue(chId, out var character))
-                            {
-                                Form1.ShowMessage($"Не найден персонаж с ID {chId} в главе {chapterN}");
-                            }
-
-                            if (!charactersIds.Contains(chId))
-                            {
-                                var displayName = character.Properties.DisplayName;
-                                if (string.IsNullOrEmpty(displayName))
-                                {
-                                    Form1.ShowMessage($"Пустое имя персонажа с ID {chId} в главе {chapterN}");
-                                }
-
-                                if (!nativeDict.TryGetValue(displayName, out var characterText))
-                                {
-                                    Form1.ShowMessage($"Отсутствует перевод для персонажа: {displayName} в главе {chapterN}");
-                                    characterText = string.Empty; // Устанавливаем значение по умолчанию
-                                }
-
-                                charactersIds.Add(chId);
-                                charactersLocalizData[displayName] = new LocalizationEntry
-                                {
-                                    Text = _stringPool.Intern(characterText),
-                                    SpeakerDisplayName = string.Empty,
-                                    IsInternal = false
-                                };
-
-                                charactersNames[chId] = characterText;
-                            }
-
-                            if (!string.IsNullOrEmpty(dfobj.Properties.Text))
-                            {
-                                if (!nativeDict.TryGetValue(dfobj.Properties.Text, out var translatedText))
-                                {
-                                    Form1.ShowMessage($"Отсутствует перевод для текста: {dfobj.Properties.Text} в главе {chapterN}");
-                                    translatedText = string.Empty; // Устанавливаем значение по умолчанию
-                                }
-
-                                chapterData[dfobj.Properties.Text] = new LocalizationEntry
-                                {
-                                    Text = _stringPool.Intern(translatedText),
-                                    SpeakerDisplayName = charactersNames[chId],
-                                    Emotion = RecognizeEmotion(dfobj.Properties.Color),
-                                    IsInternal = false
-                                };
-                            }
-
-                            if (!string.IsNullOrEmpty(dfobj.Properties.MenuText))
-                            {
-                                if (!nativeDict.TryGetValue(dfobj.Properties.MenuText, out var translatedMenuText))
-                                {
-                                    Form1.ShowMessage($"Отсутствует перевод для текста меню: {dfobj.Properties.MenuText} в главе {chapterN}");
-                                    translatedMenuText = string.Empty; // Устанавливаем значение по умолчанию
-                                }
-
-                                chapterData[dfobj.Properties.MenuText] = new LocalizationEntry
-                                {
-                                    Text = _stringPool.Intern(translatedMenuText),
-                                    SpeakerDisplayName = charactersNames[chId],
-                                    Emotion = RecognizeEmotion(dfobj.Properties.Color),
-                                    IsInternal = false
-                                };
-                            }
-
-                            if (string.IsNullOrEmpty(dfobj.Properties.StageDirections)) continue;
-
-                            if (!nativeDict.TryGetValue(dfobj.Properties.StageDirections, out var translatedDirections))
-                            {
-                                Form1.ShowMessage($"Отсутствует перевод для сценических указаний: {dfobj.Properties.StageDirections} в главе {chapterN}");
-                                translatedDirections = string.Empty; // Устанавливаем значение по умолчанию
-                            }
-
-                            internalData[dfobj.Properties.StageDirections] = new LocalizationEntry
-                            {
-                                Text = _stringPool.Intern(translatedDirections),
-                                SpeakerDisplayName = string.Empty,
-                                IsInternal = true
-                            };
-                        }
-
-                        // Сохраняем данные в кеш
-                        _cachedLocalizationData[chapterKey] = chapterData;
-                        _cachedLocalizationData[chapterKey + "_internal"] = internalData;
-
-                        // Подсчитываем количество слов для статистики
-                        if (!Form1.FOR_LOCALIZATORS_MODE) continue;
-
-                        foreach (var entry in chapterData.Values.Where(e => !string.IsNullOrEmpty(e.Text)))
-                        {
-                            _allWordsCount += CalculateWordCount(entry.Text);
-                        }
-                        Console.WriteLine($"Глава {chapterN} обработана, количество слов: {_allWordsCount}");
+                        ProcessChapterLocalization(chapterN, csparentsIds[i], objectsList, nativeDict,
+                            charactersIds, charactersLocalizData, charactersNames);
                     }
                     catch (Exception ex)
                     {
-                        Form1.ShowMessage($"Ошибка при обработке главы {i + 1}: {ex.Message}\nStackTrace: {ex.StackTrace}");
+                        Form1.ShowMessage($"❌ Ошибка при обработке главы {i + 1}: {ex.Message}");
                         return false;
                     }
                 }
@@ -778,114 +620,174 @@ namespace StoriesLinker
                 if (Form1.FOR_LOCALIZATORS_MODE)
                 {
                     Console.WriteLine($"Общее количество слов: {_allWordsCount}");
+                    Form1.ShowMessage($"✅ Генерация таблиц локализации завершена. Общее количество слов: {_allWordsCount}");
+                }
+                else
+                {
+                    Form1.ShowMessage("✅ Генерация таблиц локализации успешно завершена");
                 }
 
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка при генерации таблиц локализации: {ex.Message}");
-                Console.WriteLine($"StackTrace: {ex.StackTrace}");
-                Form1.ShowMessage($"Ошибка при генерации таблиц локализации:\n{ex.Message}\nStackTrace: {ex.StackTrace}");
+                Form1.ShowMessage($"❌ Критическая ошибка при генерации таблиц локализации: {ex.Message}");
                 return false;
             }
         }
 
-        /// <summary>
-        /// Создает таблицу локализации для конкретной главы
-        /// </summary>
-        private void CreateLocalizationTable(string name, List<LocalizEntity> ids, Dictionary<string, string> nativeDict)
+        private void ProcessChapterLocalization(int chapterN, List<string> parentsIds,
+                                                Dictionary<string, AjObj> objectsList, Dictionary<string, string> nativeDict,
+                                                List<string> charactersIds, Dictionary<string, LocalizationEntry> charactersLocalizData,
+                                                Dictionary<string, string> charactersNames)
         {
-            int wordCount = 0;
+            var chapterKey = $"chapter_{chapterN}_Russian";
+            Dictionary<string, LocalizationEntry> chapterData = new();
+            Dictionary<string, LocalizationEntry> internalData = new();
 
-            using var eP = new ExcelPackage();
-            bool forTranslating = name.Contains("for_translating");
-            ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Data");
+            Console.WriteLine($"Обработка главы {chapterN}...");
 
-            bool forLocalizatorsMode = Form1.FOR_LOCALIZATORS_MODE;
-
-            var row = 1;
-            var col = 1;
-
-            sheet.Cells[row, col].Value = "ID";
-
-            if (forLocalizatorsMode)
+            foreach (KeyValuePair<string, AjObj> scobj in objectsList)
             {
-                sheet.Cells[row, col + 1].Value = "Speaker";
-                sheet.Cells[row, col + 2].Value = "Emotion";
+                if (!parentsIds.Contains(scobj.Value.Properties.Parent)) continue;
+
+                AjObj dfobj = scobj.Value;
+
+                if (dfobj.EType != AjType.DialogueFragment) continue;
+
+                string chId = dfobj.Properties.Speaker;
+                if (string.IsNullOrEmpty(chId))
+                {
+                    Form1.ShowMessage($"❌ Пустой ID спикера в главе {chapterN}");
+                    continue;
+                }
+
+                if (!objectsList.TryGetValue(chId, out AjObj character))
+                {
+                    Form1.ShowMessage($"❌ Не найден персонаж с ID {chId} в главе {chapterN}");
+                    continue;
+                }
+
+                ProcessCharacterData(chId, character, nativeDict, chapterN, charactersIds,
+                    charactersLocalizData, charactersNames);
+                ProcessDialogueFragmentData(dfobj, nativeDict, chapterN, charactersNames[chId],
+                    chapterData, internalData);
             }
 
-            sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = "Text";
+            // Сохраняем данные в кэш
+            _cachedLocalizationData[chapterKey] = chapterData;
+            _cachedLocalizationData[chapterKey + "_internal"] = internalData;
 
-            row++;
+            // Подсчитываем количество слов для статистики
+            if (!Form1.FOR_LOCALIZATORS_MODE) return;
 
-            List<string> replacedIds = new List<string>();
+            foreach (LocalizationEntry entry in chapterData.Values.Where(e => !string.IsNullOrEmpty(e.Text)))
+                _allWordsCount += CalculateWordCount(entry.Text);
 
-            foreach (LocalizEntity item in ids)
+            Console.WriteLine($"Глава {chapterN} обработана, количество слов: {_allWordsCount}");
+        }
+
+        private void ProcessCharacterData(string chId,
+            AjObj character,
+            Dictionary<string, string> nativeDict,
+            int chapterN,
+            List<string> charactersIds,
+            Dictionary<string, LocalizationEntry> charactersLocalizData,
+            Dictionary<string, string> charactersNames)
+        {
+            if (charactersIds.Contains(chId)) return;
+
+            string displayName = character.Properties.DisplayName;
+            if (string.IsNullOrEmpty(displayName))
             {
-                string id = item.LocalizId;
+                Form1.ShowMessage($"❌ Пустое имя персонажа с ID {chId} в главе {chapterN}");
+                return;
+            }
 
-                string value = nativeDict[id];
+            if (!nativeDict.TryGetValue(displayName, out string characterText))
+            {
+                Console.WriteLine($"Отсутствует перевод для персонажа: {displayName} в главе {chapterN}");
+                characterText = string.Empty;
+            }
 
-                if (forTranslating && forLocalizatorsMode)
+            charactersIds.Add(chId);
+            charactersLocalizData[displayName] = new LocalizationEntry
+            {
+                Text = _stringPool.Intern(characterText),
+                SpeakerDisplayName = string.Empty,
+                IsInternal = false
+            };
+
+            charactersNames[chId] = characterText;
+        }
+
+        private void ProcessDialogueFragmentData(AjObj dfobj,
+                                                 Dictionary<string, string> nativeDict,
+                                                 int chapterN,
+                                                 string speakerName,
+                                                 Dictionary<string, LocalizationEntry> chapterData,
+                                                 Dictionary<string, LocalizationEntry> internalData)
+        {
+            // Обработка основного текста
+            if (!string.IsNullOrEmpty(dfobj.Properties.Text))
+            {
+                if (!nativeDict.TryGetValue(dfobj.Properties.Text, out string translatedText))
                 {
-                    value = value.Replace("pname", "%pname%");
-                    value = value.Replace("Pname", "%pname%");
+                    Console.WriteLine($"Отсутствует перевод для текста: {dfobj.Properties.Text} в главе {chapterN}");
+                    translatedText = string.Empty;
+                }
 
-                    if (!replacedIds.Contains(id))
+                if (translatedText != string.Empty)
+                {
+                    chapterData[dfobj.Properties.Text] = new LocalizationEntry
                     {
-                        List<string> repeatedValues = new List<string>();
-
-                        foreach (KeyValuePair<string, string> pair in nativeDict)
-                        {
-                            if (pair.Value == value && pair.Key != id)
-                            {
-                                repeatedValues.Add(pair.Key);
-                            }
-                        }
-
-                        if (repeatedValues.Count == 1 || (repeatedValues.Count > 1 && value.Contains("?")))
-                        {
-                            foreach (string el in repeatedValues)
-                            {
-                                nativeDict[el] = "*SystemLinkTo*" + id + "*";
-                                replacedIds.Add(el);
-                            }
-                        }
-                    }
+                        Text = _stringPool.Intern(translatedText),
+                        SpeakerDisplayName = speakerName,
+                        Emotion = RecognizeEmotion(dfobj.Properties.Color),
+                        IsInternal = false
+                    };
                 }
-
-                if (string.IsNullOrEmpty(value.Trim())) continue;
-
-                sheet.Cells[row, col].Value = item.LocalizId;
-
-                if (forLocalizatorsMode)
-                {
-                    sheet.Cells[row, col + 1].Value = item.SpeakerDisplayName;
-                    sheet.Cells[row, col + 2].Value = item.Emotion;
-                }
-
-                sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = value;
-
-                if (forLocalizatorsMode && !replacedIds.Contains(id))
-                {
-                    wordCount += CalculateWordCount(value);
-                }
-
-                row++;
             }
 
-            byte[] bin = eP.GetAsByteArray();
+            // Обработка текста меню
+            if (!string.IsNullOrEmpty(dfobj.Properties.MenuText))
+            {
+                if (!nativeDict.TryGetValue(dfobj.Properties.MenuText, out string translatedMenuText))
+                {
+                    Console.WriteLine($"Отсутствует перевод для текста меню: {dfobj.Properties.MenuText} в главе {chapterN}");
+                    translatedMenuText = string.Empty;
+                }
 
-            File.WriteAllBytes(_projectPath + @"\Localization\Russian\" + name + ".xlsx", bin);
+                if (translatedMenuText != string.Empty)
+                {
+                    chapterData[dfobj.Properties.MenuText] = new LocalizationEntry
+                    {
+                        Text = _stringPool.Intern(translatedMenuText),
+                        SpeakerDisplayName = speakerName,
+                        Emotion = RecognizeEmotion(dfobj.Properties.Color),
+                        IsInternal = false
+                    };
+                }
+            }
 
-            if (name.Contains("internal") || !forLocalizatorsMode) return;
+            // Обработка сценических указаний
+            if (string.IsNullOrEmpty(dfobj.Properties.StageDirections)) return;
 
-            Console.WriteLine("Таблица " + name + " сгенерирована, количество слов: " + wordCount);
+            if (!nativeDict.TryGetValue(dfobj.Properties.StageDirections, out string translatedDirections))
+            {
+                Console.WriteLine($"Отсутствует перевод для сценических указаний: {dfobj.Properties.StageDirections} в главе {chapterN}");
+                translatedDirections = string.Empty;
+            }
 
-            _allWordsCount += wordCount;
-
-            if (name.Contains("12")) Console.WriteLine("total count = " + _allWordsCount);
+            if (translatedDirections != string.Empty)
+            {
+                internalData[dfobj.Properties.StageDirections] = new LocalizationEntry
+                {
+                    Text = _stringPool.Intern(translatedDirections),
+                    SpeakerDisplayName = string.Empty,
+                    IsInternal = true
+                };
+            }
         }
 
         /// <summary>
@@ -911,34 +813,49 @@ namespace StoriesLinker
 
             return wordCount;
         }
+
         #endregion
 
         #region Генерация выходной папки
+
         public bool GenerateOutputStructure()
         {
             try
             {
-                if (!InitializeAndValidateData(out var ajfile, out var meta))
+                if (!InitializeAndValidateData(out AjFile ajfile, out AjLinkerMeta meta))
+                {
+                    Form1.ShowMessage("❌ Ошибка при инициализации и валидации данных");
                     return false;
+                }
 
-                var tempFolder = CreateAndInitializeTempFolders(meta);
-                var (nativeDict, objectsList) = LoadAndPrepareData(ajfile);
-                var chaptersIds = PrepareChaptersData(objectsList, nativeDict);
+                string tempFolder = CreateAndInitializeTempFolders(meta);
+                (Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList) =
+                    LoadAndPrepareData(ajfile);
+                List<string> chaptersIds = PrepareChaptersData(objectsList, nativeDict);
 
                 if (!ValidateChaptersCount(chaptersIds))
+                {
+                    Form1.ShowMessage("❌ Ошибка при валидации количества глав");
                     return false;
+                }
 
-                var (gridLinker, sharedObjs) = InitializeGridAndSharedObjects(objectsList, meta, nativeDict);
-                var langsCols = DetermineLanguageColumns();
+                (AjAssetGridLinker gridLinker, List<AjObj> sharedObjs) =
+                    InitializeGridAndSharedObjects(objectsList, meta, nativeDict);
+                Dictionary<string, int> langsCols = DetermineLanguageColumns();
 
-                if (!ProcessAllChapters(tempFolder, meta, ajfile, objectsList, nativeDict, gridLinker, sharedObjs, langsCols))
+                if (!ProcessAllChapters(tempFolder, meta, ajfile, objectsList, nativeDict, gridLinker, sharedObjs,
+                                        langsCols))
+                {
+                    Form1.ShowMessage("❌ Ошибка при обработке глав");
                     return false;
+                }
 
+                Form1.ShowMessage("✅ Генерация структуры успешно завершена");
                 return true;
             }
             catch (Exception ex)
             {
-                Form1.ShowMessage($"Ошибка при генерации структуры: {ex.Message}");
+                Form1.ShowMessage($"❌ Критическая ошибка при генерации структуры: {ex.Message}");
                 return false;
             }
         }
@@ -947,134 +864,163 @@ namespace StoriesLinker
         {
             Form1.ShowMessage("Начинаем...");
 
-            ajfile = _cachedAjFile ?? (_cachedAjFile = ParseFlowJsonFile());
-            meta = _cachedMeta ?? (_cachedMeta = ParseMetaDataFromExcel());
+            ajfile = _cachedAjFile ??= ParseFlowJsonFile();
+            meta = _cachedMeta ??= ParseMetaDataFromExcel();
 
-            if (meta == null || ajfile == null)
+            if (meta != null && ajfile != null)
             {
-                Form1.ShowMessage("Ошибка загрузки данных: Meta или Flow JSON не могут быть загружены.");
-                return false;
+                return ValidateCharactersData(meta, ajfile) &&
+                       // Проверка на дубль имён и спрайтов локаций
+                       ValidateLocationsData(meta);
             }
 
+            Form1.ShowMessage("Ошибка загрузки данных: Meta или Flow JSON не могут быть загружены.");
+            return false;
+
             // Проверка на дубль имён персонажей и их имён в атласах
-            if (!ValidateCharactersData(meta, ajfile))
-                return false;
+        }
 
-            // Проверка на дубль имён и спрайтов локаций
-            if (!ValidateLocationsData(meta))
-                return false;
+        /// <summary>
+        /// Проверяет персонажа на корректность данных
+        /// </summary>
+        private bool ValidateCharacter(AjMetaCharacterData character, AjFile ajfile)
+        {
+            // Проверка вторичного персонажа
+            if (character.AtlasFileName.Contains("Sec_") || character.BaseNameInAtlas.Contains("Sec_"))
+            {
+                if (character.AtlasFileName != character.BaseNameInAtlas)
+                {
+                    Form1.ShowMessage($"AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: {character.DisplayName}");
+                    return false;
+                }
+            }
 
-            return true;
+            // Проверка одежды персонажа
+            if (character.ClothesVariableName.Trim() == "-") return true;
+
+            int clothesNsIndex = ajfile.GlobalVariables.FindIndex(ns => ns.Namespace == "Clothes");
+            if (clothesNsIndex != -1 &&
+                ajfile.GlobalVariables[clothesNsIndex]
+                      .Variables.FindIndex(v => v.Variable == character.ClothesVariableName) != -1)
+                return true;
+            Form1.ShowMessage($"В артиси не определена переменная с именем Clothes.{character.ClothesVariableName}");
+            return false;
+
         }
 
         private bool ValidateCharactersData(AjLinkerMeta meta, AjFile ajfile)
         {
-            for (int i = 0; i < meta.Characters.Count; i++)
+            for (var i = 0; i < meta.Characters.Count; i++)
             {
-                var cObj = meta.Characters[i];
+                AjMetaCharacterData character = meta.Characters[i];
 
-                if (!ValidateCharacterDuplicates(meta, cObj, i))
-                    return false;
-
-                if (!ValidateSecondaryCharacter(cObj))
-                    return false;
-
-                if (!ValidateCharacterClothes(ajfile, cObj))
-                    return false;
+                if (!ValidateCharacterDuplicates(meta, character, i)) return false;
+                if (!ValidateCharacter(character, ajfile)) return false;
             }
+
             return true;
         }
 
-        private bool ValidateCharacterDuplicates(AjLinkerMeta meta, AjMetaCharacterData cObj, int currentIndex)
+        private bool ValidateCharacterDuplicates(AjLinkerMeta meta, AjMetaCharacterData character, int currentIndex)
         {
-            for (int j = 0; j < meta.Characters.Count; j++)
+            for (var j = 0; j < meta.Characters.Count; j++)
             {
                 if (currentIndex == j) continue;
 
-                var aObj = meta.Characters[j];
-                if (cObj.DisplayName != aObj.DisplayName
-                    && (cObj.BaseNameInAtlas != aObj.BaseNameInAtlas
-                        || cObj.BaseNameInAtlas == "-"
-                        || meta.UniqueId == "Shism_1")
-                    && (cObj.ClothesVariableName != aObj.ClothesVariableName
-                        || cObj.ClothesVariableName.Trim() == "-"))
+                AjMetaCharacterData aObj = meta.Characters[j];
+                if (character.DisplayName != aObj.DisplayName &&
+                    (character.BaseNameInAtlas != aObj.BaseNameInAtlas ||
+                     character.BaseNameInAtlas == "-" ||
+                     meta.UniqueId == "Shism_1") &&
+                    (character.ClothesVariableName != aObj.ClothesVariableName || character.ClothesVariableName.Trim() == "-"))
                     continue;
 
                 Form1.ShowMessage($"Найдены дублирующиеся значения среди персонажей: {aObj.DisplayName}");
                 return false;
             }
-            return true;
-        }
 
-        private bool ValidateSecondaryCharacter(AjMetaCharacterData cObj)
-        {
-            if ((cObj.AtlasFileName.Contains("Sec_") || cObj.BaseNameInAtlas.Contains("Sec_"))
-                && cObj.AtlasFileName != cObj.BaseNameInAtlas)
-            {
-                Form1.ShowMessage($"AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: {cObj.DisplayName}");
-                return false;
-            }
-            return true;
-        }
-
-        private bool ValidateCharacterClothes(AjFile ajfile, AjMetaCharacterData cObj)
-        {
-            if (cObj.ClothesVariableName.Trim() == "-")
-                return true;
-
-            int clothesNsIndex = ajfile.GlobalVariables.FindIndex(ns => ns.Namespace == "Clothes");
-            bool state1 = clothesNsIndex != -1;
-            bool state2 = state1 && ajfile.GlobalVariables[clothesNsIndex].Variables
-                                    .FindIndex(v => v.Variable == cObj.ClothesVariableName) != -1;
-
-            if (!state2)
-            {
-                Form1.ShowMessage($"В артиси не определена переменная с именем Clothes.{cObj.ClothesVariableName}");
-                return false;
-            }
             return true;
         }
 
         private bool ValidateLocationsData(AjLinkerMeta meta)
         {
-            if (meta.UniqueId == "Pirates_1")
-                return true;
+            if (meta.UniqueId == "Pirates_1") return true;
 
-            for (int i = 0; i < meta.Locations.Count; i++)
+            for (var i = 0; i < meta.Locations.Count; i++)
             {
-                var cObj = meta.Locations[i];
-                for (int j = 0; j < meta.Locations.Count; j++)
+                AjMetaLocationData cObj = meta.Locations[i];
+                for (var j = 0; j < meta.Locations.Count; j++)
                 {
                     if (i == j) continue;
 
-                    var aObj = meta.Locations[j];
-                    if (cObj.DisplayName != aObj.DisplayName && cObj.SpriteName != aObj.SpriteName)
-                        continue;
+                    AjMetaLocationData aObj = meta.Locations[j];
+                    if (cObj.DisplayName != aObj.DisplayName && cObj.SpriteName != aObj.SpriteName) continue;
 
                     Form1.ShowMessage($"Найдены дублирующиеся значения среди локаций: {aObj.DisplayName}");
                     return false;
                 }
             }
+
             return true;
         }
 
         private string CreateAndInitializeTempFolders(AjLinkerMeta meta)
         {
             string tempFolder = Path.Combine(_projectPath, "Temp");
-            if (Directory.Exists(tempFolder))
-                Directory.Delete(tempFolder, true);
 
-            Directory.CreateDirectory(tempFolder);
-            InitializeFolderStructure(tempFolder, meta);
-            return tempFolder;
+            try
+            {
+                if (Directory.Exists(tempFolder))
+                {
+                    // Попытка очистить папку вместо полного удаления
+                    foreach (string file in Directory.GetFiles(tempFolder, "*", SearchOption.AllDirectories))
+                    {
+                        try
+                        {
+                            File.Delete(file);
+                        }
+                        catch (IOException)
+                        {
+                            Form1.ShowMessage($"Не удалось удалить файл {file} - возможно он используется другим процессом");
+                            throw;
+                        }
+                    }
+
+                    foreach (string dir in Directory.GetDirectories(tempFolder))
+                    {
+                        try
+                        {
+                            Directory.Delete(dir, true);
+                        }
+                        catch (IOException)
+                        {
+                            Form1.ShowMessage($"Не удалось удалить папку {dir} - возможно она используется другим процессом");
+                            throw;
+                        }
+                    }
+                }
+                else
+                {
+                    Directory.CreateDirectory(tempFolder);
+                }
+
+                InitializeFolderStructure(tempFolder, meta);
+                return tempFolder;
+            }
+            catch (Exception ex)
+            {
+                Form1.ShowMessage($"Ошибка при подготовке временной папки: {ex.Message}");
+                throw;
+            }
         }
 
         private void InitializeFolderStructure(string tempFolder, AjLinkerMeta meta)
         {
-            var getVersionName = GenerateVersionFolderName();
-            var binFolder = Path.Combine(tempFolder, getVersionName("bin", meta.Version.BinVersion));
-            var brFolder = Path.Combine(tempFolder, getVersionName("baseResources", meta.Version.BaseResourcesVersion));
-            var previewFolder = Path.Combine(tempFolder, getVersionName("preview", meta.Version.PreviewVersion));
+            Func<string, string, string> getVersionName = GenerateVersionFolderName();
+            string binFolder = Path.Combine(tempFolder, getVersionName("bin", meta.Version.BinVersion));
+            string brFolder =
+                Path.Combine(tempFolder, getVersionName("baseResources", meta.Version.BaseResourcesVersion));
+            string previewFolder = Path.Combine(tempFolder, getVersionName("preview", meta.Version.PreviewVersion));
 
             CreateDirectoryStructure(previewFolder, ["Covers", "Strings"]);
             CreateDirectoryStructure(binFolder, ["SharedStrings"]);
@@ -1084,37 +1030,32 @@ namespace StoriesLinker
         private void CreateDirectoryStructure(string baseFolder, string[] subFolders)
         {
             Directory.CreateDirectory(baseFolder);
-            foreach (var folder in subFolders)
-            {
-                Directory.CreateDirectory(Path.Combine(baseFolder, folder));
-            }
+            foreach (string folder in subFolders) Directory.CreateDirectory(Path.Combine(baseFolder, folder));
         }
 
-        private (Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList) LoadAndPrepareData(AjFile ajfile)
+        private (Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList) LoadAndPrepareData(
+            AjFile ajfile)
         {
-            var nativeDict = GetLocalizationDictionary();
-            var objectsList = ExtractBookEntities(ajfile, nativeDict);
+            Dictionary<string, string> nativeDict = GetLocalizationDictionary();
+            Dictionary<string, AjObj> objectsList = ExtractBookEntities(ajfile, nativeDict);
             return (nativeDict, objectsList);
         }
 
-        private List<string> PrepareChaptersData(Dictionary<string, AjObj> objectsList, Dictionary<string, string> nativeDict)
+        private List<string> PrepareChaptersData(Dictionary<string, AjObj> objectsList,
+                                                 Dictionary<string, string> nativeDict)
         {
-            var chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
+            List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
             if (chaptersIds.Count > Form1.AvailableChapters)
-            {
                 chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
-            }
             return chaptersIds;
         }
 
         private bool ValidateChaptersCount(List<string> chaptersIds)
         {
-            if (chaptersIds.Count < Form1.AvailableChapters)
-            {
-                Form1.ShowMessage("Глав в книге меньше введённого количества");
-                return false;
-            }
-            return true;
+            if (chaptersIds.Count >= Form1.AvailableChapters) return true;
+
+            Form1.ShowMessage("Глав в книге меньше введённого количества");
+            return false;
         }
 
         private Dictionary<string, int> DetermineLanguageColumns()
@@ -1128,17 +1069,11 @@ namespace StoriesLinker
                 foreach (string folder in Directory.GetDirectories(translatedDataFolder))
                 {
                     string language = Path.GetFileName(folder);
-                    if (language != "Russian")
-                    {
-                        langsCols.Add(language, 4);
-                    }
+                    if (language != "Russian") langsCols.Add(language, 4);
                 }
             }
 
-            if (Form1.ONLY_ENGLISH_MODE && !langsCols.ContainsKey("English"))
-            {
-                langsCols.Add("English", -1);
-            }
+            if (Form1.ONLY_ENGLISH_MODE && !langsCols.ContainsKey("English")) langsCols.Add("English", -1);
 
             return langsCols;
         }
@@ -1149,36 +1084,38 @@ namespace StoriesLinker
             Dictionary<string, string> nativeDict)
         {
             var gridLinker = new AjAssetGridLinker();
-            var sharedObjs = AssignArticyIdsToMetaData(objectsList, meta, nativeDict);
+            List<AjObj> sharedObjs = AssignArticyIdsToMetaData(objectsList, meta, nativeDict);
             return (gridLinker, sharedObjs);
         }
 
-        private bool ProcessAllChapters(
-            string tempFolder,
-            AjLinkerMeta meta,
-            AjFile ajfile,
-            Dictionary<string, AjObj> objectsList,
-            Dictionary<string, string> nativeDict,
-            AjAssetGridLinker gridLinker,
-            List<AjObj> sharedObjs,
-            Dictionary<string, int> langsCols)
+        private bool ProcessAllChapters(string tempFolder,
+                                        AjLinkerMeta meta,
+                                        AjFile ajfile,
+                                        Dictionary<string, AjObj> objectsList,
+                                        Dictionary<string, string> nativeDict,
+                                        AjAssetGridLinker gridLinker,
+                                        List<AjObj> sharedObjs,
+                                        Dictionary<string, int> langsCols)
         {
-            var getVersionName = GenerateVersionFolderName();
-            var binFolder = Path.Combine(tempFolder, getVersionName("bin", meta.Version.BinVersion));
-            var brFolder = Path.Combine(tempFolder, getVersionName("baseResources", meta.Version.BaseResourcesVersion));
-            var previewFolder = Path.Combine(tempFolder, getVersionName("preview", meta.Version.PreviewVersion));
+            Func<string, string, string> getVersionName = GenerateVersionFolderName();
+            string binFolder = Path.Combine(tempFolder, getVersionName("bin", meta.Version.BinVersion));
+            string brFolder =
+                Path.Combine(tempFolder, getVersionName("baseResources", meta.Version.BaseResourcesVersion));
+            string previewFolder = Path.Combine(tempFolder, getVersionName("preview", meta.Version.PreviewVersion));
 
             var gridAssetFile = new AjGridAssetJson();
             var allDicts = new Dictionary<string, Dictionary<string, string>>();
             var origLangData = new Dictionary<string, AjLocalizInJsonFile>();
 
-            var csparentsIds = GetChapterAndSubchapterHierarchy(GetSortedChapterIds(objectsList, nativeDict), objectsList);
+            List<string>[] csparentsIds =
+                GetChapterAndSubchapterHierarchy(GetSortedChapterIds(objectsList, nativeDict), objectsList);
             meta.ChaptersEntryPoints = new List<string>();
 
-            for (int i = 0; i < csparentsIds.Length; i++)
+            for (var i = 0; i < csparentsIds.Length; i++)
             {
-                if (!ProcessSingleChapter(i, csparentsIds[i], tempFolder, binFolder, previewFolder, meta, objectsList, nativeDict,
-                    gridLinker, gridAssetFile, allDicts, origLangData, langsCols))
+                if (!ProcessSingleChapter(i, csparentsIds[i], tempFolder, binFolder, previewFolder, meta, objectsList,
+                                          nativeDict,
+                                          gridLinker, gridAssetFile, allDicts, origLangData, langsCols))
                     return false;
             }
 
@@ -1186,31 +1123,30 @@ namespace StoriesLinker
             return true;
         }
 
-        private void FinalizeOutput(
-            AjFile ajfile,
-            List<AjObj> sharedObjs,
-            AjLinkerMeta meta,
-            AjGridAssetJson gridAssetFile,
-            string binFolder,
-            string brFolder,
-            string previewFolder)
+        private void FinalizeOutput(AjFile ajfile,
+                                    List<AjObj> sharedObjs,
+                                    AjLinkerMeta meta,
+                                    AjGridAssetJson gridAssetFile,
+                                    string binFolder,
+                                    string brFolder,
+                                    string previewFolder)
         {
-            var baseJson = new AjLinkerOutputBase
-            {
-                GlobalVariables = ajfile.GlobalVariables,
-                SharedObjs = sharedObjs
-            };
+            var baseJson = new AjLinkerOutputBase { GlobalVariables = ajfile.GlobalVariables, SharedObjs = sharedObjs };
 
             SaveJsonFiles(binFolder, baseJson, meta, gridAssetFile);
             CopyMusicFiles(brFolder);
             CopyPreviewFiles(previewFolder);
         }
 
-        private void SaveJsonFiles(string binFolder, AjLinkerOutputBase baseJson, AjLinkerMeta meta, AjGridAssetJson gridAssetFile)
+        private void SaveJsonFiles(string binFolder,
+                                   AjLinkerOutputBase baseJson,
+                                   AjLinkerMeta meta,
+                                   AjGridAssetJson gridAssetFile)
         {
             File.WriteAllText(Path.Combine(binFolder, "Base.json"), JsonConvert.SerializeObject(baseJson));
             File.WriteAllText(Path.Combine(binFolder, "Meta.json"), JsonConvert.SerializeObject(meta));
-            File.WriteAllText(Path.Combine(binFolder, "AssetsByChapters.json"), JsonConvert.SerializeObject(gridAssetFile));
+            File.WriteAllText(Path.Combine(binFolder, "AssetsByChapters.json"),
+                              JsonConvert.SerializeObject(gridAssetFile));
         }
 
         private void CopyMusicFiles(string brFolder)
@@ -1218,14 +1154,11 @@ namespace StoriesLinker
             string musicSourcePath = Path.Combine(_projectPath, "Audio", "Music");
             string musicTempPath = Path.Combine(brFolder, "Music");
 
-            if (Directory.Exists(musicSourcePath))
-            {
-                Directory.CreateDirectory(musicTempPath);
-                foreach (string srcPath in Directory.GetFiles(musicSourcePath))
-                {
-                    File.Copy(srcPath, srcPath.Replace(musicSourcePath, musicTempPath), true);
-                }
-            }
+            if (!Directory.Exists(musicSourcePath)) return;
+
+            Directory.CreateDirectory(musicTempPath);
+            foreach (string srcPath in Directory.GetFiles(musicSourcePath))
+                File.Copy(srcPath, srcPath.Replace(musicSourcePath, musicTempPath), true);
         }
 
         private void CopyPreviewFiles(string previewFolder)
@@ -1239,27 +1172,24 @@ namespace StoriesLinker
             string pcoversSourcePath = Path.Combine(_projectPath, "Art", "PreviewCovers");
             string pcoversTempPath = Path.Combine(previewFolder, "Covers");
 
-            if (!ValidatePreviewCovers(pcoversSourcePath))
-                return;
+            if (!ValidatePreviewCovers(pcoversSourcePath)) return;
 
             CopyDirectoryWithStructure(pcoversSourcePath, pcoversTempPath);
         }
 
         private bool ValidatePreviewCovers(string pcoversSourcePath)
         {
-            if (!File.Exists(Path.Combine(pcoversSourcePath, "Russian", "PreviewCover.png")))
-            {
-                Form1.ShowMessage("Не все preview обложки присуствуют.");
-                return false;
-            }
-            return true;
+            if (File.Exists(Path.Combine(pcoversSourcePath, "Russian", "PreviewCover.png"))) return true;
+
+            Form1.ShowMessage("Не все preview обложки присуствуют.");
+            return false;
+
         }
 
         private void CopySliderBanners(string previewFolder)
         {
             string pbannersSourcePath = Path.Combine(_projectPath, "Art", "SliderBanners");
-            if (!Directory.Exists(pbannersSourcePath))
-                return;
+            if (!Directory.Exists(pbannersSourcePath)) return;
 
             string pbannersTempPath = Path.Combine(previewFolder, "Banners");
             CopyDirectoryWithStructure(pbannersSourcePath, pbannersTempPath);
@@ -1276,32 +1206,31 @@ namespace StoriesLinker
                 File.Copy(newPath, newPath.Replace(sourceDir, targetDir), true);
         }
 
-        private bool ProcessSingleChapter(
-            int index,
-            List<string> parentsIds,
-            string tempFolder,
-            string binFolder,
-            string previewFolder,
-            AjLinkerMeta meta,
-            Dictionary<string, AjObj> objectsList,
-            Dictionary<string, string> nativeDict,
-            AjAssetGridLinker gridLinker,
-            AjGridAssetJson gridAssetFile,
-            Dictionary<string, Dictionary<string, string>> allDicts,
-            Dictionary<string, AjLocalizInJsonFile> origLangData,
-            Dictionary<string, int> langsCols)
+        private bool ProcessSingleChapter(int index,
+                                          List<string> parentsIds,
+                                          string tempFolder,
+                                          string binFolder,
+                                          string previewFolder,
+                                          AjLinkerMeta meta,
+                                          Dictionary<string, AjObj> objectsList,
+                                          Dictionary<string, string> nativeDict,
+                                          AjAssetGridLinker gridLinker,
+                                          AjGridAssetJson gridAssetFile,
+                                          Dictionary<string, Dictionary<string, string>> allDicts,
+                                          Dictionary<string, AjLocalizInJsonFile> origLangData,
+                                          Dictionary<string, int> langsCols)
         {
             gridLinker.AddChapter();
 
             int chapterN = index + 1;
             meta.ChaptersEntryPoints.Add(parentsIds[0]);
 
-            List<AjObj> chapterObjs = new List<AjObj>();
+            var chapterObjs = new List<AjObj>();
 
             foreach (KeyValuePair<string, AjObj> pair in objectsList)
             {
-                if (!parentsIds.Contains(pair.Value.Properties.Parent)
-                    && !parentsIds.Contains(pair.Value.Properties.Id))
+                if (!parentsIds.Contains(pair.Value.Properties.Parent) &&
+                    !parentsIds.Contains(pair.Value.Properties.Id))
                     continue;
 
                 AjObj dfobj = pair.Value;
@@ -1324,7 +1253,8 @@ namespace StoriesLinker
 
                                 if (atObj.EType == AjType.Location)
                                     ValidateAndAddLocation(nativeDict, objectsList, meta, gridLinker)(el);
-                                else if (atObj.EType == AjType.Entity) ValidateAndAddCharacter(nativeDict, objectsList, meta, gridLinker)(el);
+                                else if (atObj.EType == AjType.Entity)
+                                    ValidateAndAddCharacter(nativeDict, objectsList, meta, gridLinker)(el);
                             }
 
                             break;
@@ -1336,9 +1266,9 @@ namespace StoriesLinker
                             if (rawScript.Contains("Location.loc"))
                             {
                                 string[] scripts = rawScript.EscapeString()
-                                                               .Replace("\\n", "")
-                                                               .Replace("\\r", "")
-                                                               .Split(';');
+                                                            .Replace("\\n", "")
+                                                            .Replace("\\r", "")
+                                                            .Split(';');
 
                                 foreach (string uscript in scripts)
                                 {
@@ -1357,7 +1287,7 @@ namespace StoriesLinker
                 chapterObjs.Add(dfobj);
             }
 
-            AjLinkerOutputChapterFlow flowJson = new AjLinkerOutputChapterFlow { Objects = chapterObjs };
+            var flowJson = new AjLinkerOutputChapterFlow { Objects = chapterObjs };
 
             string chapterFolder
                 = Path.Combine(tempFolder, GenerateVersionFolderName()("chapter" + chapterN, meta.Version.BinVersion));
@@ -1377,12 +1307,10 @@ namespace StoriesLinker
 
                 string atlasNameFiled = ch.AtlasFileName;
 
-                List<string> atlases = new List<string>();
+                var atlases = new List<string>();
 
                 if (!atlasNameFiled.Contains(","))
-                {
                     atlases.Add(atlasNameFiled);
-                }
                 else
                 {
                     string[] atlasStrs = atlasNameFiled.Split(',');
@@ -1392,9 +1320,7 @@ namespace StoriesLinker
 
                 foreach (string atlasFileName in atlases)
                 {
-                    if (ch.BaseNameInAtlas == "-"
-                        || atlasFileName == "-"
-                        || gridLinker.IsChExist(atlasFileName))
+                    if (ch.BaseNameInAtlas == "-" || atlasFileName == "-" || gridLinker.IsChExist(atlasFileName))
                         continue;
 
                     gridLinker.AddCharacter(atlasFileName, ch.Aid);
@@ -1436,7 +1362,7 @@ namespace StoriesLinker
                           string.Format(chapterFolder + @"\Resources\{0}.mp3", loc.SoundIdleName));
             }
 
-            AjGridAssetChapterJson gridAssetChapter = new AjGridAssetChapterJson
+            var gridAssetChapter = new AjGridAssetChapterJson
             {
                 CharactersIDs = gridLinker.GetCharactersIDsFromCurChapter(),
                 LocationsIDs = gridLinker.GetLocationsIDsFromCurChapter()
@@ -1444,7 +1370,7 @@ namespace StoriesLinker
 
             gridAssetFile.Chapters.Add(gridAssetChapter);
 
-            Dictionary<string, AjLocalizInJsonFile> origLangDataForChapter = new Dictionary<string, AjLocalizInJsonFile>();
+            var origLangDataForChapter = new Dictionary<string, AjLocalizInJsonFile>();
 
             // Передаем список языков в GenerateLocalizationJson при создании Func
             Func<string, string, string[], string, int, List<string>, string> generateLocalizationJson =
@@ -1462,14 +1388,12 @@ namespace StoriesLinker
                 bool nativeLang = lang == "Russian" || colNum == -1;
 
                 string langFolder
-                    = (nativeLang ? langOriginFolder : Path.Combine(_projectPath, "TranslatedData", lang));
+                    = nativeLang ? langOriginFolder : Path.Combine(_projectPath, "TranslatedData", lang);
                 string bookDescsPath = Path.Combine(_projectPath, "Raw", "BookDescriptions", lang + ".xlsx");
 
                 // Проверяем альтернативный путь для файла локализации
                 if (!File.Exists(bookDescsPath) && !nativeLang)
-                {
                     bookDescsPath = Path.Combine(_projectPath, "TranslatedData", lang, lang + ".xlsx");
-                }
 
                 Console.WriteLine("GENERATE TABLES FOR LANGUAGE: " + lang);
 
@@ -1485,16 +1409,13 @@ namespace StoriesLinker
 
                 // Вызываем Func, передавая список языков
                 string correct = generateLocalizationJson(lang,
-                                               "chapter" + chapterN,
-                                               langFiles,
-                                               Path.Combine(chapterFolder, "Strings", lang + ".json"),
-                                               colNum != -1 ? colNum : 1,
-                                               langsCols.Keys.ToList());
+                                                          "chapter" + chapterN,
+                                                          langFiles,
+                                                          Path.Combine(chapterFolder, "Strings", lang + ".json"),
+                                                          colNum != -1 ? colNum : 1,
+                                                          langsCols.Keys.ToList());
 
-                if (!string.IsNullOrEmpty(correct))
-                {
-                    showLocalizError(correct, "chapter" + chapterN);
-                }
+                if (!string.IsNullOrEmpty(correct)) showLocalizError(correct, "chapter" + chapterN);
 
                 if (chapterN != 1) continue;
 
@@ -1507,11 +1428,11 @@ namespace StoriesLinker
 
                 // Вызываем Func, передавая список языков
                 correct = generateLocalizationJson(lang,
-                                        "sharedstrings",
-                                        sharedLangFiles,
-                                        Path.Combine(binFolder, "SharedStrings", lang + ".json"),
-                                        colNum != -1 ? colNum : 1,
-                                        langsCols.Keys.ToList());
+                                                   "sharedstrings",
+                                                   sharedLangFiles,
+                                                   Path.Combine(binFolder, "SharedStrings", lang + ".json"),
+                                                   colNum != -1 ? colNum : 1,
+                                                   langsCols.Keys.ToList());
 
                 string[] stringToPreviewFile = [bookDescsPath];
 
@@ -1523,11 +1444,11 @@ namespace StoriesLinker
 
                 // Вызываем Func, передавая список языков
                 correct = generateLocalizationJson(lang,
-                                        "previewstrings",
-                                        stringToPreviewFile,
-                                        Path.Combine(previewFolder, "Strings", lang + ".json"),
-                                        colNum != -1 ? colNum : 1,
-                                        langsCols.Keys.ToList());
+                                                   "previewstrings",
+                                                   stringToPreviewFile,
+                                                   Path.Combine(previewFolder, "Strings", lang + ".json"),
+                                                   colNum != -1 ? colNum : 1,
+                                                   langsCols.Keys.ToList());
 
                 if (string.IsNullOrEmpty(correct)) continue;
 
@@ -1543,17 +1464,23 @@ namespace StoriesLinker
         /// </summary>
         private static Func<string, string, string> GenerateVersionFolderName()
         {
-            string VersionName(string folderName, string version) => char.ToUpper(folderName[0]) + folderName.Substring(1);
+            string VersionName(string folderName, string version) =>
+                char.ToUpper(folderName[0]) + folderName.Substring(1);
 
             return VersionName;
         }
+
         #endregion
 
         #region Вспомогательные методы для проверки персонажей и локаций
+
         /// <summary>
         /// Проверяет и добавляет персонажа
         /// </summary>
-        private static Action<string> ValidateAndAddCharacter(Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList, AjLinkerMeta meta, AjAssetGridLinker gridLinker)
+        private static Action<string> ValidateAndAddCharacter(Dictionary<string, string> nativeDict,
+                                                              Dictionary<string, AjObj> objectsList,
+                                                              AjLinkerMeta meta,
+                                                              AjAssetGridLinker gridLinker)
         {
             void AddCh(string aid)
             {
@@ -1590,7 +1517,10 @@ namespace StoriesLinker
         /// <summary>
         /// Проверяет и добавляет локацию
         /// </summary>
-        private static Action<string> ValidateAndAddLocation(Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList, AjLinkerMeta meta, AjAssetGridLinker gridLinker)
+        private static Action<string> ValidateAndAddLocation(Dictionary<string, string> nativeDict,
+                                                             Dictionary<string, AjObj> objectsList,
+                                                             AjLinkerMeta meta,
+                                                             AjAssetGridLinker gridLinker)
         {
             void AddLoc(string aid)
             {
@@ -1608,18 +1538,20 @@ namespace StoriesLinker
 
             return AddLoc;
         }
+
         #endregion
 
         #region Работа с локализацией
+
         /// <summary>
         /// Перечисление эмоций персонажей в тексте
         /// </summary>
         public enum EChEmotion
         {
-            Angry,    //red
-            Happy,    //green
-            Sad,      //purple
-            Surprised,//yellow
+            Angry, //red
+            Happy, //green
+            Sad, //purple
+            Surprised, //yellow
             IsntSetOrNeutral //blue
         }
 
@@ -1630,14 +1562,12 @@ namespace StoriesLinker
         {
             void LocalizError(string missingKey, string fileGroupId)
             {
-                string errorMessage =
+                var errorMessage =
                     $"Ошибка мультиязыкового вывода: Ключ '{missingKey}' отсутствует или пуст в данных для группы файлов '{fileGroupId}'";
 
                 // Проверяем, был ли файл не найден
                 if (missingFiles.TryGetValue(fileGroupId, out string file))
-                {
                     errorMessage += $"\nПричина: Файл локализации не найден: {file}";
-                }
 
                 Form1.ShowMessage(errorMessage);
             }
@@ -1687,8 +1617,8 @@ namespace StoriesLinker
                                if (origValue.Contains("*SystemLinkTo*"))
                                {
                                    string linkId = origValue.Split('*')[2];
-                                   if (!jsonData.Data.TryGetValue(linkId, out string linkedValue)
-                                       && !allStrings.TryGetValue(linkId, out linkedValue))
+                                   if (!jsonData.Data.TryGetValue(linkId, out string linkedValue) &&
+                                       !allStrings.TryGetValue(linkId, out linkedValue))
                                    {
                                        Console.WriteLine($"String with {linkId} is not found");
                                        continue;
@@ -1699,9 +1629,9 @@ namespace StoriesLinker
                                }
 
                                if (CheckTranslationCompleteness(translatedValue,
-                                                           origValue,
-                                                           origLang,
-                                                           jsonData.Data[pair.Key]))
+                                                                origValue,
+                                                                origLang,
+                                                                jsonData.Data[pair.Key]))
                                    Console.WriteLine($"String with ID {pair.Key} isn't translated");
                            }
                        }
@@ -1716,32 +1646,32 @@ namespace StoriesLinker
         /// <summary>
         /// Проверяет полноту перевода
         /// </summary>
-        private bool CheckTranslationCompleteness(string translatedValue, string origValue, bool origLang, string jsonDataValue)
-        {
-            return string.IsNullOrEmpty(translatedValue.Trim())
-                   || (origValue.Trim() == translatedValue.Trim()
-                       && !origLang
-                       && origValue.Length > 10
-                       && !origValue.Contains("*SystemLinkTo*")
-                       && !origValue.Contains("NextChoiceIsTracked")
-                       && !jsonDataValue.Contains("StageDirections")
-                       && !string.IsNullOrEmpty(jsonDataValue.Replace(".", "").Trim())
-                       && !origValue.ToLower().Contains("%pname%"));
-        }
+        private bool
+            CheckTranslationCompleteness(string translatedValue,
+                                         string origValue,
+                                         bool origLang,
+                                         string jsonDataValue) =>
+            string.IsNullOrEmpty(translatedValue.Trim()) ||
+            (origValue.Trim() == translatedValue.Trim() &&
+             !origLang &&
+             origValue.Length > 10 &&
+             !origValue.Contains("*SystemLinkTo*") &&
+             !origValue.Contains("NextChoiceIsTracked") &&
+             !jsonDataValue.Contains("StageDirections") &&
+             !string.IsNullOrEmpty(jsonDataValue.Replace(".", "").Trim()) &&
+             !origValue.ToLower().Contains("%pname%"));
 
         /// <summary>
         /// Проверяет проблемы локализации
         /// </summary>
         private string ValidateLocalizationData(AjLocalizInJsonFile origJsonData,
-                                               AjLocalizInJsonFile jsonData,
-                                               bool origLang)
+                                                AjLocalizInJsonFile jsonData,
+                                                bool origLang)
         {
             foreach (KeyValuePair<string, string> pair in origJsonData.Data)
-            {
                 // Проверяем только наличие ключа, игнорируем пустые значения
                 if (!jsonData.Data.ContainsKey(pair.Key))
                     return pair.Key;
-            }
 
             return string.Empty;
         }
@@ -1749,79 +1679,83 @@ namespace StoriesLinker
         /// <summary>
         /// Получает данные из XML файла
         /// </summary>
-        private AjLocalizInJsonFile LoadLocalizationFromXml(string[] pathsToXmls, int defaultColumn, List<string> knownLanguages)
+        private AjLocalizInJsonFile LoadLocalizationFromXml(string[] pathsToXmls,
+                                                            int defaultColumn,
+                                                            List<string> knownLanguages)
         {
-            Dictionary<string, string> total = new Dictionary<string, string>();
-            var knownLanguagesSet = new HashSet<string>(knownLanguages ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            // Создаем ключ кэша
+            var cacheKey = new LocalizationCacheKey(
+                string.Join("_", pathsToXmls),
+                defaultColumn.ToString(),
+                pathsToXmls.Any(p => p.Contains("_internal"))
+            );
 
-            Console.WriteLine("\n=== Начало обработки файлов локализации ===");
+            if (IsCacheValid(cacheKey) && _localizationCache.TryGetValue(cacheKey, out var cachedData))
+            {
+                var result = new AjLocalizInJsonFile();
+                result.Data = cachedData.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.Text
+                );
+                return result;
+            }
+
+            var total = new Dictionary<string, string>();
+            var knownLanguagesSet =
+                new HashSet<string>(knownLanguages ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+
+            Console.WriteLine("=== Начало обработки файлов локализации ===");
+
             foreach (string path in pathsToXmls)
             {
                 if (!File.Exists(path))
                 {
-                    Console.WriteLine($"ВНИМАНИЕ: Файл не найден: {path}");
-                    // Сохраняем информацию об отсутствующем файле
+                    Form1.ShowMessage($"ВНИМАНИЕ: Файл не найден: {path}");
                     string fileGroupId = path.Contains("BookDescriptions") ? "sharedstrings" :
-                                       path.Contains("CharacterNames") ? "sharedstrings" : "chapter1";
+                                         path.Contains("CharacterNames") ? "sharedstrings" : "chapter1";
                     missingFiles[fileGroupId] = path;
                     continue;
                 }
 
                 Console.WriteLine($"\nОбработка файла: {path}");
-                Dictionary<string, string> fileDict = null;
                 string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(path);
+                Dictionary<string, string> fileDict = null;
 
                 try
                 {
-                    // Определяем, является ли файл файлом описания книги
                     bool isBookDescription = path.Contains("BookDescriptions");
                     bool isTranslatedData = path.Contains("TranslatedData");
 
                     if (isBookDescription && knownLanguagesSet.Contains(fileNameWithoutExtension))
                     {
-                        // Для файлов из BookDescriptions используем логику D->B
-                        Console.WriteLine($"Применяем логику D->B для файла описания книги: {path}");
+                        Console.WriteLine($"Обработка файла описания книги: {path}");
 
-                        // Получаем данные из колонок D и B
-                        Dictionary<string, string> dictD = ConvertExcelToDictionary(path, 3).Where(x => !string.IsNullOrWhiteSpace(x.Value))
-                                                                                  .ToDictionary(x => x.Key, x => x.Value.Trim());
-                        Dictionary<string, string> dictB = ConvertExcelToDictionary(path, 1).Where(x => !string.IsNullOrWhiteSpace(x.Value))
-                                                                                  .ToDictionary(x => x.Key, x => x.Value.Trim());
+                        // Пробуем получить данные из колонки D (индекс 3)
+                        Dictionary<string, string> dictD = ConvertExcelToDictionary(path, 3)
+                                                           .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                                                           .ToDictionary(x => x.Key, x => x.Value.Trim());
 
-                        // Выводим статистику по непустым значениям
-                        Console.WriteLine($"Количество непустых значений в колонке D: {dictD.Count}");
-                        Console.WriteLine($"Количество непустых значений в колонке B: {dictB.Count}");
-
-                        // Создаем итоговый словарь, приоритет отдаем значениям из колонки D
-                        fileDict = new Dictionary<string, string>();
-
-                        // Сначала добавляем все непустые значения из D
-                        foreach (KeyValuePair<string, string> pair in dictD)
+                        // Если в колонке D нет данных, берем из колонки B (индекс 1)
+                        if (dictD.Count == 0)
                         {
-                            fileDict[pair.Key] = pair.Value;
+                            fileDict = ConvertExcelToDictionary(path, 1)
+                                        .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                                        .ToDictionary(x => x.Key, x => x.Value.Trim());
+                            Console.WriteLine($"Использованы значения из колонки B: {fileDict.Count} записей");
                         }
-
-                        // Добавляем значения из B только если ключа нет в D
-                        foreach (KeyValuePair<string, string> pair in dictB)
+                        else
                         {
-                            if (!fileDict.ContainsKey(pair.Key))
-                            {
-                                fileDict[pair.Key] = pair.Value;
-                            }
+                            fileDict = dictD;
+                            Console.WriteLine($"Использованы значения из колонки D: {fileDict.Count} записей");
                         }
-
-                        // Выводим итоговую статистику
-                        Console.WriteLine($"Итоговое количество уникальных непустых значений: {fileDict.Count}");
                     }
                     else if (isTranslatedData)
                     {
-                        // Для файлов из TranslatedData используем колонку E
                         Console.WriteLine($"Применяем логику колонки E для переведенного файла: {path}");
-                        fileDict = ConvertExcelToDictionary(path, 4); // Колонка E
+                        fileDict = ConvertExcelToDictionary(path, 4);
                     }
                     else
                     {
-                        // Для остальных файлов используем стандартную логику
                         Console.WriteLine($"Применяем стандартную логику для колонки {defaultColumn}: {path}");
                         fileDict = ConvertExcelToDictionary(path, defaultColumn);
                     }
@@ -1829,23 +1763,25 @@ namespace StoriesLinker
                     if (fileDict != null)
                     {
                         foreach (KeyValuePair<string, string> pair in fileDict.Where(p => p.Key != "ID"))
-                        {
                             if (!total.ContainsKey(pair.Key))
-                            {
                                 total.Add(pair.Key, pair.Value);
-                            }
-                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Ошибка при обработке файла {path}: {ex.Message}");
+                    Form1.ShowMessage($"Ошибка при обработке файла {path}: {ex.Message}");
                     throw;
                 }
             }
 
-            AjLocalizInJsonFile jsonFile = new AjLocalizInJsonFile();
+            var jsonFile = new AjLocalizInJsonFile();
             jsonFile.Data = total;
+
+            // Кэшируем результат
+            _localizationCache[cacheKey] = total.ToDictionary(
+                kvp => kvp.Key,
+                kvp => new LocalizationEntry { Text = kvp.Value, IsInternal = false }
+            );
 
             return jsonFile;
         }
@@ -1865,52 +1801,63 @@ namespace StoriesLinker
         /// </summary>
         public AjLocalizInJsonFile ConvertLocalizationXmlToJson(string[] pathsToXmls, string pathToJson, int column)
         {
-            Dictionary<string, string> total = new Dictionary<string, string>();
+            var total = new Dictionary<string, string>();
 
             foreach (string el in pathsToXmls)
             {
                 Dictionary<string, string> fileDict = ConvertExcelToDictionary(el, column);
 
                 foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
-                {
                     total.Add(pair.Key, pair.Value);
-                }
             }
 
-            AjLocalizInJsonFile jsonFile = new AjLocalizInJsonFile();
+            var jsonFile = new AjLocalizInJsonFile();
             jsonFile.Data = total;
 
             File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
 
             return jsonFile;
         }
+
         #endregion
 
         #region Работа с кешем локализации
-        private Dictionary<string, LocalizationEntry> CacheExcelData(string path, string chapterKey, bool isInternal = false)
+
+        private Dictionary<string, LocalizationEntry> CacheExcelData(string path,
+                                                                     string chapterKey,
+                                                                     bool isInternal = false)
         {
-            if (_cachedLocalizationData.TryGetValue(chapterKey, out var cachedData))
-            {
+            var cacheKey = new LocalizationCacheKey(chapterKey, Path.GetDirectoryName(path).Split('\\').Last(), isInternal);
+
+            if (_localizationCache.TryGetValue(cacheKey, out Dictionary<string, LocalizationEntry> cachedData))
                 return cachedData;
-            }
 
             var data = new Dictionary<string, LocalizationEntry>();
 
             using (var xlPackage = new ExcelPackage(new FileInfo(path)))
             {
-                var worksheet = xlPackage.Workbook.Worksheets.First();
+                ExcelWorksheet worksheet = xlPackage.Workbook.Worksheets.First();
                 int totalRows = worksheet.Dimension.End.Row;
 
-                for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
                 {
                     var id = worksheet.Cells[rowNum, 1].Value?.ToString();
                     if (string.IsNullOrEmpty(id)) continue;
 
                     var entry = new LocalizationEntry
                     {
-                        Text = _stringPool.Intern(worksheet.Cells[rowNum, Form1.FOR_LOCALIZATORS_MODE ? 4 : 2].Value?.ToString() ?? string.Empty),
-                        SpeakerDisplayName = Form1.FOR_LOCALIZATORS_MODE ? _stringPool.Intern(worksheet.Cells[rowNum, 2].Value?.ToString() ?? string.Empty) : string.Empty,
-                        Emotion = Form1.FOR_LOCALIZATORS_MODE ? _stringPool.Intern(worksheet.Cells[rowNum, 3].Value?.ToString() ?? string.Empty) : string.Empty,
+                        Text = _stringPool.Intern(worksheet.Cells[rowNum, Form1.FOR_LOCALIZATORS_MODE ? 4 : 2]
+                                                           .Value?.ToString() ??
+                                                  string.Empty),
+                        SpeakerDisplayName =
+                                        Form1.FOR_LOCALIZATORS_MODE
+                                            ? _stringPool.Intern(worksheet.Cells[rowNum, 2].Value?.ToString() ??
+                                                                 string.Empty)
+                                            : string.Empty,
+                        Emotion = Form1.FOR_LOCALIZATORS_MODE
+                                                  ? _stringPool.Intern(worksheet.Cells[rowNum, 3].Value?.ToString() ??
+                                                                       string.Empty)
+                                                  : string.Empty,
                         IsInternal = isInternal
                     };
 
@@ -1918,66 +1865,40 @@ namespace StoriesLinker
                 }
             }
 
-            _cachedLocalizationData[chapterKey] = data;
+            _localizationCache[cacheKey] = data;
             return data;
-        }
-
-        private void PreloadLocalizationData()
-        {
-            var nativeDict = GetLocalizationDictionary();
-            var ajfile = ParseFlowJsonFile();
-            var objectsList = ExtractBookEntities(ajfile, nativeDict);
-
-            _cachedLocalizationData["base"] = new Dictionary<string, LocalizationEntry>();
-
-            foreach (var obj in objectsList.Values)
-            {
-                if (obj.Properties?.DisplayName == null) continue;
-
-                _cachedLocalizationData["base"][obj.Properties.DisplayName] = new LocalizationEntry
-                {
-                    Text = nativeDict.TryGetValue(obj.Properties.DisplayName, out var text) ? _stringPool.Intern(text) : string.Empty,
-                    IsInternal = false
-                };
-            }
         }
 
         private void CacheChapterData(int chapterNumber, string language)
         {
-            var chapterKey = $"chapter_{chapterNumber}_{language}";
+            var forTranslatingPath =
+                $"{_projectPath}\\Localization\\{language}\\Chapter_{chapterNumber}_for_translating.xlsx";
+            var internalPath = $"{_projectPath}\\Localization\\Russian\\Chapter_{chapterNumber}_internal.xlsx";
 
-            if (_cachedLocalizationData.ContainsKey(chapterKey)) return;
-
-            string forTranslatingPath = $"{_projectPath}\\Localization\\{language}\\Chapter_{chapterNumber}_for_translating.xlsx";
-            string internalPath = $"{_projectPath}\\Localization\\Russian\\Chapter_{chapterNumber}_internal.xlsx";
-
-            CacheExcelData(forTranslatingPath, chapterKey);
-            CacheExcelData(internalPath, chapterKey + "_internal", true);
+            CacheExcelData(forTranslatingPath, $"chapter_{chapterNumber}");
+            CacheExcelData(internalPath, $"chapter_{chapterNumber}", true);
         }
 
         public void ClearCache()
         {
-            _cachedLocalizationData.Clear();
+            _localizationCache.Clear();
             _cachedTranslations.Clear();
         }
 
         public void ClearCacheForChapter(int chapterNumber)
         {
-            var keysToRemove = _cachedLocalizationData.Keys
-                .Where(k => k.StartsWith($"chapter_{chapterNumber}_"))
+            var keysToRemove = _localizationCache.Keys
+                .Where(k => k.Chapter.StartsWith($"chapter_{chapterNumber}"))
                 .ToList();
 
             foreach (var key in keysToRemove)
             {
-                _cachedLocalizationData.Remove(key);
+                _localizationCache.Remove(key);
             }
         }
 
-        private bool IsCacheValid(string key)
-        {
-            return _cachedLocalizationData.ContainsKey(key) &&
-                   _cachedLocalizationData[key].Any();
-        }
+        private bool IsCacheValid(LocalizationCacheKey key) =>
+            _localizationCache.ContainsKey(key) && _localizationCache[key].Any();
 
         /// <summary>
         /// Очищает все кэши
@@ -1987,13 +1908,18 @@ namespace StoriesLinker
             _cachedFlowJson = null;
             _cachedMetaData = null;
             _cachedLocalizationDict = null;
-            _cachedLocalizationData.Clear();
+            _localizationCache.Clear();
             _cachedTranslations.Clear();
             _savedXmlDicts.Clear();
+            _cachedBookEntities = null;
+            _cachedEntitiesAjFile = null;
+            _cachedEntitiesNativeDict = null;
         }
+
         #endregion
 
         #region Пути к файлам
+
         /// <summary>
         /// Получает путь к таблицам локализации
         /// </summary>
@@ -2009,30 +1935,26 @@ namespace StoriesLinker
         /// <summary>
         /// Получает путь к Flow.json
         /// </summary>
-        public static string GetFlowJsonPath(string projPath) { return projPath + @"\Raw\Flow.json"; }
+        public static string GetFlowJsonPath(string projPath) => projPath + @"\Raw\Flow.json";
 
         /// <summary>
         /// Получает путь к Meta.json
         /// </summary>
-        public static string GetMetaJsonPath(string projPath) { return projPath + @"\Raw\Meta.json"; }
+        public static string GetMetaJsonPath(string projPath) => projPath + @"\Raw\Meta.json";
+
         #endregion
 
         private string RecognizeEmotion(AjColor color)
         {
-            EChEmotion emotion = EChEmotion.IsntSetOrNeutral;
+            var emotion = EChEmotion.IsntSetOrNeutral;
 
-            bool ColorsEquals(Color32 a, Color32 b) { return (Math.Abs(a.R - b.R) < 20 && Math.Abs(a.G - b.G) < 20 && Math.Abs(a.B - b.B) < 20); }
+            bool ColorsEquals(Color32 a, Color32 b) =>
+                Math.Abs(a.R - b.R) < 20 && Math.Abs(a.G - b.G) < 20 && Math.Abs(a.B - b.B) < 20;
 
-            Color32 fragColor = color.ToColor32();
-            Color32[] emotionsColor =
-            [
-                new Color32(255, 0, 0, 0),
-                new Color32(0, 110, 20, 0),
-                new Color32(41, 6, 88, 0),
-                new Color32(255, 134, 0, 0)
-            ];
+            var fragColor = color.ToColor32();
+            Color32[] emotionsColor = [new(255, 0, 0, 0), new(0, 110, 20, 0), new(41, 6, 88, 0), new(255, 134, 0, 0)];
 
-            for (int i = 0; i < emotionsColor.Length; i++)
+            for (var i = 0; i < emotionsColor.Length; i++)
             {
                 if (!ColorsEquals(emotionsColor[i], fragColor)) continue;
 
@@ -2043,14 +1965,14 @@ namespace StoriesLinker
             return emotion.ToString();
         }
 
-        private List<AjObj> AssignArticyIdsToMetaData(
-            Dictionary<string, AjObj> objectsList,
-            AjLinkerMeta meta,
-            Dictionary<string, string> nativeDict)
+        private List<AjObj> AssignArticyIdsToMetaData(Dictionary<string, AjObj> objectsList,
+                                                      AjLinkerMeta meta,
+                                                      Dictionary<string, string> nativeDict)
         {
             var sharedObjs = new List<AjObj>();
 
-            foreach (var pair in objectsList.Where(p => p.Value.EType == AjType.Entity || p.Value.EType == AjType.Location))
+            foreach (KeyValuePair<string, AjObj> pair in objectsList.Where(p => p.Value.EType == AjType.Entity ||
+                                                                               p.Value.EType == AjType.Location))
             {
                 string dname = nativeDict[pair.Value.Properties.DisplayName];
 
@@ -2068,10 +1990,8 @@ namespace StoriesLinker
                 sharedObjs.Add(pair.Value);
             }
 
-            foreach (var el in meta.Locations.Where(el => string.IsNullOrEmpty(el.Aid)))
-            {
+            foreach (AjMetaLocationData el in meta.Locations.Where(el => string.IsNullOrEmpty(el.Aid)))
                 el.Aid = "fake_location_aid" + el.Id;
-            }
 
             return sharedObjs;
         }
