@@ -213,10 +213,9 @@ namespace StoriesLinker
             AjLinkerMeta meta = linker.ParseMetaDataFromExcel();
             LinkerAtlasChecker checker = new LinkerAtlasChecker(meta, meta.Characters);
 
-            Dictionary<string, AjObj> objectsList =
-                linker.ExtractBookEntities(linker.ParseFlowJsonFile(), linker.GetLocalizationDictionary());
+            var (_, _, bookEntities) = linker.LoadBaseData();
 
-            foreach (KeyValuePair<string, AjObj> @object in objectsList)
+            foreach (KeyValuePair<string, AjObj> @object in bookEntities)
             {
                 if (@object.Value.EType == AjType.Instruction)
                 {
