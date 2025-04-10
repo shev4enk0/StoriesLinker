@@ -10,6 +10,8 @@ namespace StoriesLinker
 {
     public class LinkerBin(string projectPath)
     {
+        #region Vars
+
         private readonly string _projectPath = projectPath;
         private readonly Dictionary<string, Dictionary<int, Dictionary<string, string>>> _savedXmlDicts = new();
         private readonly Dictionary<string, Dictionary<string, LocalizationEntry>> _cachedLocalizationData = new();
@@ -27,7 +29,9 @@ namespace StoriesLinker
         private AjFile _cachedEntitiesAjFile;
         private Dictionary<string, string> _cachedEntitiesNativeDict;
         private readonly Dictionary<LocalizationCacheKey, Dictionary<string, LocalizationEntry>> _localizationCache = new();
+        
 
+        #endregion
         private class LocalizationEntry
         {
             public string Text { get; set; }
