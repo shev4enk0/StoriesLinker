@@ -29,6 +29,7 @@ namespace StoriesLinker
         private AjFile _cachedEntitiesAjFile;
         private Dictionary<string, string> _cachedEntitiesNativeDict;
         private readonly Dictionary<LocalizationCacheKey, Dictionary<string, LocalizationEntry>> _localizationCache = new();
+        private (Dictionary<string, string> _cachedLocalizationDict, AjFile _cachedFlowJson, Dictionary<string, AjObj> _cachedBookEntities) _baseDataCache;
 
         private class LocalizationEntry
         {
@@ -569,31 +570,29 @@ namespace StoriesLinker
         /// <returns>Кортеж из словаря локализации, объекта AjFile и словаря объектов</returns>
         public (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList) LoadBaseData()
         {
+            // Проверяем кэш
+            if (_baseDataCache != default)
+            {
+                return _baseDataCache;
+            }
+
             try
             {
-                
-                // В LinkerBin.cs
                 IArticyDataParser articyParser = ArticyParserFactory.CreateParser(_projectPath);
                 (AjFile parsedJson, Dictionary<string, string> localizationDictionary) = articyParser.ParseData();
-                
-                /*Dictionary<string, string> nativeDict = GetLocalizationDictionary() ?? new Dictionary<string, string>();
-                AjFile ajfile = ParseFlowJsonFile();
-
-                if (ajfile == null)
-                {
-                    Console.WriteLine("Ошибка: Flow.json не может быть загружен");
-                    return (nativeDict, null, new Dictionary<string, AjObj>());
-                }*/
 
                 Dictionary<string, AjObj> objectsList = ExtractBookEntities(parsedJson, localizationDictionary);
 
                 if (objectsList != null && objectsList.Count != 0)
-                    return (localizationDictionary, parsedJson, objectsList);
-                
+                {
+                    _baseDataCache = (localizationDictionary, parsedJson, objectsList);
+                    return _baseDataCache;
+                }
+
                 Console.WriteLine("Предупреждение: Список объектов пуст");
                 objectsList = new Dictionary<string, AjObj>();
-
-                return (localizationDictionary, parsedJson, objectsList);
+                _baseDataCache = (localizationDictionary, parsedJson, objectsList);
+                return _baseDataCache;
             }
             catch (Exception ex)
             {
@@ -1753,19 +1752,19 @@ namespace StoriesLinker
 
             if (IsCacheValid(cacheKey) && _localizationCache.TryGetValue(cacheKey, out var cachedData))
             {
+                Console.WriteLine($"Используем кэшированные данные для файлов: {string.Join(", ", pathsToXmls)}");
                 var result = new AjLocalizInJsonFile
                 {
                     Data = cachedData.ToDictionary(
-                                                              kvp => kvp.Key,
-                                                              kvp => kvp.Value.Text
-                                                             )
+                        kvp => kvp.Key,
+                        kvp => kvp.Value.Text
+                    )
                 };
                 return result;
             }
 
             var total = new Dictionary<string, string>();
-            var knownLanguagesSet =
-                new HashSet<string>(knownLanguages ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            var knownLanguagesSet = new HashSet<string>(knownLanguages ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
 
             Console.WriteLine("=== Начало обработки файлов локализации ===");
 
@@ -1773,9 +1772,9 @@ namespace StoriesLinker
             {
                 if (!File.Exists(path))
                 {
-                    Form1.ShowMessage($"ВНИМАНИЕ: Файл не найден: {path}");
+                    Console.WriteLine($"ВНИМАНИЕ: Файл не найден: {path}");
                     string fileGroupId = path.Contains("BookDescriptions") ? "sharedstrings" :
-                                         path.Contains("CharacterNames") ? "sharedstrings" : "chapter1";
+                                        path.Contains("CharacterNames") ? "sharedstrings" : "chapter1";
                     missingFiles[fileGroupId] = path;
                     continue;
                 }
@@ -1795,21 +1794,20 @@ namespace StoriesLinker
 
                         // Пробуем получить данные из колонки D (индекс 3)
                         Dictionary<string, string> dictD = ConvertExcelToDictionary(path, 3)
-                                                           .Where(x => !string.IsNullOrWhiteSpace(x.Value))
-                                                           .ToDictionary(x => x.Key, x => x.Value.Trim());
+                            .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                            .ToDictionary(x => x.Key, x => x.Value.Trim());
 
                         // Если в колонке D нет данных, берем из колонки B (индекс 1)
                         if (dictD.Count == 0)
                         {
+                            Console.WriteLine($"В колонке D нет данных, используем колонку B");
                             fileDict = ConvertExcelToDictionary(path, 1)
-                                        .Where(x => !string.IsNullOrWhiteSpace(x.Value))
-                                        .ToDictionary(x => x.Key, x => x.Value.Trim());
-                            Console.WriteLine($"Использованы значения из колонки B: {fileDict.Count} записей");
+                                .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                                .ToDictionary(x => x.Key, x => x.Value.Trim());
                         }
                         else
                         {
                             fileDict = dictD;
-                            Console.WriteLine($"Использованы значения из колонки D: {fileDict.Count} записей");
                         }
                     }
                     else if (isTranslatedData)
@@ -1825,14 +1823,27 @@ namespace StoriesLinker
 
                     if (fileDict != null)
                     {
+                        int addedCount = 0;
+                        int skippedCount = 0;
                         foreach (KeyValuePair<string, string> pair in fileDict.Where(p => p.Key != "ID"))
+                        {
                             if (!total.ContainsKey(pair.Key))
+                            {
                                 total.Add(pair.Key, pair.Value);
+                                addedCount++;
+                            }
+                            else
+                            {
+                                skippedCount++;
+                            }
+                        }
+                        Console.WriteLine($"Добавлено записей: {addedCount}, пропущено дубликатов: {skippedCount}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Form1.ShowMessage($"Ошибка при обработке файла {path}: {ex.Message}");
+                    Console.WriteLine($"Ошибка при обработке файла {path}: {ex.Message}");
+                    Console.WriteLine($"Стек вызовов: {ex.StackTrace}");
                     throw;
                 }
             }
@@ -1845,6 +1856,7 @@ namespace StoriesLinker
                 kvp => new LocalizationEntry { Text = kvp.Value, IsInternal = false }
             );
 
+            Console.WriteLine($"=== Обработка файлов локализации завершена. Всего записей: {total.Count} ===");
             return jsonFile;
         }
 

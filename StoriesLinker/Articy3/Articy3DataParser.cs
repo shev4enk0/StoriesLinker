@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using OfficeOpenXml;
 using StoriesLinker.Interfaces;
@@ -16,6 +18,15 @@ namespace StoriesLinker.Articy3
         private readonly string _projectPath;
         // Кэш для Excel-словарей, аналогично LinkerBin
         private readonly Dictionary<string, Dictionary<int, Dictionary<string, string>>> _savedXmlDicts = new();
+        private readonly Dictionary<string, Dictionary<string, string>> _cachedLocalizationDict = new();
+        private readonly Dictionary<string, AjFile> _cachedFlowJson = new();
+        private readonly Dictionary<string, Dictionary<string, AjObj>> _cachedBookEntities = new();
+        private readonly Dictionary<string, Dictionary<string, string>> _cachedEntitiesNativeDict = new();
+        private readonly Dictionary<string, Dictionary<string, LocalizationEntry>> _cachedLocalizationData = new();
+        private readonly Dictionary<string, Dictionary<string, string>> _cachedTranslations = new();
+        private readonly StringPool _stringPool = new();
+        private readonly SemaphoreSlim _excelLock = new(1, 1);
+        private readonly TimeSpan _excelTimeout = TimeSpan.FromSeconds(30);
 
         public Articy3DataParser(string projectPath)
         {
@@ -149,10 +160,10 @@ namespace StoriesLinker.Articy3
         /// </summary>
         private Dictionary<string, string> ConvertExcelToDictionaryInternal(string path, int column = 1)
         {
-            // Проверка кэша
             if (_savedXmlDicts.TryGetValue(path, out var columnsDict) &&
                 columnsDict.TryGetValue(column, out var cachedDict))
             {
+                Console.WriteLine($"Используем кэшированные данные для файла {path}, колонка {column}");
                 return cachedDict;
             }
 
@@ -160,46 +171,77 @@ namespace StoriesLinker.Articy3
 
             try
             {
-                // Используем EPPlus для чтения Excel
-                Console.WriteLine($"Пытаемся прочитать Excel файл: {path}");
-                using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+                using (var cts = new CancellationTokenSource(_excelTimeout))
                 {
-                    if (xlPackage.Workbook.Worksheets.Count == 0)
-                        throw new InvalidOperationException("The workbook contains no worksheets.");
-                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
-                    int totalRows = myWorksheet.Dimension.End.Row;
-                    int totalColumns = myWorksheet.Dimension.End.Column;
-
-                    for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+                    var task = Task.Run(() =>
                     {
-                        ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
-                        ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
+                        using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+                        {
+                            if (xlPackage.Workbook.Worksheets.Count == 0)
+                            {
+                                Console.WriteLine($"Ошибка: В файле {path} нет рабочих листов");
+                                throw new InvalidOperationException("The workbook contains no worksheets.");
+                            }
 
-                        string firstRowStr = firstRow?.Value != null
-                                                ? firstRow.Value.ToString().Trim()
-                                                : string.Empty;
-                        string secondRowStr = secondRow?.Value != null
-                                                ? secondRow.Value.ToString().Trim()
-                                                : string.Empty;
+                            ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                            int totalRows = myWorksheet.Dimension.End.Row;
+                            int totalColumns = myWorksheet.Dimension.End.Column;
 
-                        // Пропускаем строки с пустым ключом или пустым значением
-                        if (string.IsNullOrWhiteSpace(firstRowStr) || string.IsNullOrWhiteSpace(secondRowStr)) continue;
+                            Console.WriteLine($"Обработка файла {path}:");
+                            Console.WriteLine($"- Всего строк: {totalRows}");
+                            Console.WriteLine($"- Всего колонок: {totalColumns}");
+                            Console.WriteLine($"- Целевая колонка: {column}");
 
-                        if (!nativeDict.ContainsKey(firstRowStr))
-                            nativeDict.Add(firstRowStr, secondRowStr);
-                        else
-                            Console.WriteLine($"Обнаружен дублирующийся ключ: {firstRowStr}");
-                    }
+                            for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+                            {
+                                ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                                ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
+
+                                string firstRowStr = firstRow?.Value != null
+                                                    ? firstRow.Value.ToString().Trim()
+                                                    : string.Empty;
+                                string secondRowStr = secondRow?.Value != null
+                                                    ? secondRow.Value.ToString().Trim()
+                                                    : string.Empty;
+
+                                if (string.IsNullOrWhiteSpace(firstRowStr) || string.IsNullOrWhiteSpace(secondRowStr))
+                                {
+                                    if (rowNum == 1)
+                                    {
+                                        Console.WriteLine($"Предупреждение: Пустые значения в заголовке строки {rowNum}");
+                                    }
+                                    continue;
+                                }
+
+                                if (!nativeDict.ContainsKey(firstRowStr))
+                                {
+                                    nativeDict.Add(firstRowStr, secondRowStr);
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Предупреждение: Дублирующийся ключ '{firstRowStr}' в строке {rowNum}");
+                                }
+                            }
+
+                            Console.WriteLine($"Успешно обработано {nativeDict.Count} записей");
+                        }
+                    }, cts.Token);
+
+                    task.Wait(cts.Token);
                 }
-                Console.WriteLine($"Успешно считано {nativeDict.Count} записей из Excel");
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine($"Ошибка: Превышено время ожидания при чтении Excel файла: {path}");
+                return new Dictionary<string, string>();
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка при обработке Excel файла '{path}': {ex.Message}");
+                Console.WriteLine($"Стек вызовов: {ex.StackTrace}");
                 return new Dictionary<string, string>();
             }
 
-            // Сохранение в кэш
             if (!_savedXmlDicts.ContainsKey(path))
             {
                 _savedXmlDicts[path] = new Dictionary<int, Dictionary<string, string>>();
@@ -207,6 +249,29 @@ namespace StoriesLinker.Articy3
             _savedXmlDicts[path][column] = nativeDict;
 
             return nativeDict;
+        }
+
+        private class StringPool
+        {
+            private readonly HashSet<string> _strings = new();
+
+            public string Intern(string str)
+            {
+                if (string.IsNullOrEmpty(str)) return str;
+
+                if (_strings.TryGetValue(str, out string existing)) return existing;
+
+                _strings.Add(str);
+                return str;
+            }
+        }
+
+        private class LocalizationEntry
+        {
+            public string Text { get; set; }
+            public string SpeakerDisplayName { get; set; }
+            public string Emotion { get; set; }
+            public bool IsInternal { get; set; }
         }
     }
 }
