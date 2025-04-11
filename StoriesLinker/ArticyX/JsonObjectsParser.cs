@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
 using System.IO;
+using Newtonsoft.Json;
 
-namespace StoriesLinker
+namespace StoriesLinker.ArticyX
 {
     public class JsonObjectsParser
     {
@@ -42,103 +42,6 @@ namespace StoriesLinker
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка при инициализации ArticyXParser: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Создает парсер Articy X с указанным экземпляром LinkerBin
-        /// </summary>
-        /// <param name="linker">Экземпляр LinkerBin для работы с проектом</param>
-        /// <param name="defaultPath">Опциональный путь к корневой папке проекта</param>
-        public JsonObjectsParser(LinkerBin linker, string defaultPath = null)
-        {
-            _linker = linker;
-            if (string.IsNullOrEmpty(defaultPath)) return;
-
-            string jsonFolder = Path.Combine(defaultPath, "Raw", JSON_FOLDER_NAME);
-            _defaultPath = jsonFolder;
-
-            if (!Directory.Exists(jsonFolder)) return;
-
-            _flowJsonPath = Path.Combine(jsonFolder, FILE_PATTERN_NAME);
-            _globalVarsJsonPath = Path.Combine(jsonFolder, GLOBAL_VARS_FILE_NAME);
-
-            if (!File.Exists(_flowJsonPath) || !File.Exists(_globalVarsJsonPath)) return;
-
-            try
-            {
-                Console.WriteLine($"Найдены файлы Articy X в папке: {jsonFolder}");
-                Console.WriteLine($"Flow файл: {Path.GetFileName(_flowJsonPath)}");
-                Console.WriteLine($"Global Variables файл: {Path.GetFileName(_globalVarsJsonPath)}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при инициализации ArticyXParser: {ex.Message}");
-            }
-        }
-
-        public string GetFlowJsonPath()
-        {
-            return _flowJsonPath;
-        }
-
-        public string GetGlobalVarsJsonPath()
-        {
-            return _globalVarsJsonPath;
-        }
-
-        /// <summary>
-        /// Получает объекты Articy X из найденных файлов
-        /// </summary>
-        /// <param name="nativeDict">Словарь с нативными значениями для локализации</param>
-        /// <returns>Словарь объектов Articy X</returns>
-        public Dictionary<string, AjObj> GetArticyXObjects(Dictionary<string, string> nativeDict = null)
-        {
-            if (string.IsNullOrEmpty(_flowJsonPath) || string.IsNullOrEmpty(_globalVarsJsonPath))
-            {
-                Console.WriteLine("Ошибка: Пути к файлам Articy X не найдены");
-                return new Dictionary<string, AjObj>();
-            }
-
-            if (!File.Exists(_flowJsonPath) || !File.Exists(_globalVarsJsonPath))
-            {
-                Console.WriteLine($"Ошибка: Файлы Articy X не найдены:\nFlow: {_flowJsonPath}\nGlobalVars: {_globalVarsJsonPath}");
-                return new Dictionary<string, AjObj>();
-            }
-
-            try
-            {
-                Console.WriteLine("Начинаем парсинг файлов Articy X...");
-
-                // Парсим файлы Articy X
-                var ajFile = ParseArticyX();
-
-                // Если LinkerBin не предоставлен, возвращаем пустой словарь
-                if (_linker == null)
-                {
-                    Console.WriteLine("Предупреждение: LinkerBin не предоставлен, возвращаем пустой словарь объектов");
-                    return new Dictionary<string, AjObj>();
-                }
-
-                // Если словарь локализации не предоставлен, получаем его из LinkerBin
-                Dictionary<string, AjObj> articyObjects;
-                if (nativeDict == null)
-                {
-                    (nativeDict, _, articyObjects) = _linker.LoadBaseData();
-                }
-                else
-                {
-                    // Если словарь предоставлен, используем его с текущим ajFile
-                    articyObjects = _linker.ExtractBookEntities(ajFile, nativeDict);
-                }
-
-                Console.WriteLine($"Успешно получено {articyObjects.Count} объектов Articy X");
-                return articyObjects;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при получении объектов Articy X: {ex.Message}");
-                return new Dictionary<string, AjObj>();
             }
         }
 
@@ -188,16 +91,16 @@ namespace StoriesLinker
                 var jsonData = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonContent);
 
                 // Создаем дефолтный пакет для совместимости с существующей структурой
-                jsonObj.Packages = new List<AjPackage>
-                {
+                jsonObj.Packages =
+                [
                     new AjPackage
                     {
                         Name = "Default",
                         Description = "Imported from Articy X",
                         IsDefaultPackage = true,
-                        Models = new List<AjObj>()
+                        Models = []
                     }
-                };
+                ];
 
                 // Проверяем, есть ли массив Objects
                 if (jsonData.ContainsKey("Objects") && jsonData["Objects"] is Newtonsoft.Json.Linq.JArray objectsArray)
@@ -310,16 +213,16 @@ namespace StoriesLinker
                     var nodesArray = JsonConvert.DeserializeObject<List<object>>(jsonContent);
 
                     // Создаем дефолтный пакет для совместимости с существующей структурой
-                    jsonObj.Packages = new List<AjPackage>
-                    {
+                    jsonObj.Packages =
+                    [
                         new AjPackage
                         {
                             Name = "Default",
                             Description = "Imported from Articy X",
                             IsDefaultPackage = true,
-                            Models = new List<AjObj>()
+                            Models = []
                         }
-                    };
+                    ];
 
                     // Парсим каждый объект из массива
                     foreach (var node in nodesArray)
@@ -388,7 +291,7 @@ namespace StoriesLinker
             return new AjFile
             {
                 GlobalVariables = globalVarsJson["GlobalVariables"],
-                Packages = new List<AjPackage>() // Пустой список пакетов, так как в этом файле их нет
+                Packages = [] // Пустой список пакетов, так как в этом файле их нет
             };
         }
     }

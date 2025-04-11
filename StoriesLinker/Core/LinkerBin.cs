@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using OfficeOpenXml;
+using StoriesLinker.Interfaces;
+using StoriesLinker.Utils;
 
 namespace StoriesLinker
 {
@@ -569,24 +571,29 @@ namespace StoriesLinker
         {
             try
             {
-                Dictionary<string, string> nativeDict = GetLocalizationDictionary() ?? new Dictionary<string, string>();
+                
+                // В LinkerBin.cs
+                IArticyDataParser articyParser = ArticyParserFactory.CreateParser(_projectPath);
+                (AjFile parsedJson, Dictionary<string, string> localizationDictionary) = articyParser.ParseData();
+                
+                /*Dictionary<string, string> nativeDict = GetLocalizationDictionary() ?? new Dictionary<string, string>();
                 AjFile ajfile = ParseFlowJsonFile();
 
                 if (ajfile == null)
                 {
                     Console.WriteLine("Ошибка: Flow.json не может быть загружен");
                     return (nativeDict, null, new Dictionary<string, AjObj>());
-                }
+                }*/
 
-                Dictionary<string, AjObj> objectsList = ExtractBookEntities(ajfile, nativeDict);
+                Dictionary<string, AjObj> objectsList = ExtractBookEntities(parsedJson, localizationDictionary);
 
-                if (objectsList == null || objectsList.Count == 0)
-                {
-                    Console.WriteLine("Предупреждение: Список объектов пуст");
-                    objectsList = new Dictionary<string, AjObj>();
-                }
+                if (objectsList != null && objectsList.Count != 0)
+                    return (localizationDictionary, parsedJson, objectsList);
+                
+                Console.WriteLine("Предупреждение: Список объектов пуст");
+                objectsList = new Dictionary<string, AjObj>();
 
-                return (nativeDict, ajfile, objectsList);
+                return (localizationDictionary, parsedJson, objectsList);
             }
             catch (Exception ex)
             {

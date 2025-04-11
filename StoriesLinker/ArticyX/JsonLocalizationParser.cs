@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
 using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 
-namespace StoriesLinker
+namespace StoriesLinker.ArticyX
 {
     public class LocalizationEntry
     {
@@ -19,7 +19,7 @@ namespace StoriesLinker
 
     public class JsonLocalizationParser
     {
-        private readonly Dictionary<string, LocalizationEntry> _localizations = new ();
+        private readonly Dictionary<string, string> _localizations = new ();
         private const string JSON_FOLDER_NAME = "JSON_X";
         private const string LOCALIZATION_FILE_PATTERN = "package_*_localization.json";
         private readonly string _defaultPath;
@@ -49,49 +49,10 @@ namespace StoriesLinker
                 Console.WriteLine($"Ошибка при автоматической загрузке файла локализации: {ex.Message}");
             }
         }
+        
+        public Dictionary<string, string> GetLocalizationTextDictionary()=>_localizations;
 
-        public string GetDefaultLocalizationFilePath()
-        {
-            return _defaultLocalizationFile;
-        }
-
-        public void LoadLocalizationFromFolder(string rootFolderPath = null)
-        {
-            try
-            {
-                string pathToUse = rootFolderPath ?? _defaultPath;
-
-                if (string.IsNullOrEmpty(pathToUse))
-                {
-                    throw new ArgumentException("Путь не указан ни в параметре метода, ни в конструкторе");
-                }
-
-                if (!Directory.Exists(pathToUse))
-                {
-                    throw new DirectoryNotFoundException($"Папка {pathToUse} не найдена");
-                }
-
-                string[] localizationFiles = Directory.GetFiles(pathToUse, LOCALIZATION_FILE_PATTERN);
-
-                if (localizationFiles.Length == 0)
-                {
-                    throw new FileNotFoundException($"Файлы локализации не найдены в папке {pathToUse}");
-                }
-
-                foreach (string filePath in localizationFiles)
-                {
-                    string jsonContent = File.ReadAllText(filePath);
-                    ParseLocalizationData(jsonContent);
-                    Console.WriteLine($"Загружен файл локализации: {Path.GetFileName(filePath)}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при загрузке файлов локализации: {ex.Message}");
-            }
-        }
-
-        public Dictionary<string, LocalizationEntry> ParseLocalizationData(string jsonContent)
+        private Dictionary<string, string> ParseLocalizationData(string jsonContent)
         {
             try
             {
@@ -102,7 +63,7 @@ namespace StoriesLinker
                     if (entry.Value.Ru == null) continue;
                     
                     string key = entry.Key;
-                    _localizations[key] = entry.Value.Ru;
+                    _localizations[key] = entry.Value.Ru.Text;
                 }
 
                 return _localizations;
@@ -112,16 +73,6 @@ namespace StoriesLinker
                 Console.WriteLine($"Ошибка при парсинге локализации: {ex.Message}");
                 return null;
             }
-        }
-
-        public LocalizationEntry GetLocalization(string key)
-        {
-            return _localizations.TryGetValue(key, out LocalizationEntry entry) ? entry : null;
-        }
-
-        public void Clear()
-        {
-            _localizations.Clear();
         }
     }
 } 
