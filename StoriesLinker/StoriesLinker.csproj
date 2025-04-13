@@ -94,6 +94,8 @@
     <Compile Include="Utils\StringExtensions.cs" />
     <Compile Include="Utils\ArticyParserFactory.cs" />
     <Compile Include="Utils\DataCacheManager.cs" />
+    <Compile Include="Utils\ExcelParser.cs" />
+
    
     <EmbeddedResource Include="UI\Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>

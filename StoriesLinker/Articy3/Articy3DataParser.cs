@@ -48,7 +48,7 @@ namespace StoriesLinker.Articy3
         {
             ArticyExportData articyExportData = new();
             Dictionary<string, string> localizationDict = new Dictionary<string, string>();
-            
+
             try
             {
                 articyExportData = ParseFlowJsonFileInternal();
@@ -117,9 +117,8 @@ namespace StoriesLinker.Articy3
             return Path.Combine(_projectPath, "Raw", "Flow.json");
         }
 
-
         /// <summary>
-        /// Получает словарь локализации из Excel файла (адаптировано из LinkerBin)
+        /// Получает словарь локализации из Excel файла
         /// </summary>
         private Dictionary<string, string> GetLocalizationDictionaryInternal()
         {
@@ -130,10 +129,89 @@ namespace StoriesLinker.Articy3
                 return new Dictionary<string, string>(); // Возвращаем пустой словарь
             }
 
-            // Используем ConvertExcelToDictionaryInternal с путем к файлу
-            return ConvertExcelToDictionaryInternal(path);
-        }
+            if (_cachedLocalizationDict.TryGetValue(path, out var cachedDict))
+            {
+                Console.WriteLine($"Используем кэшированные данные для файла {path}");
+                return cachedDict;
+            }
 
+            Console.WriteLine($"Начинаю чтение Excel файла: {path}");
+            Dictionary<string, string> nativeDict = new Dictionary<string, string>();
+
+            try
+            {
+                using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+                {
+                    if (xlPackage.Workbook.Worksheets.Count == 0)
+                    {
+                        Console.WriteLine($"Ошибка: В файле {path} нет рабочих листов");
+                        return nativeDict;
+                    }
+
+                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                    int totalRows = myWorksheet.Dimension.End.Row;
+                    int totalColumns = myWorksheet.Dimension.End.Column;
+                    int targetColumn = 1; // Используем первую колонку для ключей
+
+                    Console.WriteLine($"Обработка файла {path}:");
+                    Console.WriteLine($"- Всего строк: {totalRows}");
+                    Console.WriteLine($"- Всего колонок: {totalColumns}");
+                    Console.WriteLine($"- Целевая колонка: {targetColumn}");
+
+                    int processedRows = 0;
+                    for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+                    {
+                        ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                        ExcelRange secondRow = myWorksheet.Cells[rowNum, targetColumn + 1];
+
+                        string firstRowStr = firstRow?.Value != null
+                                            ? firstRow.Value.ToString().Trim()
+                                            : string.Empty;
+                        string secondRowStr = secondRow?.Value != null
+                                            ? secondRow.Value.ToString().Trim()
+                                            : string.Empty;
+
+                        if (string.IsNullOrWhiteSpace(firstRowStr) || string.IsNullOrWhiteSpace(secondRowStr))
+                        {
+                            if (rowNum == 1)
+                            {
+                                Console.WriteLine($"Предупреждение: Пустые значения в заголовке строки {rowNum}");
+                            }
+                            continue;
+                        }
+
+                        if (!nativeDict.ContainsKey(firstRowStr))
+                        {
+                            nativeDict.Add(firstRowStr, secondRowStr);
+                            processedRows++;
+
+                            // Показываем прогресс каждые 500 строк
+                            if (processedRows % 500 == 0)
+                            {
+                                Console.WriteLine($"Обработано {processedRows} строк...");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Предупреждение: Дублирующийся ключ '{firstRowStr}' в строке {rowNum}");
+                        }
+                    }
+
+                    Console.WriteLine($"Успешно обработано {nativeDict.Count} записей");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при обработке Excel файла '{path}': {ex.Message}");
+                Console.WriteLine($"Стек вызовов: {ex.StackTrace}");
+                return nativeDict;
+            }
+
+            // Сохраняем в кэш для последующего использования
+            _cachedLocalizationDict[path] = nativeDict;
+
+            return nativeDict;
+        }
 
         /// <summary>
         /// Парсит Flow.json файл (адаптировано из LinkerBin)
@@ -151,102 +229,6 @@ namespace StoriesLinker.Articy3
             string json = r.ReadToEnd();
             // При ошибке десериализации будет выброшено исключение JsonException
             return JsonConvert.DeserializeObject<ArticyExportData>(json);
-        }
-
-        /// <summary>
-        /// Преобразует Excel таблицу в словарь ключ-значение (адаптировано из LinkerBin)
-        /// </summary>
-        private Dictionary<string, string> ConvertExcelToDictionaryInternal(string path, int column = 1)
-        {
-            if (_savedXmlDicts.TryGetValue(path, out var columnsDict) &&
-                columnsDict.TryGetValue(column, out var cachedDict))
-            {
-                Console.WriteLine($"Используем кэшированные данные для файла {path}, колонка {column}");
-                return cachedDict;
-            }
-
-            Dictionary<string, string> nativeDict = new Dictionary<string, string>();
-
-            try
-            {
-                using (var cts = new CancellationTokenSource(_excelTimeout))
-                {
-                    var task = Task.Run(() =>
-                    {
-                        using (var xlPackage = new ExcelPackage(new FileInfo(path)))
-                        {
-                            if (xlPackage.Workbook.Worksheets.Count == 0)
-                            {
-                                Console.WriteLine($"Ошибка: В файле {path} нет рабочих листов");
-                                throw new InvalidOperationException("The workbook contains no worksheets.");
-                            }
-
-                            ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
-                            int totalRows = myWorksheet.Dimension.End.Row;
-                            int totalColumns = myWorksheet.Dimension.End.Column;
-
-                            Console.WriteLine($"Обработка файла {path}:");
-                            Console.WriteLine($"- Всего строк: {totalRows}");
-                            Console.WriteLine($"- Всего колонок: {totalColumns}");
-                            Console.WriteLine($"- Целевая колонка: {column}");
-
-                            for (var rowNum = 1; rowNum <= totalRows; rowNum++)
-                            {
-                                ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
-                                ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
-
-                                string firstRowStr = firstRow?.Value != null
-                                                    ? firstRow.Value.ToString().Trim()
-                                                    : string.Empty;
-                                string secondRowStr = secondRow?.Value != null
-                                                    ? secondRow.Value.ToString().Trim()
-                                                    : string.Empty;
-
-                                if (string.IsNullOrWhiteSpace(firstRowStr) || string.IsNullOrWhiteSpace(secondRowStr))
-                                {
-                                    if (rowNum == 1)
-                                    {
-                                        Console.WriteLine($"Предупреждение: Пустые значения в заголовке строки {rowNum}");
-                                    }
-                                    continue;
-                                }
-
-                                if (!nativeDict.ContainsKey(firstRowStr))
-                                {
-                                    nativeDict.Add(firstRowStr, secondRowStr);
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"Предупреждение: Дублирующийся ключ '{firstRowStr}' в строке {rowNum}");
-                                }
-                            }
-
-                            Console.WriteLine($"Успешно обработано {nativeDict.Count} записей");
-                        }
-                    }, cts.Token);
-
-                    task.Wait(cts.Token);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                Console.WriteLine($"Ошибка: Превышено время ожидания при чтении Excel файла: {path}");
-                return new Dictionary<string, string>();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при обработке Excel файла '{path}': {ex.Message}");
-                Console.WriteLine($"Стек вызовов: {ex.StackTrace}");
-                return new Dictionary<string, string>();
-            }
-
-            if (!_savedXmlDicts.ContainsKey(path))
-            {
-                _savedXmlDicts[path] = new Dictionary<int, Dictionary<string, string>>();
-            }
-            _savedXmlDicts[path][column] = nativeDict;
-
-            return nativeDict;
         }
 
         private class StringPool
