@@ -4,15 +4,15 @@ using System.Collections.Generic;
 namespace StoriesLinker
 {
     [Serializable]
-    public class AjNamespace
+    public class GlobalVariable
     {
         public string Namespace;
         public string Description;
-        public List<AjVariable> Variables;
+        public List<VariableDefinition> Variables;
     }
 
     [Serializable]
-    public class AjVariable
+    public class VariableDefinition
     {
         public string Variable;
         public string Type;
@@ -21,22 +21,23 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AjPackage
+    public class Package
     {
         public string Name;
         public string Description;
         public bool IsDefaultPackage;
-        public List<AjObj> Models;
+        public List<Model> Models;
     }
 
     [Serializable]
-    public class AjFile
+    public class ArticyExportData
     {
-        public List<AjNamespace> GlobalVariables;
-        public List<AjPackage> Packages;
+        public Dictionary<string, string> NativeMap;
+        public List<GlobalVariable> GlobalVariables;
+        public List<Package> Packages;
     }
 
-    public enum AjType
+    public enum TypeEnum
     {
         FlowFragment,
         Dialogue,
@@ -50,15 +51,26 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AjObj
+    public class Model
     {
         public string Type;
-        public AjType EType;
-        public AjObjProps Properties;
+        public TypeEnum TypeEnum => GetTypeEnum();
+        public ModelProperty Properties;
 
-        public override string ToString()
+        public TypeEnum GetTypeEnum()
         {
-            return Properties.Id + " " + Properties.DisplayName + " " + Type;
+            return Type switch
+            {
+                "FlowFragment" => TypeEnum.FlowFragment,
+                "Dialogue" => TypeEnum.Dialogue,
+                "Entity" or "DefaultSupportingCharacterTemplate" or "DefaultMainCharacterTemplate" => TypeEnum.Entity,
+                "Location" => TypeEnum.Location,
+                "DialogueFragment" => TypeEnum.DialogueFragment,
+                "Instruction" => TypeEnum.Instruction,
+                "Condition" => TypeEnum.Condition,
+                "Jump" => TypeEnum.Jump,
+                _ => TypeEnum.Other
+            };
         }
     }
 
@@ -81,7 +93,7 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AjObjProps //FlowFragment, Dialogue, Entity, Location
+    public class ModelProperty //FlowFragment, Dialogue, Entity, Location
     {
         public string TechnicalName;
         public string Id;
@@ -89,7 +101,7 @@ namespace StoriesLinker
         public string Parent;
         public List<string> Attachments;
 
-        public AjColor Color;
+        public ArticyExportColor Color;
 
         public string Text;
         public string ExternalId;
@@ -112,7 +124,7 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AjColor
+    public class ArticyExportColor
     {
         public float R;
         public float G;
@@ -144,14 +156,14 @@ namespace StoriesLinker
     [Serializable]
     public class AjLinkerOutputBase
     {
-        public List<AjNamespace> GlobalVariables;
-        public List<AjObj> SharedObjs;
+        public List<GlobalVariable> GlobalVariables;
+        public List<Model> SharedObjs;
     }
 
     [Serializable]
     public class AjLinkerOutputChapterFlow
     {
-        public List<AjObj> Objects;
+        public List<Model> Objects;
     }
 
     [Serializable]
@@ -212,7 +224,7 @@ namespace StoriesLinker
 
         public List<int> UiOutlineColor;
         public List<int> UiResTextColor;
-        
+
         public bool WardrobeEnabled;
         public bool MainHeroHasDifferentGenders;
         public bool MainHeroHasSplittedHairSprite;

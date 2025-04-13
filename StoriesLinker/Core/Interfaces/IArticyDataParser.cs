@@ -12,6 +12,6 @@ namespace StoriesLinker.Interfaces
         /// along with the localization dictionary.
         /// </summary>
         /// <returns>A tuple containing the parsed AjFile and the localization dictionary.</returns>
-        (AjFile ParsedData, Dictionary<string, string> Localization) ParseData();
+        ArticyExportData ParseData();
     }
 }

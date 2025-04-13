@@ -51,7 +51,7 @@ namespace StoriesLinker.ArticyX
         /// <param name="customFlowJsonPath">Опциональный путь к JSON с нодами и связями</param>
         /// <param name="customGlobalVarsJsonPath">Опциональный путь к JSON с глобальными переменными</param>
         /// <returns>Объект AJFile, совместимый с существующей структурой</returns>
-        public AjFile ParseArticyX(string customFlowJsonPath = null, string customGlobalVarsJsonPath = null)
+        public ArticyExportData ParseArticyX(string customFlowJsonPath = null, string customGlobalVarsJsonPath = null)
         {
             string flowJsonPath = customFlowJsonPath ?? _flowJsonPath;
             string globalVarsJsonPath = customGlobalVarsJsonPath ?? _globalVarsJsonPath;
@@ -81,9 +81,9 @@ namespace StoriesLinker.ArticyX
         /// <summary>
         /// Парсит основной файл с нодами и связями из Articy X
         /// </summary>
-        private AjFile ParseArticyXObjects(string jsonContent)
+        private ArticyExportData ParseArticyXObjects(string jsonContent)
         {
-            AjFile jsonObj = new AjFile();
+            ArticyExportData jsonObj = new ArticyExportData();
 
             try
             {
@@ -93,7 +93,7 @@ namespace StoriesLinker.ArticyX
                 // Создаем дефолтный пакет для совместимости с существующей структурой
                 jsonObj.Packages =
                 [
-                    new AjPackage
+                    new Package
                     {
                         Name = "Default",
                         Description = "Imported from Articy X",
@@ -106,103 +106,8 @@ namespace StoriesLinker.ArticyX
                 if (jsonData.ContainsKey("Objects") && jsonData["Objects"] is Newtonsoft.Json.Linq.JArray objectsArray)
                 {
                     Console.WriteLine($"Найдено {objectsArray.Count} объектов в массиве Objects");
+                }
 
-                    // Парсим каждый объект из массива Objects
-                    foreach (var obj in objectsArray)
-                    {
-                        try
-                        {
-                            var nodeObj = JsonConvert.DeserializeObject<AjObj>(obj.ToString());
-                            // Устанавливаем EType в соответствии с Type
-                            switch (nodeObj.Type)
-                            {
-                                case "FlowFragment":
-                                    nodeObj.EType = AjType.FlowFragment;
-                                    break;
-                                case "Dialogue":
-                                    nodeObj.EType = AjType.Dialogue;
-                                    break;
-                                case "Entity":
-                                case "DefaultSupportingCharacterTemplate":
-                                case "DefaultMainCharacterTemplate":
-                                    nodeObj.EType = AjType.Entity;
-                                    break;
-                                case "Location":
-                                    nodeObj.EType = AjType.Location;
-                                    break;
-                                case "DialogueFragment":
-                                    nodeObj.EType = AjType.DialogueFragment;
-                                    break;
-                                case "Instruction":
-                                    nodeObj.EType = AjType.Instruction;
-                                    break;
-                                case "Condition":
-                                    nodeObj.EType = AjType.Condition;
-                                    break;
-                                case "Jump":
-                                    nodeObj.EType = AjType.Jump;
-                                    break;
-                                default:
-                                    nodeObj.EType = AjType.Other;
-                                    break;
-                            }
-                            jsonObj.Packages[0].Models.Add(nodeObj);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Ошибка при парсинге объекта: {ex.Message}");
-                        }
-                    }
-                }
-                else
-                {
-                    // Если нет массива Objects, пробуем парсить как Dictionary
-                    foreach (var node in jsonData)
-                    {
-                        try
-                        {
-                            var nodeObj = JsonConvert.DeserializeObject<AjObj>(node.Value.ToString());
-                            // Устанавливаем EType в соответствии с Type
-                            switch (nodeObj.Type)
-                            {
-                                case "FlowFragment":
-                                    nodeObj.EType = AjType.FlowFragment;
-                                    break;
-                                case "Dialogue":
-                                    nodeObj.EType = AjType.Dialogue;
-                                    break;
-                                case "Entity":
-                                case "DefaultSupportingCharacterTemplate":
-                                case "DefaultMainCharacterTemplate":
-                                    nodeObj.EType = AjType.Entity;
-                                    break;
-                                case "Location":
-                                    nodeObj.EType = AjType.Location;
-                                    break;
-                                case "DialogueFragment":
-                                    nodeObj.EType = AjType.DialogueFragment;
-                                    break;
-                                case "Instruction":
-                                    nodeObj.EType = AjType.Instruction;
-                                    break;
-                                case "Condition":
-                                    nodeObj.EType = AjType.Condition;
-                                    break;
-                                case "Jump":
-                                    nodeObj.EType = AjType.Jump;
-                                    break;
-                                default:
-                                    nodeObj.EType = AjType.Other;
-                                    break;
-                            }
-                            jsonObj.Packages[0].Models.Add(nodeObj);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Ошибка при парсинге элемента Dictionary: {ex.Message}");
-                        }
-                    }
-                }
             }
             catch (JsonReaderException ex)
             {
@@ -215,7 +120,7 @@ namespace StoriesLinker.ArticyX
                     // Создаем дефолтный пакет для совместимости с существующей структурой
                     jsonObj.Packages =
                     [
-                        new AjPackage
+                        new Package
                         {
                             Name = "Default",
                             Description = "Imported from Articy X",
@@ -224,52 +129,6 @@ namespace StoriesLinker.ArticyX
                         }
                     ];
 
-                    // Парсим каждый объект из массива
-                    foreach (var node in nodesArray)
-                    {
-                        try
-                        {
-                            var nodeObj = JsonConvert.DeserializeObject<AjObj>(node.ToString());
-                            // Устанавливаем EType в соответствии с Type
-                            switch (nodeObj.Type)
-                            {
-                                case "FlowFragment":
-                                    nodeObj.EType = AjType.FlowFragment;
-                                    break;
-                                case "Dialogue":
-                                    nodeObj.EType = AjType.Dialogue;
-                                    break;
-                                case "Entity":
-                                case "DefaultSupportingCharacterTemplate":
-                                case "DefaultMainCharacterTemplate":
-                                    nodeObj.EType = AjType.Entity;
-                                    break;
-                                case "Location":
-                                    nodeObj.EType = AjType.Location;
-                                    break;
-                                case "DialogueFragment":
-                                    nodeObj.EType = AjType.DialogueFragment;
-                                    break;
-                                case "Instruction":
-                                    nodeObj.EType = AjType.Instruction;
-                                    break;
-                                case "Condition":
-                                    nodeObj.EType = AjType.Condition;
-                                    break;
-                                case "Jump":
-                                    nodeObj.EType = AjType.Jump;
-                                    break;
-                                default:
-                                    nodeObj.EType = AjType.Other;
-                                    break;
-                            }
-                            jsonObj.Packages[0].Models.Add(nodeObj);
-                        }
-                        catch (Exception innerEx)
-                        {
-                            Console.WriteLine($"Ошибка при парсинге элемента массива: {innerEx.Message}");
-                        }
-                    }
                 }
                 catch (Exception arrayEx)
                 {
@@ -284,11 +143,11 @@ namespace StoriesLinker.ArticyX
         /// <summary>
         /// Парсит файл с глобальными переменными из Articy X
         /// </summary>
-        private AjFile ParseArticyXGlobalVariables(string jsonContent)
+        private ArticyExportData ParseArticyXGlobalVariables(string jsonContent)
         {
-            var globalVarsJson = JsonConvert.DeserializeObject<Dictionary<string, List<AjNamespace>>>(jsonContent);
+            var globalVarsJson = JsonConvert.DeserializeObject<Dictionary<string, List<GlobalVariable>>>(jsonContent);
 
-            return new AjFile
+            return new ArticyExportData
             {
                 GlobalVariables = globalVarsJson["GlobalVariables"],
                 Packages = [] // Пустой список пакетов, так как в этом файле их нет

@@ -215,9 +215,9 @@ namespace StoriesLinker
 
             var (_, _, bookEntities) = linker.LoadBaseData();
 
-            foreach (KeyValuePair<string, AjObj> @object in bookEntities)
+            foreach (KeyValuePair<string, Model> @object in bookEntities)
             {
-                if (@object.Value.EType == AjType.Instruction)
+                if (@object.Value.TypeEnum == TypeEnum.Instruction)
                 {
                     string expr = @object.Value.Properties.Expression;
                     if (expr.Contains("Clothes."))

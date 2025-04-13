@@ -19,8 +19,8 @@ namespace StoriesLinker.Articy3
         // Кэш для Excel-словарей, аналогично LinkerBin
         private readonly Dictionary<string, Dictionary<int, Dictionary<string, string>>> _savedXmlDicts = new();
         private readonly Dictionary<string, Dictionary<string, string>> _cachedLocalizationDict = new();
-        private readonly Dictionary<string, AjFile> _cachedFlowJson = new();
-        private readonly Dictionary<string, Dictionary<string, AjObj>> _cachedBookEntities = new();
+        private readonly Dictionary<string, ArticyExportData> _cachedFlowJson = new();
+        private readonly Dictionary<string, Dictionary<string, Model>> _cachedBookEntities = new();
         private readonly Dictionary<string, Dictionary<string, string>> _cachedEntitiesNativeDict = new();
         private readonly Dictionary<string, Dictionary<string, LocalizationEntry>> _cachedLocalizationData = new();
         private readonly Dictionary<string, Dictionary<string, string>> _cachedTranslations = new();
@@ -44,14 +44,14 @@ namespace StoriesLinker.Articy3
         /// Парсит данные Articy:Draft 3 (Flow.json и loc_*.xlsx)
         /// </summary>
         /// <returns>Кортеж с объектом AjFile и словарем локализации.</returns>
-        public (AjFile ParsedData, Dictionary<string, string> Localization) ParseData()
+        public ArticyExportData ParseData()
         {
-            AjFile ajFile = null;
+            ArticyExportData articyExportData = new();
             Dictionary<string, string> localizationDict = new Dictionary<string, string>();
 
             try
             {
-                localizationDict = GetLocalizationDictionaryInternal();
+                articyExportData.NativeMap = GetLocalizationDictionaryInternal();
             }
             catch (Exception ex)
             {
@@ -61,28 +61,28 @@ namespace StoriesLinker.Articy3
 
             try
             {
-                ajFile = ParseFlowJsonFileInternal();
+                articyExportData = ParseFlowJsonFileInternal();
             }
             catch (FileNotFoundException ex)
             {
                 Console.WriteLine($"Ошибка: Файл Flow.json не найден по пути: {ex.FileName}");
                 // Возвращаем null для AjFile, если он не найден
-                ajFile = null;
+                articyExportData = null;
             }
             catch (JsonException ex)
             {
                 Console.WriteLine($"Ошибка парсинга Flow.json: {ex.Message}");
                 // Возвращаем null для AjFile при ошибке парсинга
-                ajFile = null;
+                articyExportData = null;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Непредвиденная ошибка при парсинге Flow.json: {ex.Message}");
-                ajFile = null; // Возвращаем null для AjFile при других ошибках
+                articyExportData = null; // Возвращаем null для AjFile при других ошибках
             }
 
             // Возвращаем результат, даже если ajFile равен null
-            return (ajFile, localizationDict);
+            return articyExportData;
         }
 
         // --- Вспомогательные методы, адаптированные из LinkerBin ---
@@ -138,7 +138,7 @@ namespace StoriesLinker.Articy3
         /// <summary>
         /// Парсит Flow.json файл (адаптировано из LinkerBin)
         /// </summary>
-        private AjFile ParseFlowJsonFileInternal()
+        private ArticyExportData ParseFlowJsonFileInternal()
         {
             string flowJsonPath = GetFlowJsonPathInternal();
             if (!File.Exists(flowJsonPath))
@@ -151,7 +151,7 @@ namespace StoriesLinker.Articy3
             {
                 string json = r.ReadToEnd();
                 // При ошибке десериализации будет выброшено исключение JsonException
-                return JsonConvert.DeserializeObject<AjFile>(json);
+                return JsonConvert.DeserializeObject<ArticyExportData>(json);
             }
         }
 

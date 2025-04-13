@@ -17,19 +17,19 @@ namespace StoriesLinker
         private readonly Dictionary<string, Dictionary<string, LocalizationEntry>> _cachedLocalizationData = new();
         private readonly Dictionary<string, Dictionary<string, string>> _cachedTranslations = new();
         private readonly StringPool _stringPool = new();
-        private AjFile _cachedFlowJson;
+        private ArticyExportData _cachedFlowJson;
         private AjLinkerMeta _cachedMetaData;
         private Dictionary<string, string> _cachedLocalizationDict;
         private int _allWordsCount = 0;
         private static Dictionary<string, string> missingFiles = new();
         private List<string> _cachedSortedChapterIds;
-        private AjFile _cachedAjFile;
+        private ArticyExportData _cachedArticyExportData;
         private AjLinkerMeta _cachedMeta;
-        private Dictionary<string, AjObj> _cachedBookEntities;
-        private AjFile _cachedEntitiesAjFile;
+        private Dictionary<string, Model> _cachedBookEntities;
+        private ArticyExportData _cachedEntitiesArticyExportData;
         private Dictionary<string, string> _cachedEntitiesNativeDict;
         private readonly Dictionary<LocalizationCacheKey, Dictionary<string, LocalizationEntry>> _localizationCache = new();
-        private (Dictionary<string, string> _cachedLocalizationDict, AjFile _cachedFlowJson, Dictionary<string, AjObj> _cachedBookEntities) _baseDataCache;
+        private (Dictionary<string, string> _cachedLocalizationDict, ArticyExportData _cachedFlowJson, Dictionary<string, Model> _cachedBookEntities) _baseDataCache;
 
         private class LocalizationEntry
         {
@@ -152,13 +152,13 @@ namespace StoriesLinker
         /// <summary>
         /// Парсит Flow.json файл
         /// </summary>
-        public AjFile ParseFlowJsonFile()
+        public ArticyExportData ParseFlowJsonFile()
         {
             if (_cachedFlowJson != null) return _cachedFlowJson;
 
             using var r = new StreamReader(GetFlowJsonPath(_projectPath));
             string json = r.ReadToEnd();
-            _cachedFlowJson = JsonConvert.DeserializeObject<AjFile>(json);
+            _cachedFlowJson = JsonConvert.DeserializeObject<ArticyExportData>(json);
 
             return _cachedFlowJson;
         }
@@ -401,30 +401,28 @@ namespace StoriesLinker
         /// <summary>
         /// Получает все сущности книги из Flow.json
         /// </summary>
-        public Dictionary<string, AjObj> ExtractBookEntities(AjFile ajfile, Dictionary<string, string> nativeDict)
+        public Dictionary<string, Model> ExtractBookEntities(ArticyExportData ajfile, Dictionary<string, string> nativeDict)
         {
             // Проверяем кэш
             if (_cachedBookEntities != null &&
-                _cachedEntitiesAjFile == ajfile &&
+                _cachedEntitiesArticyExportData == ajfile &&
                 _cachedEntitiesNativeDict == nativeDict)
             {
                 return _cachedBookEntities;
             }
 
-            var objectsList = new Dictionary<string, AjObj>();
+            var objectsList = new Dictionary<string, Model>();
 
-            List<AjObj> models = ajfile.Packages[0].Models;
+            List<Model> models = ajfile.Packages[0].Models;
 
             var chaptersIdNames = new Dictionary<string, int>();
 
-            foreach (AjObj ns in models)
+            foreach (Model ns in models)
             {
-                AjType type;
 
                 switch (ns.Type)
                 {
                     case "FlowFragment":
-                        type = AjType.FlowFragment;
                         string displayName = ns.Properties.DisplayName;
                         if (string.IsNullOrEmpty(displayName))
                         {
@@ -449,28 +447,16 @@ namespace StoriesLinker
 
                         chaptersIdNames.Add(ns.Properties.Id, intValue);
                         break;
-                    case "Dialogue": type = AjType.Dialogue; break;
-                    case "Entity":
-                    case "DefaultSupportingCharacterTemplate":
-                    case "DefaultMainCharacterTemplate":
-                        type = AjType.Entity;
-                        break;
-                    case "Location": type = AjType.Location; break;
-                    case "DialogueFragment": type = AjType.DialogueFragment; break;
-                    case "Instruction": type = AjType.Instruction; break;
-                    case "Condition": type = AjType.Condition; break;
-                    case "Jump": type = AjType.Jump; break;
-                    default: type = AjType.Other; break;
                 }
 
-                ns.EType = type;
+
 
                 objectsList.Add(ns.Properties.Id, ns);
             }
 
             // Сохраняем в кэш
             _cachedBookEntities = objectsList;
-            _cachedEntitiesAjFile = ajfile;
+            _cachedEntitiesArticyExportData = ajfile;
             _cachedEntitiesNativeDict = nativeDict;
 
             return objectsList;
@@ -479,7 +465,7 @@ namespace StoriesLinker
         /// <summary>
         /// Получает отсортированный список глав
         /// </summary>
-        private List<string> GetSortedChapterIds(Dictionary<string, AjObj> objList,
+        private List<string> GetSortedChapterIds(Dictionary<string, Model> objList,
                                                  Dictionary<string, string> nativeDict)
         {
             if (_cachedSortedChapterIds != null) return _cachedSortedChapterIds;
@@ -487,9 +473,9 @@ namespace StoriesLinker
             var chaptersIds = new List<string>();
             var chaptersIdNames = new Dictionary<string, int>();
 
-            foreach (KeyValuePair<string, AjObj> kobj in objList)
+            foreach (KeyValuePair<string, Model> kobj in objList)
             {
-                if (kobj.Value.EType != AjType.FlowFragment) continue;
+                if (kobj.Value.TypeEnum != TypeEnum.FlowFragment) continue;
 
                 string displayName = kobj.Value.Properties.DisplayName;
                 if (!nativeDict.TryGetValue(displayName, out string translatedName))
@@ -522,7 +508,7 @@ namespace StoriesLinker
         /// Получает ID глав и подглав
         /// </summary>
         private List<string>[] GetChapterAndSubchapterHierarchy(List<string> chaptersIds,
-                                                                Dictionary<string, AjObj> objList)
+                                                                Dictionary<string, Model> objList)
         {
             var ids = new List<List<string>>();
 
@@ -533,9 +519,9 @@ namespace StoriesLinker
                 ids.Add(new List<string>());
                 ids[i].Add(chapterId);
 
-                foreach (KeyValuePair<string, AjObj> kobj in objList)
+                foreach (KeyValuePair<string, Model> kobj in objList)
                 {
-                    if (kobj.Value.EType != AjType.Dialogue) continue; //subchapter 
+                    if (kobj.Value.TypeEnum != TypeEnum.Dialogue) continue; //subchapter 
 
                     string subchapterId = kobj.Value.Properties.Id;
 
@@ -549,7 +535,7 @@ namespace StoriesLinker
                         }
                         else
                         {
-                            if (objList.TryGetValue(parent, out AjObj value))
+                            if (objList.TryGetValue(parent, out Model value))
                                 parent = value.Properties.Parent;
                             else
                                 break;
@@ -568,7 +554,7 @@ namespace StoriesLinker
         /// Загружает базовые данные: словарь локализации, Flow.json и список объектов
         /// </summary>
         /// <returns>Кортеж из словаря локализации, объекта AjFile и словаря объектов</returns>
-        public (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList) LoadBaseData()
+        public (Dictionary<string, string> nativeDict, ArticyExportData ajfile, Dictionary<string, Model> objectsList) LoadBaseData()
         {
             // Проверяем кэш
             if (_baseDataCache != default)
@@ -579,9 +565,10 @@ namespace StoriesLinker
             try
             {
                 IArticyDataParser articyParser = ArticyParserFactory.CreateParser(_projectPath);
-                (AjFile parsedJson, Dictionary<string, string> localizationDictionary) = articyParser.ParseData();
+                ArticyExportData parsedJson = articyParser.ParseData();
+                Dictionary<string, string> localizationDictionary = GetLocalizationDictionary();
 
-                Dictionary<string, AjObj> objectsList = ExtractBookEntities(parsedJson, localizationDictionary);
+                Dictionary<string, Model> objectsList = ExtractBookEntities(parsedJson, localizationDictionary);
 
                 if (objectsList != null && objectsList.Count != 0)
                 {
@@ -590,14 +577,14 @@ namespace StoriesLinker
                 }
 
                 Console.WriteLine("Предупреждение: Список объектов пуст");
-                objectsList = new Dictionary<string, AjObj>();
+                objectsList = new Dictionary<string, Model>();
                 _baseDataCache = (localizationDictionary, parsedJson, objectsList);
                 return _baseDataCache;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка при инициализации локализации: {ex.Message}");
-                return (new Dictionary<string, string>(), null, new Dictionary<string, AjObj>());
+                return (new Dictionary<string, string>(), null, new Dictionary<string, Model>());
             }
         }
 
@@ -609,7 +596,7 @@ namespace StoriesLinker
             try
             {
                 // Загружаем базовые данные один раз
-                (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList) =
+                (Dictionary<string, string> nativeDict, ArticyExportData ajfile, Dictionary<string, Model> objectsList) =
                     LoadBaseData();
 
                 List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
@@ -695,7 +682,7 @@ namespace StoriesLinker
         }
 
         private void ProcessChapterLocalization(int chapterN, List<string> parentsIds,
-                                                Dictionary<string, AjObj> objectsList, Dictionary<string, string> nativeDict,
+                                                Dictionary<string, Model> objectsList, Dictionary<string, string> nativeDict,
                                                 List<string> charactersIds, Dictionary<string, LocalizationEntry> charactersLocalizData,
                                                 Dictionary<string, string> charactersNames)
         {
@@ -705,13 +692,13 @@ namespace StoriesLinker
 
             Console.WriteLine($"Обработка главы {chapterN}...");
 
-            foreach (KeyValuePair<string, AjObj> scobj in objectsList)
+            foreach (KeyValuePair<string, Model> scobj in objectsList)
             {
                 if (!parentsIds.Contains(scobj.Value.Properties.Parent)) continue;
 
-                AjObj dfobj = scobj.Value;
+                Model dfobj = scobj.Value;
 
-                if (dfobj.EType != AjType.DialogueFragment) continue;
+                if (dfobj.TypeEnum != TypeEnum.DialogueFragment) continue;
 
                 string chId = dfobj.Properties.Speaker;
                 if (string.IsNullOrEmpty(chId))
@@ -720,7 +707,7 @@ namespace StoriesLinker
                     continue;
                 }
 
-                if (!objectsList.TryGetValue(chId, out AjObj character))
+                if (!objectsList.TryGetValue(chId, out Model character))
                 {
                     Form1.ShowMessage($"❌ Не найден персонаж с ID {chId} в главе {chapterN}");
                     continue;
@@ -746,7 +733,7 @@ namespace StoriesLinker
         }
 
         private void ProcessCharacterData(string chId,
-            AjObj character,
+            Model character,
             Dictionary<string, string> nativeDict,
             int chapterN,
             List<string> charactersIds,
@@ -779,7 +766,7 @@ namespace StoriesLinker
             charactersNames[chId] = characterText;
         }
 
-        private void ProcessDialogueFragmentData(AjObj dfobj,
+        private void ProcessDialogueFragmentData(Model dfobj,
                                                  Dictionary<string, string> nativeDict,
                                                  int chapterN,
                                                  string speakerName,
@@ -888,14 +875,14 @@ namespace StoriesLinker
         {
             try
             {
-                if (!InitializeAndValidateData(out AjFile ajfile, out AjLinkerMeta meta))
+                if (!InitializeAndValidateData(out ArticyExportData ajfile, out AjLinkerMeta meta))
                 {
                     Form1.ShowMessage("❌ Ошибка при инициализации и валидации данных");
                     return false;
                 }
 
                 string tempFolder = CreateAndInitializeTempFolders(meta);
-                (Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList) =
+                (Dictionary<string, string> nativeDict, Dictionary<string, Model> objectsList) =
                     LoadAndPrepareData(ajfile);
                 List<string> chaptersIds = PrepareChaptersData(objectsList, nativeDict);
 
@@ -905,7 +892,7 @@ namespace StoriesLinker
                     return false;
                 }
 
-                (AjAssetGridLinker gridLinker, List<AjObj> sharedObjs) =
+                (AjAssetGridLinker gridLinker, List<Model> sharedObjs) =
                     InitializeGridAndSharedObjects(objectsList, meta, nativeDict);
                 Dictionary<string, int> langsCols = DetermineLanguageColumns();
 
@@ -926,7 +913,7 @@ namespace StoriesLinker
             }
         }
 
-        private bool InitializeAndValidateData(out AjFile ajfile, out AjLinkerMeta meta)
+        private bool InitializeAndValidateData(out ArticyExportData ajfile, out AjLinkerMeta meta)
         {
             Form1.ShowMessage("Начинаем...");
 
@@ -946,7 +933,7 @@ namespace StoriesLinker
         /// <summary>
         /// Проверяет персонажа на корректность данных
         /// </summary>
-        private bool ValidateCharacter(AjMetaCharacterData character, AjFile ajfile)
+        private bool ValidateCharacter(AjMetaCharacterData character, ArticyExportData ajfile)
         {
             // Проверка вторичного персонажа
             if (character.AtlasFileName.Contains("Sec_") || character.BaseNameInAtlas.Contains("Sec_"))
@@ -970,7 +957,7 @@ namespace StoriesLinker
             return false;
         }
 
-        private bool ValidateCharactersData(AjLinkerMeta meta, AjFile ajfile)
+        private bool ValidateCharactersData(AjLinkerMeta meta, ArticyExportData ajfile)
         {
             for (var i = 0; i < meta.Characters.Count; i++)
             {
@@ -1095,13 +1082,13 @@ namespace StoriesLinker
             foreach (string folder in subFolders) Directory.CreateDirectory(Path.Combine(baseFolder, folder));
         }
 
-        private (Dictionary<string, string> nativeDict, Dictionary<string, AjObj> objectsList) LoadAndPrepareData(AjFile ajfile)
+        private (Dictionary<string, string> nativeDict, Dictionary<string, Model> objectsList) LoadAndPrepareData(ArticyExportData ajfile)
         {
-            (Dictionary<string, string> nativeDict, _, Dictionary<string, AjObj> objectsList) = LoadBaseData();
+            (Dictionary<string, string> nativeDict, _, Dictionary<string, Model> objectsList) = LoadBaseData();
             return (nativeDict, objectsList);
         }
 
-        private List<string> PrepareChaptersData(Dictionary<string, AjObj> objectsList, Dictionary<string, string> nativeDict)
+        private List<string> PrepareChaptersData(Dictionary<string, Model> objectsList, Dictionary<string, string> nativeDict)
         {
             List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
             if (chaptersIds.Count > Form1.AvailableChapters)
@@ -1137,23 +1124,23 @@ namespace StoriesLinker
             return langsCols;
         }
 
-        private (AjAssetGridLinker gridLinker, List<AjObj> sharedObjs) InitializeGridAndSharedObjects(
-            Dictionary<string, AjObj> objectsList,
+        private (AjAssetGridLinker gridLinker, List<Model> sharedObjs) InitializeGridAndSharedObjects(
+            Dictionary<string, Model> objectsList,
             AjLinkerMeta meta,
             Dictionary<string, string> nativeDict)
         {
             var gridLinker = new AjAssetGridLinker();
-            List<AjObj> sharedObjs = AssignArticyIdsToMetaData(objectsList, meta, nativeDict);
+            List<Model> sharedObjs = AssignArticyIdsToMetaData(objectsList, meta, nativeDict);
             return (gridLinker, sharedObjs);
         }
 
         private bool ProcessAllChapters(string tempFolder,
                                         AjLinkerMeta meta,
-                                        AjFile ajfile,
-                                        Dictionary<string, AjObj> objectsList,
+                                        ArticyExportData ajfile,
+                                        Dictionary<string, Model> objectsList,
                                         Dictionary<string, string> nativeDict,
                                         AjAssetGridLinker gridLinker,
-                                        List<AjObj> sharedObjs,
+                                        List<Model> sharedObjs,
                                         Dictionary<string, int> langsCols)
         {
             Func<string, string, string> getVersionName = GenerateVersionFolderName();
@@ -1182,8 +1169,8 @@ namespace StoriesLinker
             return true;
         }
 
-        private void FinalizeOutput(AjFile ajfile,
-                                    List<AjObj> sharedObjs,
+        private void FinalizeOutput(ArticyExportData ajfile,
+                                    List<Model> sharedObjs,
                                     AjLinkerMeta meta,
                                     AjGridAssetJson gridAssetFile,
                                     string binFolder,
@@ -1271,7 +1258,7 @@ namespace StoriesLinker
                                           string binFolder,
                                           string previewFolder,
                                           AjLinkerMeta meta,
-                                          Dictionary<string, AjObj> objectsList,
+                                          Dictionary<string, Model> objectsList,
                                           Dictionary<string, string> nativeDict,
                                           AjAssetGridLinker gridLinker,
                                           AjGridAssetJson gridAssetFile,
@@ -1284,41 +1271,41 @@ namespace StoriesLinker
             int chapterN = index + 1;
             meta.ChaptersEntryPoints.Add(parentsIds[0]);
 
-            var chapterObjs = new List<AjObj>();
+            var chapterObjs = new List<Model>();
 
-            foreach (KeyValuePair<string, AjObj> pair in objectsList)
+            foreach (KeyValuePair<string, Model> pair in objectsList)
             {
                 if (!parentsIds.Contains(pair.Value.Properties.Parent) &&
                     !parentsIds.Contains(pair.Value.Properties.Id))
                     continue;
 
-                AjObj dfobj = pair.Value;
+                Model dfobj = pair.Value;
 
-                switch (dfobj.EType)
+                switch (dfobj.TypeEnum)
                 {
-                    case AjType.DialogueFragment:
+                    case TypeEnum.DialogueFragment:
                         {
                             string chId = dfobj.Properties.Speaker;
                             ValidateAndAddCharacter(nativeDict, objectsList, meta, gridLinker)(chId);
                             break;
                         }
-                    case AjType.Dialogue:
+                    case TypeEnum.Dialogue:
                         {
                             List<string> attachments = dfobj.Properties.Attachments;
 
                             foreach (string el in attachments)
                             {
-                                AjObj atObj = objectsList[el];
+                                Model atObj = objectsList[el];
 
-                                if (atObj.EType == AjType.Location)
+                                if (atObj.TypeEnum == TypeEnum.Location)
                                     ValidateAndAddLocation(nativeDict, objectsList, meta, gridLinker)(el);
-                                else if (atObj.EType == AjType.Entity)
+                                else if (atObj.TypeEnum == TypeEnum.Entity)
                                     ValidateAndAddCharacter(nativeDict, objectsList, meta, gridLinker)(el);
                             }
 
                             break;
                         }
-                    case AjType.Instruction:
+                    case TypeEnum.Instruction:
                         {
                             string rawScript = dfobj.Properties.Expression;
 
@@ -1538,7 +1525,7 @@ namespace StoriesLinker
         /// Проверяет и добавляет персонажа
         /// </summary>
         private static Action<string> ValidateAndAddCharacter(Dictionary<string, string> nativeDict,
-                                                              Dictionary<string, AjObj> objectsList,
+                                                              Dictionary<string, Model> objectsList,
                                                               AjLinkerMeta meta,
                                                               AjAssetGridLinker gridLinker)
         {
@@ -1578,7 +1565,7 @@ namespace StoriesLinker
         /// Проверяет и добавляет локацию
         /// </summary>
         private static Action<string> ValidateAndAddLocation(Dictionary<string, string> nativeDict,
-                                                             Dictionary<string, AjObj> objectsList,
+                                                             Dictionary<string, Model> objectsList,
                                                              AjLinkerMeta meta,
                                                              AjAssetGridLinker gridLinker)
         {
@@ -1913,7 +1900,7 @@ namespace StoriesLinker
         /// <summary>
         /// Генерирует Excel файлы локализации из Flow.json
         /// </summary>
-        private void GenerateLocalizationExcelFiles(Dictionary<string, AjObj> objectsList,
+        private void GenerateLocalizationExcelFiles(Dictionary<string, Model> objectsList,
                                                    List<string>[] csparentsIds,
                                                    Dictionary<string, string> nativeDict)
         {
@@ -1946,10 +1933,10 @@ namespace StoriesLinker
                 foreach (string parentId in csparentsIds[i])
                 {
                     Console.WriteLine($"Обрабатываем parentId: {parentId}");
-                    foreach (KeyValuePair<string, AjObj> pair in objectsList.Where(p => p.Value.Properties.Parent == parentId))
+                    foreach (KeyValuePair<string, Model> pair in objectsList.Where(p => p.Value.Properties.Parent == parentId))
                     {
-                        AjObj dfobj = pair.Value;
-                        if (dfobj.EType != AjType.DialogueFragment) continue;
+                        Model dfobj = pair.Value;
+                        if (dfobj.TypeEnum != TypeEnum.DialogueFragment) continue;
 
                         // Обработка основного текста
                         if (!string.IsNullOrEmpty(dfobj.Properties.Text))
@@ -1959,7 +1946,7 @@ namespace StoriesLinker
                                 forTranslatingWorksheet.Cells[mainRow, 1].Value = dfobj.Properties.Text;
 
                                 if (!string.IsNullOrEmpty(dfobj.Properties.Speaker) &&
-                                    objectsList.TryGetValue(dfobj.Properties.Speaker, out AjObj speaker))
+                                    objectsList.TryGetValue(dfobj.Properties.Speaker, out Model speaker))
                                 {
                                     forTranslatingWorksheet.Cells[mainRow, 2].Value = nativeDict[speaker.Properties.DisplayName];
                                 }
@@ -2051,7 +2038,7 @@ namespace StoriesLinker
             Console.WriteLine("✅ Генерация Excel файлов локализации завершена");
         }
 
-        private void GenerateCharacterLocalizationFiles(Dictionary<string, AjObj> objectsList,
+        private void GenerateCharacterLocalizationFiles(Dictionary<string, Model> objectsList,
                                                     Dictionary<string, string> nativeDict)
         {
             string russianFolder = Path.Combine(_projectPath, "Localization", "Russian");
@@ -2067,9 +2054,9 @@ namespace StoriesLinker
             int row = 2;
 
             // Собираем всех персонажей
-            foreach (KeyValuePair<string, AjObj> pair in objectsList)
+            foreach (KeyValuePair<string, Model> pair in objectsList)
             {
-                if (pair.Value.EType != AjType.Entity) continue;
+                if (pair.Value.TypeEnum != TypeEnum.Entity) continue;
 
                 string displayName = pair.Value.Properties.DisplayName;
                 if (string.IsNullOrEmpty(displayName)) continue;
@@ -2098,7 +2085,7 @@ namespace StoriesLinker
                 CreateLocalizationStructure();
 
                 // Загружаем базовые данные
-                (Dictionary<string, string> nativeDict, AjFile ajfile, Dictionary<string, AjObj> objectsList) = LoadBaseData();
+                (Dictionary<string, string> nativeDict, ArticyExportData ajfile, Dictionary<string, Model> objectsList) = LoadBaseData();
 
                 if (nativeDict == null || nativeDict.Count == 0)
                 {
@@ -2246,7 +2233,7 @@ namespace StoriesLinker
             _cachedTranslations.Clear();
             _savedXmlDicts.Clear();
             _cachedBookEntities = null;
-            _cachedEntitiesAjFile = null;
+            _cachedEntitiesArticyExportData = null;
             _cachedEntitiesNativeDict = null;
         }
 
@@ -2278,7 +2265,7 @@ namespace StoriesLinker
 
         #endregion
 
-        private string RecognizeEmotion(AjColor color)
+        private string RecognizeEmotion(ArticyExportColor color)
         {
             var emotion = EChEmotion.IsntSetOrNeutral;
 
@@ -2299,18 +2286,18 @@ namespace StoriesLinker
             return emotion.ToString();
         }
 
-        private List<AjObj> AssignArticyIdsToMetaData(Dictionary<string, AjObj> objectsList,
+        private List<Model> AssignArticyIdsToMetaData(Dictionary<string, Model> objectsList,
                                                       AjLinkerMeta meta,
                                                       Dictionary<string, string> nativeDict)
         {
-            var sharedObjs = new List<AjObj>();
+            var sharedObjs = new List<Model>();
 
-            foreach (KeyValuePair<string, AjObj> pair in objectsList.Where(p => p.Value.EType == AjType.Entity ||
-                                                                               p.Value.EType == AjType.Location))
+            foreach (KeyValuePair<string, Model> pair in objectsList.Where(p => p.Value.TypeEnum == TypeEnum.Entity ||
+                                                                               p.Value.TypeEnum == TypeEnum.Location))
             {
                 string dname = nativeDict[pair.Value.Properties.DisplayName];
 
-                if (pair.Value.EType == AjType.Entity)
+                if (pair.Value.TypeEnum == TypeEnum.Entity)
                 {
                     int index = meta.Characters.FindIndex(ch => ch.DisplayName == dname);
                     if (index != -1) meta.Characters[index].Aid = pair.Key;
