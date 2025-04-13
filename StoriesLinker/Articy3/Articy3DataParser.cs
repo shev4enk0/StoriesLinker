@@ -16,17 +16,17 @@ namespace StoriesLinker.Articy3
     public class Articy3DataParser : IArticyDataParser
     {
         private readonly string _projectPath;
-        // Кэш для Excel-словарей, аналогично LinkerBin
-        private readonly Dictionary<string, Dictionary<int, Dictionary<string, string>>> _savedXmlDicts = new();
-        private readonly Dictionary<string, Dictionary<string, string>> _cachedLocalizationDict = new();
+        // Удаляем ненужные кэши, т.к. ExcelParser управляет своим
+        // private readonly Dictionary<string, Dictionary<int, Dictionary<string, string>>> _savedXmlDicts = new();
+        // private readonly Dictionary<string, Dictionary<string, string>> _cachedLocalizationDict = new();
         private readonly Dictionary<string, ArticyExportData> _cachedFlowJson = new();
         private readonly Dictionary<string, Dictionary<string, Model>> _cachedBookEntities = new();
         private readonly Dictionary<string, Dictionary<string, string>> _cachedEntitiesNativeDict = new();
         private readonly Dictionary<string, Dictionary<string, LocalizationEntry>> _cachedLocalizationData = new();
         private readonly Dictionary<string, Dictionary<string, string>> _cachedTranslations = new();
         private readonly StringPool _stringPool = new();
-        private readonly SemaphoreSlim _excelLock = new(1, 1);
-        private readonly TimeSpan _excelTimeout = TimeSpan.FromSeconds(30);
+        // private readonly SemaphoreSlim _excelLock = new(1, 1); // Больше не нужен
+        private readonly TimeSpan _excelTimeout = TimeSpan.FromSeconds(60); // Увеличим таймаут для ExcelParser
 
         public Articy3DataParser(string projectPath)
         {
@@ -35,9 +35,7 @@ namespace StoriesLinker.Articy3
                 throw new ArgumentException("Некорректный путь к проекту", nameof(projectPath));
             }
             _projectPath = projectPath;
-
-            // В версии 4.5.2.1 нет необходимости устанавливать LicenseContext
-            Console.WriteLine("Articy3DataParser: Используется EPPlus для чтения Excel");
+            Console.WriteLine("Articy3DataParser: Инициализирован.");
         }
 
         /// <summary>
@@ -46,8 +44,7 @@ namespace StoriesLinker.Articy3
         /// <returns>Кортеж с объектом AjFile и словарем локализации.</returns>
         public ArticyExportData ParseData()
         {
-            ArticyExportData articyExportData = new();
-            Dictionary<string, string> localizationDict = new Dictionary<string, string>();
+            ArticyExportData articyExportData = null; // Инициализируем null
 
             try
             {
@@ -56,32 +53,35 @@ namespace StoriesLinker.Articy3
             catch (FileNotFoundException ex)
             {
                 Console.WriteLine($"Ошибка: Файл Flow.json не найден по пути: {ex.FileName}");
-                // Возвращаем null для AjFile, если он не найден
-                articyExportData = null;
             }
             catch (JsonException ex)
             {
                 Console.WriteLine($"Ошибка парсинга Flow.json: {ex.Message}");
-                // Возвращаем null для AjFile при ошибке парсинга
-                articyExportData = null;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Непредвиденная ошибка при парсинге Flow.json: {ex.Message}");
-                articyExportData = null; // Возвращаем null для AjFile при других ошибках
+                Console.WriteLine($"Непредвиденная ошибка при парсинге Flow.json: {ex.Message} \n{ex.StackTrace}");
+            }
+
+            // Если Flow.json не удалось спарсить, нет смысла продолжать
+            if (articyExportData == null)
+            {
+                Console.WriteLine("Не удалось загрузить Flow.json, дальнейший парсинг невозможен.");
+                return null; // Возвращаем null, если базовые данные не загружены
             }
 
             try
             {
+                // Получаем словарь локализации через ExcelParser
                 articyExportData.NativeMap = GetLocalizationDictionaryInternal();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка при загрузке словаря локализации Articy 3: {ex.Message}");
-                // Продолжаем выполнение, даже если локализация не загрузилась
+                Console.WriteLine($"Ошибка при загрузке словаря локализации Articy 3: {ex.Message} \n{ex.StackTrace}");
+                // Оставляем NativeMap null или пустым, если локализация не загрузилась
+                articyExportData.NativeMap = articyExportData.NativeMap ?? new Dictionary<string, string>();
             }
 
-            // Возвращаем результат, даже если ajFile равен null
             return articyExportData;
         }
 
@@ -101,8 +101,8 @@ namespace StoriesLinker.Articy3
             Console.WriteLine($"EN: {pathEn}");
             Console.WriteLine($"RU: {pathRu}");
 
+            if (File.Exists(pathRu)) return pathRu; // Приоритет русскому файлу
             if (File.Exists(pathEn)) return pathEn;
-            if (File.Exists(pathRu)) return pathRu;
 
             // Возвращаем пустую строку или null, если файлы не найдены, чтобы обозначить проблему
             return null; // Или можно выбросить FileNotFoundException
@@ -118,99 +118,38 @@ namespace StoriesLinker.Articy3
         }
 
         /// <summary>
-        /// Получает словарь локализации из Excel файла
+        /// Получает словарь локализации, используя ExcelParser
         /// </summary>
         private Dictionary<string, string> GetLocalizationDictionaryInternal()
         {
             string path = GetLocalizationTablesPathInternal();
-            if (string.IsNullOrEmpty(path)) // Проверяем, найден ли файл
+            if (string.IsNullOrEmpty(path))
             {
                 Console.WriteLine("Файл локализации Articy 3 (.xlsx) не найден в папке Raw.");
-                return new Dictionary<string, string>(); // Возвращаем пустой словарь
+                return new Dictionary<string, string>();
             }
 
-            if (_cachedLocalizationDict.TryGetValue(path, out var cachedDict))
-            {
-                Console.WriteLine($"Используем кэшированные данные для файла {path}");
-                return cachedDict;
-            }
-
-            Console.WriteLine($"Начинаю чтение Excel файла: {path}");
-            Dictionary<string, string> nativeDict = new Dictionary<string, string>();
-
+            Console.WriteLine($"Используем ExcelParser для чтения: {path}");
             try
             {
-                using (var xlPackage = new ExcelPackage(new FileInfo(path)))
-                {
-                    if (xlPackage.Workbook.Worksheets.Count == 0)
-                    {
-                        Console.WriteLine($"Ошибка: В файле {path} нет рабочих листов");
-                        return nativeDict;
-                    }
-
-                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
-                    int totalRows = myWorksheet.Dimension.End.Row;
-                    int totalColumns = myWorksheet.Dimension.End.Column;
-                    int targetColumn = 1; // Используем первую колонку для ключей
-
-                    Console.WriteLine($"Обработка файла {path}:");
-                    Console.WriteLine($"- Всего строк: {totalRows}");
-                    Console.WriteLine($"- Всего колонок: {totalColumns}");
-                    Console.WriteLine($"- Целевая колонка: {targetColumn}");
-
-                    int processedRows = 0;
-                    for (var rowNum = 1; rowNum <= totalRows; rowNum++)
-                    {
-                        ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
-                        ExcelRange secondRow = myWorksheet.Cells[rowNum, targetColumn + 1];
-
-                        string firstRowStr = firstRow?.Value != null
-                                            ? firstRow.Value.ToString().Trim()
-                                            : string.Empty;
-                        string secondRowStr = secondRow?.Value != null
-                                            ? secondRow.Value.ToString().Trim()
-                                            : string.Empty;
-
-                        if (string.IsNullOrWhiteSpace(firstRowStr) || string.IsNullOrWhiteSpace(secondRowStr))
-                        {
-                            if (rowNum == 1)
-                            {
-                                Console.WriteLine($"Предупреждение: Пустые значения в заголовке строки {rowNum}");
-                            }
-                            continue;
-                        }
-
-                        if (!nativeDict.ContainsKey(firstRowStr))
-                        {
-                            nativeDict.Add(firstRowStr, secondRowStr);
-                            processedRows++;
-
-                            // Показываем прогресс каждые 500 строк
-                            if (processedRows % 500 == 0)
-                            {
-                                Console.WriteLine($"Обработано {processedRows} строк...");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Предупреждение: Дублирующийся ключ '{firstRowStr}' в строке {rowNum}");
-                        }
-                    }
-
-                    Console.WriteLine($"Успешно обработано {nativeDict.Count} записей");
-                }
+                // Вызов ExcelParser с нужными параметрами и таймаутом
+                // KeyColumnIndex = 1 (первый столбец)
+                // ValueColumnIndex = 2 (второй столбец)
+                return ExcelParser.ParseExcelToDictionary(
+                    path,
+                    keyColumnIndex: 1,
+                    valueColumnIndex: 2,
+                    useCache: true // Включаем кэширование ExcelParser
+                                   // timeout передается в асинхронную версию, которую вызывает эта
+                );
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка при обработке Excel файла '{path}': {ex.Message}");
+                // Логируем ошибку, если ExcelParser не справился
+                Console.WriteLine($"Ошибка при использовании ExcelParser для файла '{path}': {ex.Message}");
                 Console.WriteLine($"Стек вызовов: {ex.StackTrace}");
-                return nativeDict;
+                return new Dictionary<string, string>(); // Возвращаем пустой словарь при ошибке
             }
-
-            // Сохраняем в кэш для последующего использования
-            _cachedLocalizationDict[path] = nativeDict;
-
-            return nativeDict;
         }
 
         /// <summary>

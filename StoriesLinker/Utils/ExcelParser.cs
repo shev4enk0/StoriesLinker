@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,12 +14,9 @@ namespace StoriesLinker.Utils
     /// </summary>
     public static class ExcelParser
     {
-        // Кэш для Excel-словарей по пути файла, колонке и листу
-        private static readonly Dictionary<string, Dictionary<ExcelParseKey, Dictionary<string, string>>> _cache
-            = new Dictionary<string, Dictionary<ExcelParseKey, Dictionary<string, string>>>();
-
-        // Семафор для предотвращения одновременных операций чтения
-        private static readonly SemaphoreSlim _excelLock = new SemaphoreSlim(1, 1);
+        // Потокобезопасный кэш для Excel-словарей
+        private static readonly ConcurrentDictionary<string, ConcurrentDictionary<ExcelParseKey, Dictionary<string, string>>> _cache
+            = new ConcurrentDictionary<string, ConcurrentDictionary<ExcelParseKey, Dictionary<string, string>>>();
 
         // Таймаут по умолчанию для операций Excel (30 секунд)
         private static readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(30);
@@ -92,20 +90,32 @@ namespace StoriesLinker.Utils
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"Excel файл не найден: {filePath}");
 
-            // Проверяем кэш, если включено кэширование
-            if (useCache)
+            var parseKey = new ExcelParseKey(keyColumnIndex, valueColumnIndex, startRow, sheetIndex);
+
+            // Проверяем кэш
+            if (useCache &&
+                _cache.TryGetValue(filePath, out var fileCache) &&
+                fileCache.TryGetValue(parseKey, out var cachedResult))
             {
-                var key = new ExcelParseKey(keyColumnIndex, valueColumnIndex, startRow, sheetIndex);
-                if (_cache.TryGetValue(filePath, out var fileCache) && fileCache.TryGetValue(key, out var cachedResult))
-                {
-                    Console.WriteLine($"Используем кэшированные данные для файла {filePath}");
-                    return cachedResult;
-                }
+                Console.WriteLine($"Используем кэшированные данные для файла {filePath}");
+                return cachedResult;
             }
 
-            // Синхронная версия метода использует асинхронную с ожиданием результата
-            return ParseExcelToDictionaryAsync(filePath, keyColumnIndex, valueColumnIndex, startRow, sheetIndex, useCache)
-                .GetAwaiter().GetResult();
+            // Запускаем асинхронную версию в фоновом потоке и ждем результат,
+            // чтобы избежать deadlock в UI-потоке.
+            // Используем Task.Run(...).Result как один из способов.
+            try
+            {
+                // Передаем параметры явно в лямбду
+                return Task.Run(async () => await ParseExcelToDictionaryAsync(filePath, keyColumnIndex, valueColumnIndex, startRow, sheetIndex, useCache)).Result;
+            }
+            catch (AggregateException ae)
+            {
+                // Если внутри Task возникло исключение, оно будет обернуто в AggregateException
+                Console.WriteLine($"Ошибка при синхронном вызове асинхронного парсера: {ae.InnerException?.Message}");
+                // Перебрасываем внутреннее исключение для сохранения типа
+                throw ae.InnerException ?? ae;
+            }
         }
 
         /// <summary>
@@ -134,27 +144,26 @@ namespace StoriesLinker.Utils
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"Excel файл не найден: {filePath}");
 
-            // Проверяем кэш, если включено кэширование
-            if (useCache)
+            var parseKey = new ExcelParseKey(keyColumnIndex, valueColumnIndex, startRow, sheetIndex);
+
+            // Проверяем кэш
+            if (useCache &&
+                _cache.TryGetValue(filePath, out var fileCache) &&
+                fileCache.TryGetValue(parseKey, out var cachedResult))
             {
-                var key = new ExcelParseKey(keyColumnIndex, valueColumnIndex, startRow, sheetIndex);
-                if (_cache.TryGetValue(filePath, out var fileCache) && fileCache.TryGetValue(key, out var cachedResult))
-                {
-                    Console.WriteLine($"Используем кэшированные данные для файла {filePath}");
-                    return cachedResult;
-                }
+                Console.WriteLine($"Используем кэшированные данные для файла {filePath}");
+                return cachedResult;
             }
 
             var resultDict = new Dictionary<string, string>();
             var actualTimeout = timeout ?? _defaultTimeout;
 
-            // Блокируем доступ к Excel для предотвращения одновременных операций
-            await _excelLock.WaitAsync();
             try
             {
+                // Используем CancellationTokenSource для управления таймаутом
                 using (var cts = new CancellationTokenSource(actualTimeout))
                 {
-                    await Task.Run(async () =>
+                    await Task.Run(() => // Запускаем в фоновом потоке
                     {
                         try
                         {
@@ -163,52 +172,56 @@ namespace StoriesLinker.Utils
                                 if (package.Workbook.Worksheets.Count == 0)
                                     throw new InvalidOperationException("Excel файл не содержит листов");
 
-                                if (sheetIndex >= package.Workbook.Worksheets.Count)
-                                    throw new ArgumentException($"Индекс листа {sheetIndex} выходит за пределы количества листов {package.Workbook.Worksheets.Count}");
+                                // Используем .First() если sheetIndex = 0 (по умолчанию), иначе используем индекс
+                                ExcelWorksheet worksheet;
+                                if (sheetIndex == 0)
+                                {
+                                    worksheet = package.Workbook.Worksheets.First(); // Безопаснее для стандартного случая
+                                }
+                                else if (sheetIndex > 0 && sheetIndex < package.Workbook.Worksheets.Count)
+                                {
+                                    worksheet = package.Workbook.Worksheets[sheetIndex];
+                                }
+                                else
+                                {
+                                    throw new ArgumentException($"Указанный индекс листа ({sheetIndex}) некорректен или выходит за пределы ({package.Workbook.Worksheets.Count} листов).");
+                                }
 
-                                ExcelWorksheet worksheet = package.Workbook.Worksheets[sheetIndex];
-
-                                // Получаем размеры данных
                                 int totalRows = worksheet.Dimension.End.Row;
                                 int totalColumns = worksheet.Dimension.End.Column;
 
                                 if (keyColumnIndex > totalColumns || valueColumnIndex > totalColumns)
                                     throw new ArgumentException($"Указанные индексы столбцов ({keyColumnIndex}, {valueColumnIndex}) выходят за пределы таблицы (всего столбцов: {totalColumns})");
 
-                                // Логируем информацию о файле
-                                Console.WriteLine($"Обработка файла {filePath}:");
-                                Console.WriteLine($"- Всего строк: {totalRows}");
-                                Console.WriteLine($"- Всего столбцов: {totalColumns}");
-                                Console.WriteLine($"- Столбец ключа: {keyColumnIndex}");
-                                Console.WriteLine($"- Столбец значения: {valueColumnIndex}");
+                                Console.WriteLine($"Обработка файла {filePath}: ({totalRows} строк, {totalColumns} колонок)");
 
-                                // Проходим по всем строкам и формируем словарь
                                 int processedRows = 0;
                                 int skippedRows = 0;
 
                                 for (int row = startRow; row <= totalRows; row++)
                                 {
-                                    // Проверяем токен отмены
-                                    cts.Token.ThrowIfCancellationRequested();
+                                    cts.Token.ThrowIfCancellationRequested(); // Проверка отмены
 
                                     var keyCell = worksheet.Cells[row, keyColumnIndex];
                                     var valueCell = worksheet.Cells[row, valueColumnIndex];
+                                    string key = keyCell?.Value?.ToString()?.Trim();
+                                    string value = valueCell?.Value?.ToString()?.Trim();
 
-                                    string key = keyCell?.Value?.ToString();
-                                    string value = valueCell?.Value?.ToString();
-
-                                    // Пропускаем строки с пустыми ключами или значениями
                                     if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
                                     {
                                         skippedRows++;
                                         continue;
                                     }
 
-                                    // Проверяем на дубликаты ключей
+                                    // Используем ContainsKey и Add вместо TryAdd для совместимости
                                     if (!resultDict.ContainsKey(key))
                                     {
                                         resultDict.Add(key, value);
                                         processedRows++;
+                                        if (processedRows % 1000 == 0) // Лог каждые 1000 строк
+                                        {
+                                            Console.WriteLine($"... обработано {processedRows} строк в {Path.GetFileName(filePath)}");
+                                        }
                                     }
                                     else
                                     {
@@ -216,45 +229,36 @@ namespace StoriesLinker.Utils
                                     }
                                 }
 
-                                Console.WriteLine($"Успешно обработано {processedRows} записей");
-                                if (skippedRows > 0)
-                                    Console.WriteLine($"Пропущено {skippedRows} строк с пустыми ключами или значениями");
+                                Console.WriteLine($"Файл {Path.GetFileName(filePath)}: Успешно обработано {processedRows} записей, пропущено {skippedRows}");
                             }
                         }
-                        catch (OperationCanceledException)
+                        catch (OperationCanceledException) // Обработка таймаута
                         {
                             Console.WriteLine($"Превышено время ожидания ({actualTimeout.TotalSeconds} сек) при чтении Excel файла: {filePath}");
-                            throw;
+                            throw; // Перебрасываем для внешней обработки
                         }
-                    }, cts.Token);
+                    }, cts.Token); // Передаем токен отмены
                 }
 
-                // Сохраняем в кэш, если включено кэширование
+                // Сохраняем в кэш, если включено и есть результат
                 if (useCache && resultDict.Count > 0)
                 {
-                    var key = new ExcelParseKey(keyColumnIndex, valueColumnIndex, startRow, sheetIndex);
-                    if (!_cache.ContainsKey(filePath))
-                    {
-                        _cache[filePath] = new Dictionary<ExcelParseKey, Dictionary<string, string>>();
-                    }
-                    _cache[filePath][key] = resultDict;
+                    var fileCacheDict = _cache.GetOrAdd(filePath, _ => new ConcurrentDictionary<ExcelParseKey, Dictionary<string, string>>());
+                    fileCacheDict.TryAdd(parseKey, resultDict);
                 }
             }
             catch (OperationCanceledException)
             {
-                Console.WriteLine($"Ошибка: Превышено время ожидания при чтении Excel файла: {filePath}");
+                // Возвращаем пустой словарь при таймауте
                 return new Dictionary<string, string>();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка при обработке Excel файла: {ex.Message}");
+                Console.WriteLine($"Критическая ошибка при обработке Excel файла {filePath}: {ex.Message}");
                 Console.WriteLine($"Стек вызовов: {ex.StackTrace}");
-                return new Dictionary<string, string>();
+                return new Dictionary<string, string>(); // Возвращаем пустой словарь при ошибке
             }
-            finally
-            {
-                _excelLock.Release();
-            }
+            // finally - блок не нужен, так как SemaphoreSlim удален
 
             return resultDict;
         }
@@ -270,9 +274,8 @@ namespace StoriesLinker.Utils
                 _cache.Clear();
                 Console.WriteLine("Весь кэш Excel-словарей очищен");
             }
-            else if (_cache.ContainsKey(filePath))
+            else if (_cache.TryRemove(filePath, out _))
             {
-                _cache.Remove(filePath);
                 Console.WriteLine($"Кэш для файла {filePath} очищен");
             }
         }
@@ -291,52 +294,9 @@ namespace StoriesLinker.Utils
             int valueColumnIndex = 2,
             bool useCache = true)
         {
-            var resultDict = new Dictionary<string, string>();
-
-            foreach (var filePath in filePaths)
-            {
-                if (!File.Exists(filePath))
-                {
-                    Console.WriteLine($"Предупреждение: файл не найден - {filePath}");
-                    continue;
-                }
-
-                try
-                {
-                    var fileDict = ParseExcelToDictionary(
-                        filePath,
-                        keyColumnIndex,
-                        valueColumnIndex,
-                        useCache: useCache);
-
-                    // Объединяем словари
-                    foreach (var pair in fileDict)
-                    {
-                        if (!resultDict.ContainsKey(pair.Key))
-                        {
-                            resultDict.Add(pair.Key, pair.Value);
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Предупреждение: дублирующийся ключ '{pair.Key}' найден в файле {filePath}");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Ошибка при обработке файла {filePath}: {ex.Message}");
-                }
-            }
-
-            return resultDict;
-        }
-
-        // Вспомогательный класс для результатов обработки файла
-        private class FileResult
-        {
-            public string FilePath { get; set; }
-            public Dictionary<string, string> Result { get; set; }
-            public bool Success { get; set; }
+            // Синхронная версия вызывает асинхронную
+            return ParseMultipleExcelsToDictionaryAsync(filePaths, keyColumnIndex, valueColumnIndex, useCache)
+                .GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -353,65 +313,52 @@ namespace StoriesLinker.Utils
             int valueColumnIndex = 2,
             bool useCache = true)
         {
-            var resultDict = new Dictionary<string, string>();
+            // Используем ConcurrentDictionary для безопасного добавления из разных потоков
+            var combinedResult = new ConcurrentDictionary<string, string>();
             var existingFiles = filePaths.Where(File.Exists).ToList();
 
-            if (existingFiles.Count == 0)
+            if (!existingFiles.Any())
             {
-                Console.WriteLine("Предупреждение: не найдено ни одного существующего файла");
-                return resultDict;
+                Console.WriteLine("Предупреждение: не найдено ни одного существующего файла для обработки.");
+                return new Dictionary<string, string>(combinedResult);
             }
 
-            // Создаем задачи для всех файлов
-            List<Task<FileResult>> fileTasks = new List<Task<FileResult>>();
-
-            foreach (string filePath in existingFiles)
+            // Создаем задачи для парсинга каждого файла
+            var tasks = existingFiles.Select(async filePath =>
             {
-                Task<FileResult> task = ParseExcelToDictionaryAsync(filePath, keyColumnIndex, valueColumnIndex, useCache: useCache)
-                    .ContinueWith(t =>
-                    {
-                        if (t.IsFaulted)
-                        {
-                            Console.WriteLine($"Ошибка при обработке файла {filePath}: {t.Exception?.InnerException?.Message}");
-                            return new FileResult
-                            {
-                                FilePath = filePath,
-                                Result = new Dictionary<string, string>(),
-                                Success = false
-                            };
-                        }
-                        return new FileResult
-                        {
-                            FilePath = filePath,
-                            Result = t.Result,
-                            Success = true
-                        };
-                    });
-                fileTasks.Add(task);
-            }
-
-            // Ждем завершения всех задач
-            FileResult[] results = await Task.WhenAll(fileTasks);
-
-            // Объединяем результаты успешных задач
-            foreach (FileResult result in results)
-            {
-                if (!result.Success) continue;
-
-                foreach (var pair in result.Result)
+                try
                 {
-                    if (!resultDict.ContainsKey(pair.Key))
+                    var fileDict = await ParseExcelToDictionaryAsync(filePath, keyColumnIndex, valueColumnIndex, startRow: 1, sheetIndex: 0, useCache: useCache);
+                    foreach (var pair in fileDict)
                     {
-                        resultDict.Add(pair.Key, pair.Value);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Предупреждение: дублирующийся ключ '{pair.Key}' найден в файле {result.FilePath}");
+                        // TryAdd потокобезопасен
+                        if (!combinedResult.TryAdd(pair.Key, pair.Value))
+                        {
+                            Console.WriteLine($"Предупреждение: дублирующийся ключ '{pair.Key}' обнаружен при обработке файла {Path.GetFileName(filePath)} (возможно, из другого файла). Предыдущее значение сохранено.");
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка при обработке файла {filePath} в параллельной задаче: {ex.Message}");
+                    // Ошибку обработали, задача не падает
+                }
+            });
+
+            try
+            {
+                // Ожидаем завершения всех задач
+                await Task.WhenAll(tasks);
+            }
+            catch (Exception ex)
+            {
+                // Эта ошибка маловероятна, так как ошибки ловятся внутри каждой задачи
+                Console.WriteLine($"Непредвиденная ошибка при ожидании задач парсинга: {ex.Message}");
             }
 
-            return resultDict;
+            Console.WriteLine($"Завершено объединение данных из {existingFiles.Count} файлов. Итого записей: {combinedResult.Count}");
+            // Возвращаем обычный словарь
+            return new Dictionary<string, string>(combinedResult);
         }
 
         /// <summary>
