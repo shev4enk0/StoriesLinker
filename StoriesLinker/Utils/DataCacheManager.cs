@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
-using StoriesLinker.Models;
 using System.Threading.Tasks;
+using StoriesLinker.ArticyX;
+using StoriesLinker.Interfaces;
+// using StoriesLinker.Models;
 
 namespace StoriesLinker.Utils
 {
@@ -13,6 +15,11 @@ namespace StoriesLinker.Utils
         private static Dictionary<string, object> _cache = new Dictionary<string, object>();
         private static Dictionary<string, DateTime> _cacheTimestamps = new Dictionary<string, DateTime>();
         private static TimeSpan _defaultCacheDuration = TimeSpan.FromHours(1);
+
+        /// <summary>
+        /// Определяет тип проекта (Articy X или Articy 3)
+        /// </summary>
+        public static bool IsArticyX { get; private set; }
 
         /// <summary>
         /// Добавляет или обновляет данные в кэше
@@ -90,10 +97,15 @@ namespace StoriesLinker.Utils
         /// <typeparam name="T">Тип данных</typeparam>
         /// <param name="key">Ключ кэша</param>
         /// <param name="createFunc">Функция создания данных, если их нет в кэше</param>
+        /// <param name="data">Полученные или созданные данные</param>
+        /// <param name="isArticyX">True если это Articy X, False если Articy 3</param>
         /// <param name="duration">Длительность хранения в кэше (по умолчанию 1 час)</param>
-        /// <returns>Кэшированные или вновь созданные данные</returns>
-        public static T TryGetOrCreate<T>(string key, Func<T> createFunc, TimeSpan? duration = null)
+        /// <returns>True если данные были получены или созданы успешно</returns>
+        public static bool TryGetOrCreate<T>(string key, Func<T> createFunc, out T data, out bool isArticyX, TimeSpan? duration = null)
         {
+            data = default;
+            isArticyX = false;
+
             if (string.IsNullOrEmpty(key))
                 throw new ArgumentNullException(nameof(key));
             if (createFunc == null)
@@ -101,12 +113,27 @@ namespace StoriesLinker.Utils
 
             if (HasCache(key))
             {
-                return GetCache<T>(key);
+                data = GetCache<T>(key);
+                isArticyX = IsArticyX;
+                return true;
             }
 
-            var data = createFunc();
-            SetCache(key, data, duration);
-            return data;
+            try
+            {
+                data = createFunc();
+                if (data != null)
+                {
+                    SetCache(key, data, duration);
+                    isArticyX = IsArticyX;
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при создании данных: {ex.Message}");
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -130,107 +157,53 @@ namespace StoriesLinker.Utils
         }
 
         /// <summary>
-        /// Получает значение из NativeMap кэшированных данных ArticyExportData
-        /// </summary>
-        /// <param name="cacheKey">Ключ кэша ArticyExportData</param>
-        /// <param name="nativeKey">Ключ в NativeMap</param>
-        /// <returns>Значение из NativeMap или null, если не найдено</returns>
-        public static string GetNativeMapValue(string cacheKey, string nativeKey)
-        {
-            var data = GetCache<ArticyExportData>(cacheKey);
-            if (data?.NativeMap == null)
-                return null;
-
-            return data.NativeMap.TryGetValue(nativeKey, out var value) ? value : null;
-        }
-
-        /// <summary>
-        /// Устанавливает значение в NativeMap кэшированных данных ArticyExportData
-        /// </summary>
-        /// <param name="cacheKey">Ключ кэша ArticyExportData</param>
-        /// <param name="nativeKey">Ключ в NativeMap</param>
-        /// <param name="value">Значение для установки</param>
-        public static void SetNativeMapValue(string cacheKey, string nativeKey, string value)
-        {
-            var data = GetCache<ArticyExportData>(cacheKey);
-            if (data?.NativeMap == null)
-                return;
-
-            data.NativeMap[nativeKey] = value;
-        }
-
-        /// <summary>
-        /// Получает или создает кэшированные данные Articy X
+        /// Получает данные Articy, используя кэширование и парсеры
         /// </summary>
         /// <param name="projectPath">Путь к проекту</param>
-        /// <param name="createFunc">Функция создания данных</param>
-        /// <returns>Кэшированные или вновь созданные данные Articy X</returns>
-        public static ArticyExportData GetOrCreateArticyXData(string projectPath, Func<ArticyExportData> createFunc)
+        /// <param name="data">Полученные данные Articy</param>
+        /// <param name="isArticyX">True если это Articy X, False если Articy 3</param>
+        /// <returns>True если данные были получены успешно</returns>
+        public static bool TryGetArticyData(string projectPath, out ArticyExportData data, out bool isArticyX)
         {
-            string cacheKey = $"articy_x_{projectPath}";
-            return TryGetOrCreate(cacheKey, createFunc);
+            data = null;
+            isArticyX = false;
+
+            // Создаем парсер для определения типа проекта
+            IArticyDataParser parser = ArticyParserFactory.CreateParser(projectPath);
+            if (parser == null)
+                return false;
+
+            isArticyX = parser is ArticyXDataParser;
+            IsArticyX = isArticyX;
+            string cacheKey = $"articy_{projectPath}";
+
+            return TryGetOrCreate(cacheKey, () => parser.ParseData(), out data, out _);
         }
 
         /// <summary>
-        /// Получает или создает кэшированные данные Articy 3
+        /// Очищает кэш для конкретного проекта
         /// </summary>
         /// <param name="projectPath">Путь к проекту</param>
-        /// <param name="createFunc">Функция создания данных</param>
-        /// <returns>Кэшированные или вновь созданные данные Articy 3</returns>
-        public static ArticyExportData GetOrCreateArticy3Data(string projectPath, Func<ArticyExportData> createFunc)
+        public static void ClearProjectCache(string projectPath)
         {
-            string cacheKey = $"articy_3_{projectPath}";
-            return TryGetOrCreate(cacheKey, createFunc);
+            string cacheKey = $"articy_{projectPath}";
+            RemoveCache(cacheKey);
         }
 
         /// <summary>
-        /// Получает или создает кэшированные данные локализации Articy X
+        /// Пытается получить данные LinkerBin из кэша, если их нет - создает и кэширует
         /// </summary>
         /// <param name="projectPath">Путь к проекту</param>
-        /// <param name="createFunc">Функция создания данных локализации</param>
-        /// <returns>Кэшированные или вновь созданные данные локализации</returns>
-        public static Dictionary<string, string> GetOrCreateArticyXLocalization(string projectPath, Func<Dictionary<string, string>> createFunc)
+        /// <param name="data">Полученные данные LinkerBin</param>
+        /// <returns>True если данные были получены успешно</returns>
+        public static bool TryGetLinkerBin(string projectPath, out LinkerBin data)
         {
-            string cacheKey = $"articy_x_localization_{projectPath}";
-            return TryGetOrCreate(cacheKey, createFunc);
-        }
+            string cacheKey = $"linkerbin_{projectPath}";
 
-        /// <summary>
-        /// Получает или создает кэшированные данные локализации Articy 3
-        /// </summary>
-        /// <param name="projectPath">Путь к проекту</param>
-        /// <param name="createFunc">Функция создания данных локализации</param>
-        /// <returns>Кэшированные или вновь созданные данные локализации</returns>
-        public static Dictionary<string, string> GetOrCreateArticy3Localization(string projectPath, Func<Dictionary<string, string>> createFunc)
-        {
-            string cacheKey = $"articy_3_localization_{projectPath}";
-            return TryGetOrCreate(cacheKey, createFunc);
-        }
-
-        /// <summary>
-        /// Очищает кэш для конкретного проекта Articy X
-        /// </summary>
-        /// <param name="projectPath">Путь к проекту</param>
-        public static void ClearArticyXCache(string projectPath)
-        {
-            string dataKey = $"articy_x_{projectPath}";
-            string localizationKey = $"articy_x_localization_{projectPath}";
-
-            RemoveCache(dataKey);
-            RemoveCache(localizationKey);
-        }
-
-        /// <summary>
-        /// Очищает кэш для конкретного проекта Articy 3
-        /// </summary>
-        /// <param name="projectPath">Путь к проекту</param>
-        public static void ClearArticy3Cache(string projectPath)
-        {
-            string dataKey = $"articy_3_{projectPath}";
-            string localizationKey = $"articy_3_localization_{projectPath}";
-
-            RemoveCache(dataKey);
-            RemoveCache(localizationKey);
+            LinkerBin tempData = new LinkerBin(projectPath);
+            bool result = TryGetOrCreate(cacheKey, () => tempData, out tempData, out _);
+            data = tempData;
+            return result;
         }
     }
 }

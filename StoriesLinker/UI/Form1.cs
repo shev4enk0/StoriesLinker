@@ -17,12 +17,14 @@ namespace StoriesLinker
         public const bool FOR_LOCALIZATORS_MODE = true;
 
         private string _projectPath;
+        private bool _formInitialized = false;
         #endregion
 
         #region Инициализация формы
         public Form1()
         {
             InitializeComponent();
+            _formInitialized = true; // Отмечаем, что форма инициализирована
             LoadLastProjectPath();
             InitializeEventHandlers();
         }
@@ -43,20 +45,53 @@ namespace StoriesLinker
             if (key != null)
             {
                 string path = key.GetValue("LastPath").ToString();
-                folderBrowserDialog1.SelectedPath = path;
-                path_value.Text = path;
-                textBox1.Text = path;
 
-                string[] pathParts = path.Split('/', '\\');
-                proj_name_value.Text = pathParts[pathParts.Length - 1];
+                // Проверяем, существует ли папка по сохраненному пути
+                if (Directory.Exists(path))
+                {
+                    folderBrowserDialog1.SelectedPath = path;
+                    path_value.Text = path;
+                    textBox1.Text = path;
+
+                    string[] pathParts = path.Split('/', '\\');
+                    proj_name_value.Text = pathParts[pathParts.Length - 1];
+
+                    // Устанавливаем путь как текущую рабочую директорию
+                    _projectPath = path;
+
+                    // Логируем успешную инициализацию пути только если форма инициализирована
+                    if (_formInitialized)
+                    {
+                        ShowMessage($"Проект загружен: {path}");
+                    }
+                }
+                else
+                {
+                    path_value.Text = "Путь не найден: " + path;
+                    if (_formInitialized)
+                    {
+                        ShowMessage($"Предупреждение: сохраненный путь не существует: {path}");
+                    }
+                }
             }
             else
             {
                 path_value.Text = "-";
+                if (_formInitialized)
+                {
+                    ShowMessage("Путь проекта не задан. Пожалуйста, выберите папку проекта.");
+                }
             }
         }
 
-        private void Form1_Load(object sender, EventArgs e) { }
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            // После загрузки формы можно выводить сообщения
+            if (!string.IsNullOrEmpty(_projectPath) && Directory.Exists(_projectPath))
+            {
+                ShowMessage($"Проект загружен: {_projectPath}");
+            }
+        }
         #endregion
 
         #region Обработка UI событий
@@ -73,6 +108,8 @@ namespace StoriesLinker
 
             SaveProjectPathToRegistry();
             UpdateProjectInfo();
+
+            ShowMessage($"Выбран проект: {_projectPath}");
         }
 
         private void SaveProjectPathToRegistry()
@@ -213,7 +250,13 @@ namespace StoriesLinker
             AjLinkerMeta meta = linker.ParseMetaDataFromExcel();
             LinkerAtlasChecker checker = new LinkerAtlasChecker(meta, meta.Characters);
 
-            var (_, _, bookEntities) = linker.LoadBaseData();
+            ArticyExportData articyData = linker.LoadBaseData();
+            if (articyData == null)
+            {
+                ShowMessage("Ошибка: не удалось загрузить данные Articy");
+                return;
+            }
+            Dictionary<string, Model> bookEntities = articyData.GetModelDictionary();
 
             foreach (KeyValuePair<string, Model> @object in bookEntities)
             {
@@ -344,7 +387,24 @@ namespace StoriesLinker
 
         private static void WriteToTextBox(string message)
         {
-            Application.OpenForms["Form1"].Controls["textBox2"].Text = message;
+            try
+            {
+                // Проверка, что форма существует и доступна
+                Form form = Application.OpenForms["Form1"];
+                if (form != null)
+                {
+                    Control textBox = form.Controls["textBox2"];
+                    if (textBox != null)
+                    {
+                        textBox.Text = message;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // В случае ошибки выводим только в консоль
+                Console.WriteLine($"Ошибка при выводе в textBox2: {ex.Message}");
+            }
         }
 
         private static void WriteToLogFile(string prefixedMessage)

@@ -29,7 +29,6 @@ namespace StoriesLinker
         private ArticyExportData _cachedEntitiesArticyExportData;
         private Dictionary<string, string> _cachedEntitiesNativeDict;
         private readonly Dictionary<LocalizationCacheKey, Dictionary<string, LocalizationEntry>> _localizationCache = new();
-        private (Dictionary<string, string> _cachedLocalizationDict, ArticyExportData _cachedFlowJson, Dictionary<string, Model> _cachedBookEntities) _baseDataCache;
 
         private class LocalizationEntry
         {
@@ -554,38 +553,16 @@ namespace StoriesLinker
         /// Загружает базовые данные: словарь локализации, Flow.json и список объектов
         /// </summary>
         /// <returns>Кортеж из словаря локализации, объекта AjFile и словаря объектов</returns>
-        public (Dictionary<string, string> nativeDict, ArticyExportData ajfile, Dictionary<string, Model> objectsList) LoadBaseData()
+        public ArticyExportData LoadBaseData()
         {
-            // Проверяем кэш
-            if (_baseDataCache != default)
+            // Используем DataCacheManager для получения ArticyExportData
+            if (DataCacheManager.TryGetArticyData(_projectPath, out var articyData, out _))
             {
-                return _baseDataCache;
+                return articyData;
             }
 
-            try
-            {
-                IArticyDataParser articyParser = ArticyParserFactory.CreateParser(_projectPath);
-                ArticyExportData parsedJson = articyParser.ParseData();
-                Dictionary<string, string> localizationDictionary = GetLocalizationDictionary();
-
-                Dictionary<string, Model> objectsList = ExtractBookEntities(parsedJson, localizationDictionary);
-
-                if (objectsList != null && objectsList.Count != 0)
-                {
-                    _baseDataCache = (localizationDictionary, parsedJson, objectsList);
-                    return _baseDataCache;
-                }
-
-                Console.WriteLine("Предупреждение: Список объектов пуст");
-                objectsList = new Dictionary<string, Model>();
-                _baseDataCache = (localizationDictionary, parsedJson, objectsList);
-                return _baseDataCache;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при инициализации локализации: {ex.Message}");
-                return (new Dictionary<string, string>(), null, new Dictionary<string, Model>());
-            }
+            Console.WriteLine("Ошибка при загрузке базовых данных.");
+            return null;
         }
 
         /// <summary>
@@ -596,10 +573,33 @@ namespace StoriesLinker
             try
             {
                 // Загружаем базовые данные один раз
-                (Dictionary<string, string> nativeDict, ArticyExportData ajfile, Dictionary<string, Model> objectsList) =
-                    LoadBaseData();
+                ArticyExportData ajfile = LoadBaseData();
+                if (ajfile == null)
+                {
+                    Form1.ShowMessage("❌ Ошибка при загрузке базовых данных.");
+                    return false;
+                }
+
+                Dictionary<string, string> nativeDict = ajfile.NativeMap;
+                if (nativeDict == null)
+                {
+                    Form1.ShowMessage("❌ Словарь локализации пуст или не загружен.");
+                    nativeDict = new Dictionary<string, string>();
+                }
+
+                Dictionary<string, Model> objectsList = ajfile.GetModelDictionary();
+                if (objectsList == null || objectsList.Count == 0)
+                {
+                    Form1.ShowMessage("❌ Список объектов пуст или не загружен.");
+                    return false;
+                }
 
                 List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);
+                if (chaptersIds == null || chaptersIds.Count == 0)
+                {
+                    Form1.ShowMessage("❌ Не удалось получить идентификаторы глав.");
+                    return false;
+                }
 
                 if (chaptersIds.Count < Form1.AvailableChapters)
                 {
@@ -609,6 +609,11 @@ namespace StoriesLinker
 
                 chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
                 List<string>[] csparentsIds = GetChapterAndSubchapterHierarchy(chaptersIds, objectsList);
+                if (csparentsIds == null || csparentsIds.Length == 0)
+                {
+                    Form1.ShowMessage("❌ Не удалось создать иерархию глав и подглав.");
+                    return false;
+                }
 
                 // Проверяем наличие файлов локализации
                 string russianFolder = Path.Combine(_projectPath, "Localization", "Russian");
@@ -649,6 +654,12 @@ namespace StoriesLinker
                     try
                     {
                         int chapterN = i + 1;
+                        if (csparentsIds[i] == null || csparentsIds[i].Count == 0)
+                        {
+                            Form1.ShowMessage($"❌ Список ID для главы {chapterN} пуст.");
+                            continue;
+                        }
+
                         ProcessChapterLocalization(chapterN, csparentsIds[i], objectsList, nativeDict,
                             charactersIds, charactersLocalizData, charactersNames);
                     }
@@ -677,6 +688,7 @@ namespace StoriesLinker
             catch (Exception ex)
             {
                 Form1.ShowMessage($"❌ Критическая ошибка при генерации таблиц локализации: {ex.Message}");
+                Console.WriteLine($"Стек вызовов: {ex.StackTrace}");
                 return false;
             }
         }
@@ -686,6 +698,13 @@ namespace StoriesLinker
                                                 List<string> charactersIds, Dictionary<string, LocalizationEntry> charactersLocalizData,
                                                 Dictionary<string, string> charactersNames)
         {
+            if (parentsIds == null || objectsList == null || nativeDict == null ||
+                charactersIds == null || charactersLocalizData == null || charactersNames == null)
+            {
+                Form1.ShowMessage($"❌ Один из параметров ProcessChapterLocalization равен null для главы {chapterN}");
+                return;
+            }
+
             var chapterKey = $"chapter_{chapterN}_Russian";
             Dictionary<string, LocalizationEntry> chapterData = new();
             Dictionary<string, LocalizationEntry> internalData = new();
@@ -694,11 +713,18 @@ namespace StoriesLinker
 
             foreach (KeyValuePair<string, Model> scobj in objectsList)
             {
+                // Проверка на null перед обращением к свойствам
+                if (scobj.Value?.Properties?.Parent == null) continue;
+
                 if (!parentsIds.Contains(scobj.Value.Properties.Parent)) continue;
 
                 Model dfobj = scobj.Value;
+                if (dfobj == null) continue;
 
                 if (dfobj.TypeEnum != TypeEnum.DialogueFragment) continue;
+
+                // Проверка на null для свойств диалоговых фрагментов
+                if (dfobj.Properties == null) continue;
 
                 string chId = dfobj.Properties.Speaker;
                 if (string.IsNullOrEmpty(chId))
@@ -715,6 +741,14 @@ namespace StoriesLinker
 
                 ProcessCharacterData(chId, character, nativeDict, chapterN, charactersIds,
                     charactersLocalizData, charactersNames);
+
+                // Проверяем, доступен ли charactersNames[chId] после обработки персонажа
+                if (!charactersNames.ContainsKey(chId))
+                {
+                    Form1.ShowMessage($"❌ Не удалось получить имя персонажа с ID {chId} после обработки");
+                    continue;
+                }
+
                 ProcessDialogueFragmentData(dfobj, nativeDict, chapterN, charactersNames[chId],
                     chapterData, internalData);
             }
@@ -740,7 +774,22 @@ namespace StoriesLinker
             Dictionary<string, LocalizationEntry> charactersLocalizData,
             Dictionary<string, string> charactersNames)
         {
+            // Проверка на null параметров
+            if (string.IsNullOrEmpty(chId) || character == null || nativeDict == null ||
+                charactersIds == null || charactersLocalizData == null || charactersNames == null)
+            {
+                Form1.ShowMessage($"❌ Один из параметров ProcessCharacterData равен null для главы {chapterN}");
+                return;
+            }
+
             if (charactersIds.Contains(chId)) return;
+
+            // Проверка на null свойств персонажа
+            if (character.Properties == null)
+            {
+                Form1.ShowMessage($"❌ Properties персонажа с ID {chId} равен null в главе {chapterN}");
+                return;
+            }
 
             string displayName = character.Properties.DisplayName;
             if (string.IsNullOrEmpty(displayName))
@@ -773,6 +822,21 @@ namespace StoriesLinker
                                                  Dictionary<string, LocalizationEntry> chapterData,
                                                  Dictionary<string, LocalizationEntry> internalData)
         {
+            // Проверка на null параметров
+            if (dfobj == null || nativeDict == null || string.IsNullOrEmpty(speakerName) ||
+                chapterData == null || internalData == null)
+            {
+                Form1.ShowMessage($"❌ Один из параметров ProcessDialogueFragmentData равен null для главы {chapterN}");
+                return;
+            }
+
+            // Проверка наличия Properties
+            if (dfobj.Properties == null)
+            {
+                Form1.ShowMessage($"❌ Properties у диалогового фрагмента равен null в главе {chapterN}");
+                return;
+            }
+
             // Обработка основного текста
             if (!string.IsNullOrEmpty(dfobj.Properties.Text))
             {
@@ -784,62 +848,54 @@ namespace StoriesLinker
 
                 if (translatedText != string.Empty)
                 {
-                    chapterData[dfobj.Properties.Text] = new LocalizationEntry
+                    chapterData[dfobj.Properties.Id] = new LocalizationEntry
                     {
                         Text = _stringPool.Intern(translatedText),
-                        SpeakerDisplayName = speakerName,
-                        Emotion = RecognizeEmotion(dfobj.Properties.Color),
+                        SpeakerDisplayName = _stringPool.Intern(speakerName),
                         IsInternal = false
                     };
                 }
             }
 
-            // Обработка текста меню
+            // Обработка меню-текста
             if (!string.IsNullOrEmpty(dfobj.Properties.MenuText))
             {
                 if (!nativeDict.TryGetValue(dfobj.Properties.MenuText, out string translatedMenuText))
                 {
-                    Console.WriteLine($"Отсутствует перевод для текста меню: {dfobj.Properties.MenuText} в главе {chapterN}");
+                    Console.WriteLine($"Отсутствует перевод для меню-текста: {dfobj.Properties.MenuText} в главе {chapterN}");
                     translatedMenuText = string.Empty;
                 }
 
                 if (translatedMenuText != string.Empty)
                 {
-                    chapterData[dfobj.Properties.MenuText] = new LocalizationEntry
+                    string keyId = dfobj.Properties.Id + "_Choice";
+                    chapterData[keyId] = new LocalizationEntry
                     {
                         Text = _stringPool.Intern(translatedMenuText),
-                        SpeakerDisplayName = speakerName,
-                        Emotion = RecognizeEmotion(dfobj.Properties.Color),
+                        SpeakerDisplayName = string.Empty,
                         IsInternal = false
                     };
                 }
             }
 
-            // Обработка сценических указаний
-            if (string.IsNullOrEmpty(dfobj.Properties.StageDirections)) return;
-
-            try
+            // Обработка внутреннего текста
+            if (!string.IsNullOrEmpty(dfobj.Properties.StageDirections))
             {
-                if (!nativeDict.TryGetValue(dfobj.Properties.StageDirections, out string translatedDirections))
+                if (!nativeDict.TryGetValue(dfobj.Properties.StageDirections, out string translatedStageText))
                 {
-                    Console.WriteLine($"Отсутствует перевод для сценических указаний: {dfobj.Properties.StageDirections} в главе {chapterN}");
-                    translatedDirections = string.Empty;
+                    Console.WriteLine($"Отсутствует перевод для внутреннего текста: {dfobj.Properties.StageDirections} в главе {chapterN}");
+                    translatedStageText = string.Empty;
                 }
 
-                if (translatedDirections != string.Empty)
+                if (translatedStageText != string.Empty)
                 {
-                    internalData[dfobj.Properties.StageDirections] = new LocalizationEntry
+                    internalData[dfobj.Properties.Id] = new LocalizationEntry
                     {
-                        Text = _stringPool.Intern(translatedDirections),
+                        Text = _stringPool.Intern(translatedStageText),
                         SpeakerDisplayName = string.Empty,
                         IsInternal = true
                     };
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при обработке сценических указаний: {ex.Message}");
-                // Продолжаем выполнение, не выбрасывая исключение
             }
         }
 
@@ -917,7 +973,7 @@ namespace StoriesLinker
         {
             Form1.ShowMessage("Начинаем...");
 
-            (_, ajfile, _) = LoadBaseData();
+            ajfile = LoadBaseData();
             meta = _cachedMeta ??= ParseMetaDataFromExcel();
 
             if (meta != null && ajfile != null)
@@ -1084,7 +1140,8 @@ namespace StoriesLinker
 
         private (Dictionary<string, string> nativeDict, Dictionary<string, Model> objectsList) LoadAndPrepareData(ArticyExportData ajfile)
         {
-            (Dictionary<string, string> nativeDict, _, Dictionary<string, Model> objectsList) = LoadBaseData();
+            Dictionary<string, string> nativeDict = ajfile.NativeMap;
+            Dictionary<string, Model> objectsList = ajfile.GetModelDictionary();
             return (nativeDict, objectsList);
         }
 
@@ -2085,18 +2142,21 @@ namespace StoriesLinker
                 CreateLocalizationStructure();
 
                 // Загружаем базовые данные
-                (Dictionary<string, string> nativeDict, ArticyExportData ajfile, Dictionary<string, Model> objectsList) = LoadBaseData();
-
-                if (nativeDict == null || nativeDict.Count == 0)
-                {
-                    Console.WriteLine("Предупреждение: Словарь локализации пуст или не загружен");
-                    nativeDict = new Dictionary<string, string>();
-                }
+                ArticyExportData ajfile = LoadBaseData();
 
                 if (ajfile == null)
                 {
                     Form1.ShowMessage("❌ Не удалось загрузить Flow.json");
                     return false;
+                }
+
+                Dictionary<string, string> nativeDict = ajfile.NativeMap;
+                Dictionary<string, Model> objectsList = ajfile.GetModelDictionary();
+
+                if (nativeDict == null || nativeDict.Count == 0)
+                {
+                    Console.WriteLine("Предупреждение: Словарь локализации пуст или не загружен");
+                    nativeDict = new Dictionary<string, string>();
                 }
 
                 List<string> chaptersIds = GetSortedChapterIds(objectsList, nativeDict);

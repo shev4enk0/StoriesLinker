@@ -48,17 +48,7 @@ namespace StoriesLinker.Articy3
         {
             ArticyExportData articyExportData = new();
             Dictionary<string, string> localizationDict = new Dictionary<string, string>();
-
-            try
-            {
-                articyExportData.NativeMap = GetLocalizationDictionaryInternal();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при загрузке словаря локализации Articy 3: {ex.Message}");
-                // Продолжаем выполнение, даже если локализация не загрузилась
-            }
-
+            
             try
             {
                 articyExportData = ParseFlowJsonFileInternal();
@@ -79,6 +69,16 @@ namespace StoriesLinker.Articy3
             {
                 Console.WriteLine($"Непредвиденная ошибка при парсинге Flow.json: {ex.Message}");
                 articyExportData = null; // Возвращаем null для AjFile при других ошибках
+            }
+
+            try
+            {
+                articyExportData.NativeMap = GetLocalizationDictionaryInternal();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при загрузке словаря локализации Articy 3: {ex.Message}");
+                // Продолжаем выполнение, даже если локализация не загрузилась
             }
 
             // Возвращаем результат, даже если ajFile равен null
@@ -147,12 +147,10 @@ namespace StoriesLinker.Articy3
                 throw new FileNotFoundException("Файл Flow.json не найден", flowJsonPath);
             }
 
-            using (var r = new StreamReader(flowJsonPath))
-            {
-                string json = r.ReadToEnd();
-                // При ошибке десериализации будет выброшено исключение JsonException
-                return JsonConvert.DeserializeObject<ArticyExportData>(json);
-            }
+            using var r = new StreamReader(flowJsonPath);
+            string json = r.ReadToEnd();
+            // При ошибке десериализации будет выброшено исключение JsonException
+            return JsonConvert.DeserializeObject<ArticyExportData>(json);
         }
 
         /// <summary>

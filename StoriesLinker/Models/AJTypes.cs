@@ -35,6 +35,43 @@ namespace StoriesLinker
         public Dictionary<string, string> NativeMap;
         public List<GlobalVariable> GlobalVariables;
         public List<Package> Packages;
+
+        private Dictionary<string, Model> _modelCache;
+
+        /// <summary>
+        /// Получает словарь моделей, закешированный для оптимальности
+        /// </summary>
+        /// <returns>Словарь моделей</returns>
+        public Dictionary<string, Model> GetModelDictionary()
+        {
+            if (_modelCache != null)
+            {
+                return _modelCache;
+            }
+
+            _modelCache = new Dictionary<string, Model>();
+
+            // Проверка на null для предотвращения NullReferenceException
+            if (Packages != null)
+            {
+                foreach (var package in Packages)
+                {
+                    if (package?.Models == null) continue;
+
+                    foreach (var model in package.Models)
+                    {
+                        if (model?.Properties?.Id == null) continue;
+
+                        if (!_modelCache.ContainsKey(model.Properties.Id))
+                        {
+                            _modelCache[model.Properties.Id] = model;
+                        }
+                    }
+                }
+            }
+
+            return _modelCache;
+        }
     }
 
     public enum TypeEnum

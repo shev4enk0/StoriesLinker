@@ -1,62 +1,56 @@
 ﻿using System;
 using System.Collections.Generic; // Добавлено для Dictionary
 using System.IO;
+using Newtonsoft.Json;
 using StoriesLinker.Interfaces;
 
 namespace StoriesLinker.ArticyX // Оставляем в пространстве имен ArticyX
 {
     public class ArticyXDataParser : IArticyDataParser // Реализуем обновленный интерфейс
     {
-        private readonly JsonObjectsParser _objectsParser;
-        private readonly JsonLocalizationParser _localizationParser;
         private readonly string _projectPath;
+        private readonly JsonLocalizationParser _localizationParser;
 
-        // Можно добавить опциональный LinkerBin, если он нужен объектам ArticyX
-        // public ArticyXDataParser(string projectPath, LinkerBin linker = null)
         public ArticyXDataParser(string projectPath)
         {
-            if (string.IsNullOrEmpty(projectPath) || !Directory.Exists(projectPath))
-            {
-                throw new ArgumentException("Некорректный путь к проекту", nameof(projectPath));
-            }
             _projectPath = projectPath;
-            // Передаем projectPath в конструкторы парсеров
-            // Если JsonObjectsParser требует LinkerBin, его нужно передать сюда
-            _objectsParser = new JsonObjectsParser(projectPath); // Или new JsonObjectsParser(linker, projectPath);
             _localizationParser = new JsonLocalizationParser(projectPath);
         }
 
         /// <summary>
         /// Парсит данные Articy:Draft X (JSON файлы)
         /// </summary>
-        /// <returns>Кортеж с объектом AjFile и словарем локализации.</returns>
+        /// <returns>Объект ArticyExportData с данными и локализацией.</returns>
         public ArticyExportData ParseData()
         {
-            ArticyExportData articyData = null;
-
             try
             {
-                articyData = _objectsParser.ParseArticyX();
-
-                if (articyData == null)
+                if (!File.Exists(_projectPath))
                 {
-                    Console.WriteLine("Парсинг объектов Articy X вернул null.");
+                    Console.WriteLine($"Файл проекта не найден: {_projectPath}");
+                    return null;
                 }
 
-                Console.WriteLine("Успешно распарсены объекты Articy X.");
-            }
-            catch (FileNotFoundException ex)
-            {
-                Console.WriteLine($"Ошибка: Не найдены файлы данных Articy X: {ex.Message}");
-                articyData = null;
+                string jsonContent = File.ReadAllText(_projectPath);
+                var exportData = JsonConvert.DeserializeObject<ArticyExportData>(jsonContent);
+
+                if (exportData == null)
+                {
+                    Console.WriteLine("Не удалось десериализовать данные проекта");
+                    return null;
+                }
+
+                // Загружаем локализацию
+                var localization = _localizationParser.GetLocalizationTextDictionary();
+                exportData.NativeMap = localization;
+
+                return exportData;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка при парсинге объектов Articy X: {ex.Message}");
-                articyData = null;
+                Console.WriteLine($"Ошибка при парсинге данных: {ex.Message}");
+                return null;
             }
-
-            return articyData;
         }
     }
 }
