@@ -198,12 +198,13 @@ namespace StoriesLinker.Utils
         /// <returns>True если данные были получены успешно</returns>
         public static bool TryGetLinkerBin(string projectPath, out LinkerBin data)
         {
+            if (string.IsNullOrEmpty(projectPath))
+                throw new ArgumentNullException(nameof(projectPath));
+
             string cacheKey = $"linkerbin_{projectPath}";
 
-            LinkerBin tempData = new LinkerBin(projectPath);
-            bool result = TryGetOrCreate(cacheKey, () => tempData, out tempData, out _);
-            data = tempData;
-            return result;
+            // Передаем лямбда-выражение для создания LinkerBin только при необходимости
+            return TryGetOrCreate(cacheKey, () => new LinkerBin(projectPath), out data, out _); // Игнорируем isArticyX
         }
     }
 }

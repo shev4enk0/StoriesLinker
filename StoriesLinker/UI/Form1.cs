@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using OfficeOpenXml;
+using StoriesLinker.Utils;
 
 namespace StoriesLinker
 {
@@ -18,6 +19,8 @@ namespace StoriesLinker
 
         private string _projectPath;
         private bool _formInitialized = false;
+        private LinkerBin _linkerBin;
+
         #endregion
 
         #region Инициализация формы
@@ -209,22 +212,24 @@ namespace StoriesLinker
         #region Генерация бандлов и локализации
         private void GenerateOutputBundles(object sender, EventArgs eventArgs)
         {
-            string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
-            string stringsXmlPath = LinkerBin.GetLocalizationTablesPath(_projectPath);
-
-            if (!File.Exists(flowJsonPath) || !File.Exists(stringsXmlPath))
+            if (_linkerBin == null)
             {
-                ShowMessage("Отсуствует Flow.json или таблица xml.");
-                return;
-            }
+                bool tryGetLinkerBin = DataCacheManager.TryGetLinkerBin(_projectPath, out LinkerBin linkerBin);
 
-            LinkerBin linker = new LinkerBin(_projectPath);
+                if (!tryGetLinkerBin)
+                {
+                    ShowMessage("Ошибка: не удалось загрузить LinkerBin");
+                    return;
+                }
+                _linkerBin = linkerBin;
+            }
+          
 
             if (RELEASE_MODE)
             {
                 try
                 {
-                    bool result = linker.GenerateOutputStructure();
+                    bool result = _linkerBin.GenerateOutputStructure();
                     VerifyGeneratedBundles(result);
                 }
                 catch (Exception e)
@@ -237,7 +242,7 @@ namespace StoriesLinker
             }
             else
             {
-                bool result = linker.GenerateOutputStructure();
+                bool result = _linkerBin.GenerateOutputStructure();
                 VerifyGeneratedBundles(result);
             }
         }
@@ -286,21 +291,18 @@ namespace StoriesLinker
             if (!ValidateChaptersCount())
                 return;
 
-            string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
-            string stringsXmlPath = LinkerBin.GetLocalizationTablesPath(_projectPath);
+            ShowMessage("Генерация началась...");
+            bool tryGetLinkerBin = DataCacheManager.TryGetLinkerBin(_projectPath, out LinkerBin linkerBin);
 
-            if (!File.Exists(flowJsonPath) || !File.Exists(stringsXmlPath))
+            if (!tryGetLinkerBin)
             {
-                ShowMessage("Отсуствует Flow.json или таблица xml.");
+                ShowMessage("Ошибка: не удалось загрузить LinkerBin");
                 return;
             }
-
-            ShowMessage("Файлы найдены. Генерация началась...");
-            LinkerBin linker = new LinkerBin(_projectPath);
-
+            _linkerBin = linkerBin;
             try
             {
-                bool result = linker.GenerateLocalizationTables();
+                bool result = linkerBin.GenerateLocalizationTables();
                 if (result)
                 {
                     ShowMessage("Таблицы локализации успешно сгенерированы.");
@@ -318,12 +320,10 @@ namespace StoriesLinker
         private bool ValidateChaptersCount()
         {
             string chaptersCountText = chapters_count_value.Text;
-            if (!int.TryParse(chaptersCountText, out AvailableChapters))
-            {
-                ShowMessage("Некорректное количество глав");
-                return false;
-            }
-            return true;
+            if (int.TryParse(chaptersCountText, out AvailableChapters)) return true;
+
+            ShowMessage("Некорректное количество глав");
+            return false;
         }
         #endregion
 

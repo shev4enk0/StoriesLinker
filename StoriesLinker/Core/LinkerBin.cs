@@ -573,21 +573,21 @@ namespace StoriesLinker
             try
             {
                 // Загружаем базовые данные один раз
-                ArticyExportData ajfile = LoadBaseData();
-                if (ajfile == null)
+                ArticyExportData articyExportData = LoadBaseData();
+                if (articyExportData == null)
                 {
                     Form1.ShowMessage("❌ Ошибка при загрузке базовых данных.");
                     return false;
                 }
 
-                Dictionary<string, string> nativeDict = ajfile.NativeMap;
+                Dictionary<string, string> nativeDict = articyExportData.NativeMap;
                 if (nativeDict == null)
                 {
                     Form1.ShowMessage("❌ Словарь локализации пуст или не загружен.");
                     nativeDict = new Dictionary<string, string>();
                 }
 
-                Dictionary<string, Model> objectsList = ajfile.GetModelDictionary();
+                Dictionary<string, Model> objectsList = articyExportData.GetModelDictionary();
                 if (objectsList == null || objectsList.Count == 0)
                 {
                     Form1.ShowMessage("❌ Список объектов пуст или не загружен.");
@@ -1588,7 +1588,21 @@ namespace StoriesLinker
         {
             void AddCh(string aid)
             {
-                string dname = nativeDict[objectsList[aid].Properties.DisplayName];
+                if (!objectsList.TryGetValue(aid, out Model model) || model.Properties == null)
+                {
+                    Form1.ShowMessage($"Не удалось найти объект с ID {aid} или его свойства");
+                    return;
+                }
+
+                if (!nativeDict.TryGetValue(model.Properties.DisplayName, out string dname))
+                {
+                    if (DataCacheManager.IsArticyX) dname = model.Properties.DisplayName;
+                    else
+                    {
+                        Form1.ShowMessage($"Не найден перевод для имени персонажа: {model.Properties.DisplayName}");
+                        return;
+                    }
+                }
 
                 if (meta.Characters.Find(l => l.DisplayName == dname) == null)
                 {
@@ -1597,7 +1611,8 @@ namespace StoriesLinker
                     throw new Exception("В таблице нет персонажа с именем " + dname);
                 }
 
-                if (!gridLinker.IsChExist(dname)) gridLinker.AddCharacter(dname, aid);
+                if (!gridLinker.IsChExist(dname)) 
+                    gridLinker.AddCharacter(dname, aid);
             }
 
             return AddCh;
@@ -1628,7 +1643,21 @@ namespace StoriesLinker
         {
             void AddLoc(string aid)
             {
-                string dname = nativeDict[objectsList[aid].Properties.DisplayName];
+                if (!objectsList.TryGetValue(aid, out Model model) || model.Properties == null)
+                {
+                    Form1.ShowMessage($"Не удалось найти объект с ID {aid} или его свойства");
+                    return;
+                }
+
+                if (!nativeDict.TryGetValue(model.Properties.DisplayName, out string dname))
+                {
+                    if (DataCacheManager.IsArticyX) dname = model.Properties.DisplayName;
+                    else
+                    {
+                        Form1.ShowMessage($"Не найден перевод для имени локации: {model.Properties.DisplayName}");
+                        return;
+                    }
+                }
 
                 if (meta.Locations.Find(l => l.DisplayName == dname) == null)
                 {
@@ -1637,7 +1666,8 @@ namespace StoriesLinker
                     throw new Exception("В таблице нет локации с именем " + dname);
                 }
 
-                if (!gridLinker.IsLocExist(dname)) gridLinker.AddLocation(dname, objectsList[aid].Properties.Id);
+                if (!gridLinker.IsLocExist(dname)) 
+                    gridLinker.AddLocation(dname, objectsList[aid].Properties.Id);
             }
 
             return AddLoc;
@@ -2024,19 +2054,28 @@ namespace StoriesLinker
                         {
                             try
                             {
-                                internalWorksheet.Cells[internalRow, 1].Value = dfobj.Properties.StageDirections;
-
-                                // Проверяем наличие ключа в словаре
-                                if (nativeDict.TryGetValue(dfobj.Properties.StageDirections, out string translatedDirections))
+                                if (DataCacheManager.IsArticyX)
                                 {
-                                    internalWorksheet.Cells[internalRow, 2].Value = translatedDirections;
+                                    internalWorksheet.Cells[internalRow, 1].Value = dfobj.Properties.TechnicalName + ".StageDirections";
+                                    internalWorksheet.Cells[internalRow, 2].Value = dfobj.Properties.StageDirections;
                                 }
                                 else
                                 {
-                                    // Если перевод отсутствует, используем оригинальный текст
-                                    internalWorksheet.Cells[internalRow, 2].Value = dfobj.Properties.StageDirections;
-                                    Console.WriteLine($"Предупреждение: Отсутствует перевод для сценических указаний: {dfobj.Properties.StageDirections}");
+                                    internalWorksheet.Cells[internalRow, 1].Value = dfobj.Properties.StageDirections;
+
+                                    // Проверяем наличие ключа в словаре
+                                    if (nativeDict.TryGetValue(dfobj.Properties.StageDirections, out string translatedDirections))
+                                    {
+                                        internalWorksheet.Cells[internalRow, 2].Value = translatedDirections;
+                                    }
+                                    else
+                                    {
+                                        // Если перевод отсутствует, используем оригинальный текст
+                                        internalWorksheet.Cells[internalRow, 2].Value = dfobj.Properties.StageDirections;
+                                        Console.WriteLine($"Предупреждение: Отсутствует перевод для сценических указаний: {dfobj.Properties.StageDirections}");
+                                    }
                                 }
+
 
                                 internalRow++;
                             }
@@ -2325,14 +2364,28 @@ namespace StoriesLinker
 
         #endregion
 
+        /// <summary>
+        /// Распознает эмоцию по цвету объекта Articy.
+        /// </summary>
+        /// <param name="color">Цвет объекта.</param>
+        /// <returns>Строковое представление эмоции.</returns>
         private string RecognizeEmotion(ArticyExportColor color)
         {
+            // Проверка на null входного параметра
+            if (color == null)
+            {
+                // Возвращаем дефолтное значение, если цвет не задан
+                return EChEmotion.IsntSetOrNeutral.ToString();
+            }
+
             var emotion = EChEmotion.IsntSetOrNeutral;
 
+            // Локальная функция сравнения цветов (оставляем без изменений)
             bool ColorsEquals(Color32 a, Color32 b) =>
                 Math.Abs(a.R - b.R) < 20 && Math.Abs(a.G - b.G) < 20 && Math.Abs(a.B - b.B) < 20;
 
             var fragColor = color.ToColor32();
+            // Цвета эмоций (оставляем без изменений)
             Color32[] emotionsColor = [new(255, 0, 0, 0), new(0, 110, 20, 0), new(41, 6, 88, 0), new(255, 134, 0, 0)];
 
             for (var i = 0; i < emotionsColor.Length; i++)
@@ -2352,23 +2405,70 @@ namespace StoriesLinker
         {
             var sharedObjs = new List<Model>();
 
-            foreach (KeyValuePair<string, Model> pair in objectsList.Where(p => p.Value.TypeEnum == TypeEnum.Entity ||
-                                                                               p.Value.TypeEnum == TypeEnum.Location))
+            IEnumerable<KeyValuePair<string, Model>> keyValuePairs =
+                objectsList.Where(p => p.Value.TypeEnum is TypeEnum.Entity or TypeEnum.Location);
+            foreach (KeyValuePair<string, Model> pair in keyValuePairs)
             {
-                string dname = nativeDict[pair.Value.Properties.DisplayName];
+                string displayNameKey = pair.Value.Properties?.DisplayName;
 
-                if (pair.Value.TypeEnum == TypeEnum.Entity)
+                // Проверяем, есть ли ключ DisplayName
+                if (string.IsNullOrEmpty(displayNameKey))
                 {
-                    int index = meta.Characters.FindIndex(ch => ch.DisplayName == dname);
-                    if (index != -1) meta.Characters[index].Aid = pair.Key;
+                    Console.WriteLine($"Предупреждение: Пропущен объект {pair.Key} ({pair.Value.TypeEnum}) т.к. DisplayName отсутствует или пуст.");
+                    continue; // Пропускаем этот объект
+                }
+
+                bool keyFoundInDict = nativeDict.TryGetValue(displayNameKey, out string dname); // Пытаемся найти ключ в словаре
+
+                // Если ключ не найден в словаре И это проект Articy X, используем сам ключ как имя
+                if (!keyFoundInDict && DataCacheManager.IsArticyX)
+                {
+                    dname = displayNameKey; // Используем ключ как имя
+                    Console.WriteLine($"Предупреждение: Ключ локализации '{displayNameKey}' не найден в nativeDict для Articy X объекта {pair.Key}. Используется сам ключ как имя для поиска в метаданных Excel.");
+                    // Считаем, что имя найдено (в виде ключа)
+                    keyFoundInDict = true;
+                }
+
+                // Пытаемся безопасно получить имя из словаря локализации
+                // Переменная dname будет содержать либо значение из словаря, либо сам ключ (для ArticyX)
+                if (keyFoundInDict && !string.IsNullOrEmpty(dname))
+                {
+                    // Ключ найден (или используется как имя для ArticyX), продолжаем обработку
+                    if (pair.Value.TypeEnum == TypeEnum.Entity)
+                    {
+                        // Ищем персонажа по локализованному имени (или ключу для ArticyX)
+                        int index = meta.Characters.FindIndex(ch => ch.DisplayName == dname);
+                        if (index != -1)
+                        {
+                            meta.Characters[index].Aid = pair.Key; // Присваиваем Articy ID
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Предупреждение: Персонаж с DisplayName '{dname}' (ключ {displayNameKey}) не найден в метаданных Excel.");
+                        }
+                    }
+                    else // Location
+                    {
+                        // Ищем локацию по локализованному имени (или ключу для ArticyX)
+                        int index = meta.Locations.FindIndex(loc => loc.DisplayName == dname);
+                        if (index != -1)
+                        {
+                            meta.Locations[index].Aid = pair.Key; // Присваиваем Articy ID
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Предупреждение: Локация с DisplayName '{dname}' (ключ {displayNameKey}) не найдена в метаданных Excel.");
+                        }
+                    }
+
+                    sharedObjs.Add(pair.Value);
                 }
                 else
                 {
-                    int index = meta.Locations.FindIndex(loc => loc.DisplayName == dname);
-                    if (index != -1) meta.Locations[index].Aid = pair.Key;
+                    // Ключ НЕ найден в словаре локализации (и это НЕ Articy X, или dname пустой)
+                    Console.WriteLine($"ОШИБКА: Не найден ключ локализации '{displayNameKey}' для объекта {pair.Key} ({pair.Value.TypeEnum}) в словаре nativeDict (или результат пуст). Проверьте файлы локализации и метаданные Excel.");
+                    // Пропускаем добавление этого объекта в sharedObjs и не присваиваем Aid
                 }
-
-                sharedObjs.Add(pair.Value);
             }
 
             foreach (AjMetaLocationData el in meta.Locations.Where(el => string.IsNullOrEmpty(el.Aid)))
