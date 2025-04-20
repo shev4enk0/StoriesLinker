@@ -63,7 +63,7 @@ namespace StoriesLinker
                     }
                     else
                     {
-                        Console.WriteLine($"Обнаружен дублирующийся ключ: {firstRowStr}");
+                        Logger.Log($"Обнаружен дублирующийся ключ: {firstRowStr}", Logger.LogType.Warning);
                     }
                 }
             }
@@ -523,8 +523,7 @@ namespace StoriesLinker
 
             if (_chapters_ids.Count < Form1.AvailableChapters)
             {
-                Form1.ShowMessage("Глав в книге меньше введённого количества");
-
+                Logger.Log("Глав в книге меньше введённого количества", Logger.LogType.Error);
                 return false;
             }
 
@@ -752,11 +751,11 @@ namespace StoriesLinker
 
                 if (_name.Contains("internal") || !_for_localizators_mode) return;
                 
-                Console.WriteLine("Таблица " + _name + " сгенерирована, количество слов: " + _wordCount);
+                Logger.Log($"Таблица {_name} сгенерирована, количество слов: {_wordCount}", Logger.LogType.Generation);
 
                 AllWordsCount += _wordCount;
 
-                if (_name.Contains("12")) Console.WriteLine("total count = " + AllWordsCount);
+                if (_name.Contains("12")) Logger.Log($"total count = {AllWordsCount}", Logger.LogType.Statistic);
             }
         }
 
@@ -783,7 +782,7 @@ namespace StoriesLinker
 
         public bool GenerateOutputFolder()
         {
-            Form1.ShowMessage("Начинаем...");
+            Logger.Log("Начинаем...", Logger.LogType.Info);
 
             string _temp_folder = ProjectPath + @"\Temp\";
 
@@ -792,8 +791,7 @@ namespace StoriesLinker
 
             if (_meta == null)
             {
-                Form1.ShowMessage("Таблица содержит пустые поля в листе Characters или Locations.");
-
+                Logger.Log("Таблица содержит пустые поля в листе Characters или Locations.", Logger.LogType.Error);
                 return false;
             }
 
@@ -818,8 +816,7 @@ namespace StoriesLinker
                             || _c_obj.ClothesVariableName.Trim() == "-"))
                         continue;
                     
-                    Form1.ShowMessage("Найдены дублирующиеся значения среди персонажей: " + _a_obj.DisplayName);
-
+                    Logger.Log($"Найдены дублирующиеся значения среди персонажей: {_a_obj.DisplayName}", Logger.LogType.Error);
                     return false;
                 }
 
@@ -827,9 +824,7 @@ namespace StoriesLinker
                 {
                     if (_c_obj.AtlasFileName != _c_obj.BaseNameInAtlas)
                     {
-                        Form1.ShowMessage("AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: "
-                                          + _c_obj.DisplayName);
-
+                        Logger.Log($"AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: {_c_obj.DisplayName}", Logger.LogType.Error);
                         return false;
                     }
                 }
@@ -842,9 +837,7 @@ namespace StoriesLinker
                 if (_c_obj.ClothesVariableName.Trim() == "-" || (state1 && state2))
                     continue;
                 
-                Form1.ShowMessage("В артиси не определена переменная с именем Clothes."
-                                  + _c_obj.ClothesVariableName);
-
+                Logger.Log($"В артиси не определена переменная с именем Clothes.{_c_obj.ClothesVariableName}", Logger.LogType.Error);
                 return false;
             }
 
@@ -866,7 +859,7 @@ namespace StoriesLinker
                         if (_c_obj.DisplayName != _a_obj.DisplayName && _c_obj.SpriteName != _a_obj.SpriteName)
                             continue;
                         
-                        Form1.ShowMessage("Найдены дублирующиеся значения среди локаций: " + _a_obj.DisplayName);
+                        Logger.Log($"Найдены дублирующиеся значения среди локаций: {_a_obj.DisplayName}", Logger.LogType.Error);
                         return false;
                     }
                 }
@@ -899,8 +892,7 @@ namespace StoriesLinker
 
             if (_chapters_ids.Count < Form1.AvailableChapters)
             {
-                Form1.ShowMessage("Глав в книге меньше введённого количества");
-
+                Logger.Log("Глав в книге меньше введённого количества", Logger.LogType.Error);
                 return false;
             }
 
@@ -1172,7 +1164,7 @@ namespace StoriesLinker
                         _book_descs_path = ProjectPath + @"\TranslatedData\" + _lang + @"\" + _lang + ".xlsx";
                     }
 
-                    Console.WriteLine("GENERATE TABLES FOR LANGUAGE: " + _lang);
+                    Logger.Log($"GENERATE TABLES FOR LANGUAGE: {_lang}");
 
                     if (!Directory.Exists(_lang_folder)) continue;
                     
@@ -1210,7 +1202,7 @@ namespace StoriesLinker
                                                       _book_descs_path
                                                   };
 
-                    Console.WriteLine("generate sharedstrings " + _book_descs_path);
+                    Logger.Log("generate sharedstrings " + _book_descs_path);
                     
                     // Вызываем Func, передавая список языков
                     _correct = _generate_ljson(_lang,
@@ -1275,7 +1267,7 @@ namespace StoriesLinker
 
             if (!File.Exists(pcoversSourcePath + @"\" + MainLanguage + @"\PreviewCover.png"))
             {
-                Form1.ShowMessage("Не все preview обложки присуствуют.");
+                Logger.Log("Не все preview обложки присуствуют.", Logger.LogType.Warning);
                 return false;
             }
 
@@ -1325,8 +1317,7 @@ namespace StoriesLinker
 
                                                if (_meta.Characters.Find(_l => _l.DisplayName == _dname) == null)
                                                {
-                                                   Form1.ShowMessage("В таблице нет персонажа с именем " + _dname);
-
+                                                   Logger.Log($"В таблице нет персонажа с именем {_dname}", Logger.LogType.Error);
                                                    throw new Exception("В таблице нет персонажа с именем " + _dname);
                                                }
 
@@ -1361,8 +1352,7 @@ namespace StoriesLinker
 
                                                 if (_meta.Locations.Find(_l => _l.DisplayName == _dname) == null)
                                                 {
-                                                    Form1.ShowMessage("В таблице нет локации с именем " + _dname);
-
+                                                    Logger.Log($"В таблице нет локации с именем {_dname}", Logger.LogType.Error);
                                                     throw new Exception("В таблице нет локации с именем " + _dname);
                                                 }
 
@@ -1376,8 +1366,7 @@ namespace StoriesLinker
         {
             Action<string, string> _show_localiz_error = (_missing_key, _file_group_id) =>
                                                          {
-                                                             // Добавляем уточнение, что ключ отсутствует в данных для этой группы файлов
-                                                             Form1.ShowMessage($"Ошибка мультиязыкового вывода: Ключ '{_missing_key}' отсутствует или пуст в данных для группы файлов '{_file_group_id}'");
+                                                             Logger.Log($"Ошибка мультиязыкового вывода: Ключ '{_missing_key}' отсутствует или пуст в данных для группы файлов '{_file_group_id}'", Logger.LogType.Error);
                                                          };
             return _show_localiz_error;
         }
@@ -1403,13 +1392,13 @@ namespace StoriesLinker
 
                        if (Form1.ForLocalizatorsMode)
                        {
-                           Console.WriteLine($"start {id} {allStrings.Count}");
+                           Logger.Log($"start {id} {allStrings.Count}", Logger.LogType.Generation);
                            foreach (KeyValuePair<string, string> pair in origJsonData.Data)
                            {
                                string origValue = pair.Value.Trim();
                                if (!jsonData.Data.TryGetValue(pair.Key, out string translatedValue))
                                {
-                                   Console.WriteLine($"String with ID {pair.Key} not found");
+                                   Logger.Log($"String with ID {pair.Key} not found", Logger.LogType.Warning);
                                    continue;
                                }
 
@@ -1423,7 +1412,7 @@ namespace StoriesLinker
                                    if (!jsonData.Data.TryGetValue(linkId, out string linkedValue)
                                        && !allStrings.TryGetValue(linkId, out linkedValue))
                                    {
-                                       Console.WriteLine($"String with {linkId} is not found");
+                                       Logger.Log($"String with {linkId} is not found", Logger.LogType.Warning);
                                        continue;
                                    }
 
@@ -1435,7 +1424,7 @@ namespace StoriesLinker
                                                            origValue,
                                                            origLang,
                                                            jsonData.Data[pair.Key]))
-                                   Console.WriteLine($"String with ID {pair.Key} isn't translated");
+                                   Logger.Log($"String with ID {pair.Key} isn't translated", Logger.LogType.Warning);
                            }
                        }
 
@@ -1480,16 +1469,16 @@ namespace StoriesLinker
             Dictionary<string, string> _total = new Dictionary<string, string>();
             var knownLanguagesSet = new HashSet<string>(_known_languages ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
 
-            Console.WriteLine("\n=== Начало обработки файлов локализации ===");
+            Logger.Log("\n=== Начало обработки файлов локализации ===", Logger.LogType.Info);
             foreach (string path in _paths_to_xmls)
             {
                 if (!File.Exists(path))
                 {
-                    Console.WriteLine($"ВНИМАНИЕ: Файл не найден: {path}");
+                    Logger.Log($"ВНИМАНИЕ: Файл не найден: {path}", Logger.LogType.Warning);
                     continue;
                 }
 
-                Console.WriteLine($"\nОбработка файла: {path}");
+                Logger.Log($"\nОбработка файла: {path}", Logger.LogType.Info);
                 Dictionary<string, string> _file_dict = null;
                 string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(path);
 
@@ -1502,7 +1491,7 @@ namespace StoriesLinker
                     if (isBookDescription && knownLanguagesSet.Contains(fileNameWithoutExtension))
                     {
                         // Для файлов из BookDescriptions используем логику D->B
-                        Console.WriteLine($"Применяем логику D->B для файла описания книги: {path}");
+                        Logger.Log($"Применяем логику D->B для файла описания книги: {path}", Logger.LogType.Info);
                         
                         // Получаем данные из колонок D и B
                         Dictionary<string, string> dictD = XMLTableToDict(path, 3).Where(x => !string.IsNullOrWhiteSpace(x.Value))
@@ -1511,8 +1500,8 @@ namespace StoriesLinker
                                                                                   .ToDictionary(x => x.Key, x => x.Value.Trim());
 
                         // Выводим статистику по непустым значениям
-                        Console.WriteLine($"Количество непустых значений в колонке D: {dictD.Count}");
-                        Console.WriteLine($"Количество непустых значений в колонке B: {dictB.Count}");
+                        Logger.Log($"Количество непустых значений в колонке D: {dictD.Count}", Logger.LogType.Statistic);
+                        Logger.Log($"Количество непустых значений в колонке B: {dictB.Count}", Logger.LogType.Statistic);
 
                         // Создаем итоговый словарь, приоритет отдаем значениям из колонки D
                         _file_dict = new Dictionary<string, string>();
@@ -1533,18 +1522,18 @@ namespace StoriesLinker
                         }
 
                         // Выводим итоговую статистику
-                        Console.WriteLine($"Итоговое количество уникальных непустых значений: {_file_dict.Count}");
+                        Logger.Log($"Итоговое количество уникальных непустых значений: {_file_dict.Count}", Logger.LogType.Statistic);
                     }
                     else if (isTranslatedData)
                     {
                         // Для файлов из TranslatedData используем колонку E
-                        Console.WriteLine($"Применяем логику колонки E для переведенного файла: {path}");
+                        Logger.Log($"Применяем логику колонки E для переведенного файла: {path}", Logger.LogType.Info);
                         _file_dict = XMLTableToDict(path, 4); // Колонка E
                     }
                     else
                     {
                         // Для остальных файлов используем стандартную логику
-                        Console.WriteLine($"Применяем стандартную логику для колонки {_default_column}: {path}");
+                        Logger.Log($"Применяем стандартную логику для колонки {_default_column}: {path}", Logger.LogType.Info);
                         _file_dict = XMLTableToDict(path, _default_column);
                     }
 
@@ -1561,7 +1550,7 @@ namespace StoriesLinker
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Ошибка при обработке файла {path}: {ex.Message}");
+                    Logger.Log($"Ошибка при обработке файла {path}: {ex.Message}", Logger.LogType.Error);
                     throw;
                 }
             }
