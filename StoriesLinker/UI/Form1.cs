@@ -6,6 +6,7 @@ using Microsoft.Win32;
 using OfficeOpenXml;
 using System.Diagnostics;
 using System.Text;
+using System.Linq;
 
 namespace StoriesLinker
 {
@@ -18,6 +19,8 @@ namespace StoriesLinker
         public const bool ForLocalizatorsMode = true;
 
         private string ProjectPath;
+        private LinkerBin _linker = null;
+        private string _mainLanguage = "Russian"; // Кэш основного языка
 
         public Form1()
         {
@@ -43,24 +46,141 @@ namespace StoriesLinker
             if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
             {
                 ProjectPath = folderBrowserDialog1.SelectedPath;
-
                 path_value.Text = ProjectPath;
-
                 RegistryKey key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\StoriesLinker");
                 key.SetValue("LastPath", ProjectPath);
                 key.Close();
-
                 textBox1.Text = ProjectPath;
-
                 string[] _path_parts = ProjectPath.Split('/', '\\');
-
                 proj_name_value.Text = _path_parts[_path_parts.Length - 1];
-
                 //UpdateLocalizTablesExistState();
+
+                // --- Заполнение языков ---
+                comboBoxMainLanguage.Items.Clear();
+                var defaultLangs = new List<string> { "Russian", "English" };
+                string locPath = Path.Combine(ProjectPath ?? "", "Localization");
+                if (Directory.Exists(locPath))
+                {
+                    var langs = Directory.GetDirectories(locPath)
+                                         .Select(dir => Path.GetFileName(dir))
+                                         .Where(name => !string.IsNullOrWhiteSpace(name))
+                                         .ToList();
+                    foreach (var lang in langs)
+                        if (!comboBoxMainLanguage.Items.Contains(lang))
+                            comboBoxMainLanguage.Items.Add(lang);
+                }
+                string rawPath = Path.Combine(ProjectPath ?? "", "Raw");
+                if (Directory.Exists(rawPath))
+                {
+                    var files = Directory.GetFiles(rawPath, "loc_All objects_*.xlsx");
+                    foreach (var file in files)
+                    {
+                        var name = Path.GetFileNameWithoutExtension(file);
+                        var parts = name.Split('_');
+                        if (parts.Length >= 4)
+                        {
+                            string suffix = parts[3];
+                            string lang;
+                            switch (suffix)
+                            {
+                                case "ru":
+                                    lang = "Russian";
+                                    break;
+                                case "en":
+                                    lang = "English";
+                                    break;
+                                case "de":
+                                    lang = "German";
+                                    break;
+                                case "fr":
+                                    lang = "French";
+                                    break;
+                                default:
+                                    lang = suffix;
+                                    break;
+                            }
+                            if (!comboBoxMainLanguage.Items.Contains(lang))
+                                comboBoxMainLanguage.Items.Add(lang);
+                        }
+                    }
+                }
+                if (comboBoxMainLanguage.Items.Count == 0)
+                {
+                    foreach (var lang in defaultLangs)
+                        comboBoxMainLanguage.Items.Add(lang);
+                }
+                if (comboBoxMainLanguage.Items.Contains("Russian"))
+                    comboBoxMainLanguage.SelectedItem = "Russian";
+                else if (comboBoxMainLanguage.Items.Count > 0)
+                    comboBoxMainLanguage.SelectedIndex = 0;
+                // Кэшируем выбранный язык
+                _mainLanguage = comboBoxMainLanguage.SelectedItem?.ToString() ?? "Russian";
+                // Сброс кэша LinkerBin при смене проекта
+                _linker = null;
             }
         }
 
-        private void Form1_Load(object sender, EventArgs e) { }
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            // --- Заполнение языков ---
+            comboBoxMainLanguage.Items.Clear();
+            var defaultLangs = new List<string> { "Russian", "English" };
+            string locPath = Path.Combine(ProjectPath ?? "", "Localization");
+            if (Directory.Exists(locPath))
+            {
+                var langs = Directory.GetDirectories(locPath)
+                                     .Select(dir => Path.GetFileName(dir))
+                                     .Where(name => !string.IsNullOrWhiteSpace(name))
+                                     .ToList();
+                foreach (var lang in langs)
+                    if (!comboBoxMainLanguage.Items.Contains(lang))
+                        comboBoxMainLanguage.Items.Add(lang);
+            }
+            string rawPath = Path.Combine(ProjectPath ?? "", "Raw");
+            if (Directory.Exists(rawPath))
+            {
+                var files = Directory.GetFiles(rawPath, "loc_All objects_*.xlsx");
+                foreach (var file in files)
+                {
+                    var name = Path.GetFileNameWithoutExtension(file);
+                    var parts = name.Split('_');
+                    if (parts.Length >= 4)
+                    {
+                        string suffix = parts[3];
+                        string lang;
+                        switch (suffix)
+                        {
+                            case "ru":
+                                lang = "Russian";
+                                break;
+                            case "en":
+                                lang = "English";
+                                break;
+                            case "de":
+                                lang = "German";
+                                break;
+                            case "fr":
+                                lang = "French";
+                                break;
+                            default:
+                                lang = suffix;
+                                break;
+                        }
+                        if (!comboBoxMainLanguage.Items.Contains(lang))
+                            comboBoxMainLanguage.Items.Add(lang);
+                    }
+                }
+            }
+            if (comboBoxMainLanguage.Items.Count == 0)
+            {
+                foreach (var lang in defaultLangs)
+                    comboBoxMainLanguage.Items.Add(lang);
+            }
+            if (comboBoxMainLanguage.Items.Contains("Russian"))
+                comboBoxMainLanguage.SelectedItem = "Russian";
+            else if (comboBoxMainLanguage.Items.Count > 0)
+                comboBoxMainLanguage.SelectedIndex = 0;
+        }
 
         private void GenerateCharactersTempMetaTable()
         {
@@ -158,11 +278,12 @@ namespace StoriesLinker
         private void GenerateOutputFolderForBundles(object sender, EventArgs e)
         {
             string _flow_json_path = LinkerBin.GetFlowJSONPath(ProjectPath);
-            string _strings_xml_path = LinkerBin.GetLocalizTablesPath(ProjectPath);
+            string _strings_xml_path = LinkerBin.GetLocalizTablesPath(ProjectPath, _mainLanguage);
 
             if (File.Exists(_flow_json_path) && File.Exists(_strings_xml_path))
             {
-                LinkerBin _linker = new LinkerBin(ProjectPath);
+                if (_linker == null)
+                    _linker = new LinkerBin(ProjectPath, _mainLanguage);
 
                 if (ReleaseMode)
                 {
@@ -195,43 +316,42 @@ namespace StoriesLinker
 
         private void StartCheckAfterBundleGeneration(bool _result)
         {
-            if (_result)
+            if (!_result) return;
+            
+            if (_linker == null)
+                _linker = new LinkerBin(ProjectPath, _mainLanguage);
+
+            AJLinkerMeta _meta = _linker.GetParsedMetaInputJSONFile();
+
+            LinkerAtlasChecker _checker = new LinkerAtlasChecker(_meta, _meta.Characters);
+
+            Dictionary<string, AJObj> _objects_list
+                = _linker.GetAricyBookEntities(_linker.GetParsedFlowJSONFile(), _linker.GetNativeDict());
+
+            foreach (KeyValuePair<string, AJObj> _object in _objects_list)
             {
-                LinkerBin _linker = new LinkerBin(ProjectPath);
+                if (_object.Value.EType != AJType.Instruction) continue;
+                
+                string _expr = _object.Value.Properties.Expression;
 
-                AJLinkerMeta _meta = _linker.GetParsedMetaInputJSONFile();
-
-                LinkerAtlasChecker _checker = new LinkerAtlasChecker(_meta, _meta.Characters);
-
-                Dictionary<string, AJObj> _objects_list
-                    = _linker.GetAricyBookEntities(_linker.GetParsedFlowJSONFile(), _linker.GetNativeDict());
-
-                foreach (KeyValuePair<string, AJObj> _object in _objects_list)
+                if (_expr.Contains("Clothes."))
                 {
-                    if (_object.Value.EType == AJType.Instruction)
-                    {
-                        string _expr = _object.Value.Properties.Expression;
-
-                        if (_expr.Contains("Clothes."))
-                        {
-                            _checker.PassClothesInstruction(_expr);
-                        }
-                    }
+                    _checker.PassClothesInstruction(_expr);
                 }
+            }
 
-                string _check_result = "";
+            string _check_result = "";
 
-                if (_meta.UniqueID != "Shism_1" && _meta.UniqueID != "Shism_2")
-                    _check_result = _checker.BeginFinalCheck(ProjectPath);
+            if (_meta.UniqueID != "Shism_1" && _meta.UniqueID != "Shism_2")
+                _check_result = _checker.BeginFinalCheck(ProjectPath);
 
-                if (string.IsNullOrEmpty(_check_result))
-                {
-                    ShowMessage("Иерархия для бандлов успешно сгенерирована.");
-                }
-                else
-                {
-                    ShowMessage("Ошибка: " + _check_result);
-                }
+            if (string.IsNullOrEmpty(_check_result))
+            {
+                ShowMessage("Иерархия для бандлов успешно сгенерирована.");
+            }
+            else
+            {
+                ShowMessage("Ошибка: " + _check_result);
             }
         }
 
@@ -326,18 +446,17 @@ namespace StoriesLinker
             if (!int.TryParse(_chapters_count_text, out AvailableChapters))
             {
                 ShowMessage("Некорректное количество глав");
-
                 return;
             }
 
             string _flow_json_path = LinkerBin.GetFlowJSONPath(ProjectPath);
-            string _strings_xml_path = LinkerBin.GetLocalizTablesPath(ProjectPath);
+            string _strings_xml_path = LinkerBin.GetLocalizTablesPath(ProjectPath, _mainLanguage);
 
             if (File.Exists(_flow_json_path) && File.Exists(_strings_xml_path))
             {
                 ShowMessage("Файлы найдены. Генерация началась...");
-
-                LinkerBin _linker = new LinkerBin(ProjectPath);
+                if (_linker == null)
+                    _linker = new LinkerBin(ProjectPath, _mainLanguage);
 
                 try
                 {
@@ -366,5 +485,12 @@ namespace StoriesLinker
         }
 
         private void ChaptersCountLabel_Click(object sender, EventArgs e) { }
+
+        private void comboBoxMainLanguage_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            _mainLanguage = comboBoxMainLanguage.SelectedItem?.ToString() ?? "Russian";
+            // Сброс кэша LinkerBin при смене языка
+            _linker = null;
+        }
     }
 }

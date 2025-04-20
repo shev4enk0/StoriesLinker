@@ -11,13 +11,14 @@ namespace StoriesLinker
     public class LinkerBin
     {
         private string ProjectPath;
+        private string MainLanguage;
 
         private Dictionary<string, Dictionary<int, Dictionary<string, string>>> _savedXMLDicts;
 
-        public LinkerBin(string _project_path)
+        public LinkerBin(string _project_path, string mainLanguage = "Russian")
         {
             ProjectPath = _project_path;
-
+            MainLanguage = mainLanguage;
             _savedXMLDicts = new Dictionary<string, Dictionary<int, Dictionary<string, string>>>();
         }
 
@@ -34,7 +35,7 @@ namespace StoriesLinker
             {
                 if (xlPackage.Workbook.Worksheets.Count == 0)
                 {
-                    throw new InvalidOperationException("The workbook contains no worksheets.");
+                    throw new InvalidOperationException($"The workbook '{_path}' contains no worksheets.");
                 }
                 ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
                 int totalRows = myWorksheet.Dimension.End.Row;
@@ -76,7 +77,7 @@ namespace StoriesLinker
             return nativeDict;
         }
 
-        public Dictionary<string, string> GetNativeDict() { return XMLTableToDict(GetLocalizTablesPath(ProjectPath)); }
+        public Dictionary<string, string> GetNativeDict() { return XMLTableToDict(GetLocalizTablesPath(ProjectPath, MainLanguage)); }
 
         public AJFile GetParsedFlowJSONFile()
         {
@@ -511,7 +512,7 @@ namespace StoriesLinker
                 Directory.Delete(ProjectPath + @"\Localization", true);
 
             Directory.CreateDirectory(ProjectPath + @"\Localization");
-            Directory.CreateDirectory(ProjectPath + @"\Localization\Russian");
+            Directory.CreateDirectory(ProjectPath + @"\Localization\" + MainLanguage);
 
             AJFile _ajfile = GetParsedFlowJSONFile();
 
@@ -747,7 +748,7 @@ namespace StoriesLinker
 
                 byte[] bin = eP.GetAsByteArray();
 
-                File.WriteAllBytes(ProjectPath + @"\Localization\Russian\" + _name + ".xlsx", bin);
+                File.WriteAllBytes(ProjectPath + @"\Localization\" + MainLanguage + @"\" + _name + ".xlsx", bin);
 
                 if (_name.Contains("internal") || !_for_localizators_mode) return;
                 
@@ -952,18 +953,15 @@ namespace StoriesLinker
 
             bool _multi_lang_output = Directory.Exists(_translated_data_folder);
 
-            Dictionary<string, int> _langs_cols = new Dictionary<string, int> { { "Russian", _multi_lang_output ? 3 : 1 } };
+            Dictionary<string, int> _langs_cols = new Dictionary<string, int> { { MainLanguage, _multi_lang_output ? 3 : 1 } };
 
             if (_multi_lang_output)
             {
-                // Получаем все папки в директории TranslatedData
                 string[] languageFolders = Directory.GetDirectories(_translated_data_folder);
                 foreach (string folder in languageFolders)
                 {
-                    // Получаем имя папки (язык)
                     string language = Path.GetFileName(folder);
-                    // Пропускаем папку Russian, так как она уже добавлена
-                    if (language != "Russian")
+                    if (language != MainLanguage)
                     {
                         _langs_cols.Add(language, 4);
                     }
@@ -1146,7 +1144,7 @@ namespace StoriesLinker
                 // Передаем список языков в GenerateLjson при создании Func
                 Func<string, string, string[], string, int, List<string>, string> _generate_ljson = GenerateLjson(_allDicts, _orig_lang_data);
 
-                string _lang_origin_folder = ProjectPath + @"\Localization\Russian";
+                string _lang_origin_folder = ProjectPath + @"\Localization\" + MainLanguage;
 
                 Action<string, string> _show_localiz_error = ShowLocalizError();
 
@@ -1162,7 +1160,7 @@ namespace StoriesLinker
                     string _lang = _lang_pair.Key;
                     int _col_num = _lang_pair.Value;
 
-                    bool _native_lang = _lang == "Russian" || _col_num == -1;
+                    bool _native_lang = _lang == MainLanguage || _col_num == -1;
 
                     string _lang_folder
                         = (_native_lang ? _lang_origin_folder : ProjectPath + @"\TranslatedData\" + _lang);
@@ -1275,8 +1273,7 @@ namespace StoriesLinker
                 Directory.CreateDirectory(pcoversTempPath);
             }
 
-            if (!File.Exists(pcoversSourcePath + @"\Russian\PreviewCover.png") /*||
-                (_multi_lang_output && !File.Exists(pcoversSourcePath + @"\English\PreviewCover_English.png"))*/)
+            if (!File.Exists(pcoversSourcePath + @"\" + MainLanguage + @"\PreviewCover.png"))
             {
                 Form1.ShowMessage("Не все preview обложки присуствуют.");
                 return false;
@@ -1604,12 +1601,33 @@ namespace StoriesLinker
             return _json_file;
         }
 
-        public static string GetLocalizTablesPath(string _proj_path)
+        public static string GetLocalizTablesPath(string _proj_path, string mainLanguage)
         {
-            string _path = _proj_path + @"\Raw\loc_All objects_en.xlsx";
-
-            if (!File.Exists(_path)) _path = _proj_path + @"\Raw\loc_All objects_ru.xlsx";
-
+            string langSuffix;
+            switch (mainLanguage.ToLower())
+            {
+                case "russian":
+                    langSuffix = "ru";
+                    break;
+                case "english":
+                    langSuffix = "en";
+                    break;
+                case "german":
+                    langSuffix = "de";
+                    break;
+                case "french":
+                    langSuffix = "fr";
+                    break;
+                default:
+                    langSuffix = mainLanguage.ToLower();
+                    break;
+            }
+            string _path = Path.Combine(_proj_path, "Raw", $"loc_All objects_{langSuffix}.xlsx");
+            if (!File.Exists(_path))
+            {
+                // Фоллбек на русский
+                _path = Path.Combine(_proj_path, "Raw", "loc_All objects_ru.xlsx");
+            }
             return _path;
         }
 

@@ -43,6 +43,8 @@
             this.chapters_count_value = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
             this.path_value = new System.Windows.Forms.Label();
+            this.comboBoxMainLanguage = new System.Windows.Forms.ComboBox();
+            this.labelMainLanguage = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
@@ -178,11 +180,31 @@
             this.path_value.TabIndex = 17;
             this.path_value.Text = "-";
             // 
+            // comboBoxMainLanguage
+            // 
+            this.comboBoxMainLanguage.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBoxMainLanguage.Location = new System.Drawing.Point(241, 117);
+            this.comboBoxMainLanguage.Name = "comboBoxMainLanguage";
+            this.comboBoxMainLanguage.Size = new System.Drawing.Size(120, 21);
+            this.comboBoxMainLanguage.TabIndex = 19;
+            this.comboBoxMainLanguage.SelectedIndexChanged += new System.EventHandler(this.comboBoxMainLanguage_SelectedIndexChanged);
+            // 
+            // labelMainLanguage
+            // 
+            this.labelMainLanguage.AutoSize = true;
+            this.labelMainLanguage.Location = new System.Drawing.Point(131, 120);
+            this.labelMainLanguage.Name = "labelMainLanguage";
+            this.labelMainLanguage.Size = new System.Drawing.Size(90, 13);
+            this.labelMainLanguage.TabIndex = 18;
+            this.labelMainLanguage.Text = "Основной язык:";
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(599, 317);
+            this.Controls.Add(this.labelMainLanguage);
+            this.Controls.Add(this.comboBoxMainLanguage);
             this.Controls.Add(this.path_value);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.chapters_count_value);
@@ -222,5 +244,7 @@
         private System.Windows.Forms.TextBox chapters_count_value;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label path_value;
+        private System.Windows.Forms.ComboBox comboBoxMainLanguage;
+        private System.Windows.Forms.Label labelMainLanguage;
     }
 }
