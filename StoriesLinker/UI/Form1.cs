@@ -21,6 +21,7 @@ namespace StoriesLinker
         private string ProjectPath;
         private LinkerBin _linker = null;
         private string _mainLanguage = "Russian"; // Кэш основного языка
+        private ToolTip _projectPathToolTip = new ToolTip();
 
         public Form1()
         {
@@ -41,87 +42,17 @@ namespace StoriesLinker
             }
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void InitializeProject(string path)
         {
-            if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
-            {
-                ProjectPath = folderBrowserDialog1.SelectedPath;
-                path_value.Text = ProjectPath;
-                RegistryKey key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\StoriesLinker");
-                key.SetValue("LastPath", ProjectPath);
-                key.Close();
-                textBox1.Text = ProjectPath;
-                string[] _path_parts = ProjectPath.Split('/', '\\');
-                proj_name_value.Text = _path_parts[_path_parts.Length - 1];
-                //UpdateLocalizTablesExistState();
+            ProjectPath = path;
+            path_value.Text = ProjectPath;
+            _projectPathToolTip.SetToolTip(path_value, ProjectPath);
+            ShowMessage($"Выбран проект: {ProjectPath}");
+            textBox1.Text = ProjectPath;
+            string[] _path_parts = ProjectPath.Split('/', '\\');
+            proj_name_value.Text = _path_parts[_path_parts.Length - 1];
+            //UpdateLocalizTablesExistState();
 
-                // --- Заполнение языков ---
-                comboBoxMainLanguage.Items.Clear();
-                var defaultLangs = new List<string> { "Russian", "English" };
-                string locPath = Path.Combine(ProjectPath ?? "", "Localization");
-                if (Directory.Exists(locPath))
-                {
-                    var langs = Directory.GetDirectories(locPath)
-                                         .Select(dir => Path.GetFileName(dir))
-                                         .Where(name => !string.IsNullOrWhiteSpace(name))
-                                         .ToList();
-                    foreach (var lang in langs)
-                        if (!comboBoxMainLanguage.Items.Contains(lang))
-                            comboBoxMainLanguage.Items.Add(lang);
-                }
-                string rawPath = Path.Combine(ProjectPath ?? "", "Raw");
-                if (Directory.Exists(rawPath))
-                {
-                    var files = Directory.GetFiles(rawPath, "loc_All objects_*.xlsx");
-                    foreach (var file in files)
-                    {
-                        var name = Path.GetFileNameWithoutExtension(file);
-                        var parts = name.Split('_');
-                        if (parts.Length >= 4)
-                        {
-                            string suffix = parts[3];
-                            string lang;
-                            switch (suffix)
-                            {
-                                case "ru":
-                                    lang = "Russian";
-                                    break;
-                                case "en":
-                                    lang = "English";
-                                    break;
-                                case "de":
-                                    lang = "German";
-                                    break;
-                                case "fr":
-                                    lang = "French";
-                                    break;
-                                default:
-                                    lang = suffix;
-                                    break;
-                            }
-                            if (!comboBoxMainLanguage.Items.Contains(lang))
-                                comboBoxMainLanguage.Items.Add(lang);
-                        }
-                    }
-                }
-                if (comboBoxMainLanguage.Items.Count == 0)
-                {
-                    foreach (var lang in defaultLangs)
-                        comboBoxMainLanguage.Items.Add(lang);
-                }
-                if (comboBoxMainLanguage.Items.Contains("Russian"))
-                    comboBoxMainLanguage.SelectedItem = "Russian";
-                else if (comboBoxMainLanguage.Items.Count > 0)
-                    comboBoxMainLanguage.SelectedIndex = 0;
-                // Кэшируем выбранный язык
-                _mainLanguage = comboBoxMainLanguage.SelectedItem?.ToString() ?? "Russian";
-                // Сброс кэша LinkerBin при смене проекта
-                _linker = null;
-            }
-        }
-
-        private void Form1_Load(object sender, EventArgs e)
-        {
             // --- Заполнение языков ---
             comboBoxMainLanguage.Items.Clear();
             var defaultLangs = new List<string> { "Russian", "English" };
@@ -180,6 +111,36 @@ namespace StoriesLinker
                 comboBoxMainLanguage.SelectedItem = "Russian";
             else if (comboBoxMainLanguage.Items.Count > 0)
                 comboBoxMainLanguage.SelectedIndex = 0;
+            // Кэшируем выбранный язык
+            _mainLanguage = comboBoxMainLanguage.SelectedItem?.ToString() ?? "Russian";
+            // Сброс кэша LinkerBin при смене проекта
+            _linker = null;
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
+            {
+                string selectedPath = folderBrowserDialog1.SelectedPath;
+                RegistryKey key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\StoriesLinker");
+                key.SetValue("LastPath", selectedPath);
+                key.Close();
+                InitializeProject(selectedPath);
+            }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            ShowMessage("Form1_Load called");
+            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\StoriesLinker");
+            if (key != null)
+            {
+                string lastPath = key.GetValue("LastPath")?.ToString();
+                if (!string.IsNullOrEmpty(lastPath) && Directory.Exists(lastPath))
+                {
+                    InitializeProject(lastPath);
+                }
+            }
         }
 
         private void GenerateCharactersTempMetaTable()
