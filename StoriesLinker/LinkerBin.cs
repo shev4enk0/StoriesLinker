@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Articy.Unity;
 using Newtonsoft.Json;
 using OfficeOpenXml;
 
@@ -1009,8 +1008,7 @@ namespace StoriesLinker
 
                             if (_raw_script.Contains("Location.loc"))
                             {
-                                string[] _scripts = _raw_script.EscapeString()
-                                                               .Replace("\\n", "")
+                                string[] _scripts = _raw_script.Replace("\\n", "")
                                                                .Replace("\\r", "")
                                                                .Split(';');
 

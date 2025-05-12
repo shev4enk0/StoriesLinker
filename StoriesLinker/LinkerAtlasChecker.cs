@@ -11,8 +11,6 @@ using System.Windows.Forms;
 using OfficeOpenXml;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
-
-using Articy.Unity;
 using Microsoft.Win32;
 
 using StoriesLinker;
@@ -141,7 +139,7 @@ public class LinkerAtlasChecker
 
     public void PassClothesInstruction(string _raw_script)
     {
-        string[] _scripts = _raw_script.EscapeString().Replace("\\n", "").Replace("\\r", "").Split(';');
+        string[] _scripts = _raw_script.Replace("\\n", "").Replace("\\r", "").Split(';');
 
         //Console.WriteLine("pass instr " + _raw_script);
 
