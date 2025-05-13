@@ -54,13 +54,14 @@ namespace StoriesLinker
     public class AJObj
     {
         public string Type;
-        public AJType EType;
+        public AJType EType => GetEType();
         public AJObjProps Properties;
 
         public override string ToString()
         {
             return Properties.Id + " " + Properties.DisplayName + " " + Type;
         }
+        public AJType GetEType() => Enum.TryParse(Type, out AJType result) ? result : AJType.Other;
     }
 
     [Serializable]

@@ -10,480 +10,369 @@ namespace StoriesLinker
 {
     public class LinkerBin
     {
-        private string ProjectPath;
+        private string _projectPath;
 
         private Dictionary<string, Dictionary<string, string>> _savedXMLDicts;
 
-        public LinkerBin(string _project_path)
+        public LinkerBin(string projectPath)
         {
-            ProjectPath = _project_path;
+            _projectPath = projectPath;
 
             _savedXMLDicts = new Dictionary<string, Dictionary<string, string>>();
         }
 
-        private Dictionary<string, string> XMLTableToDict(string _path, int _column = 1)
+        private Dictionary<string, string> XMLTableToDict(string path, int column = 1)
         {
-            if (_savedXMLDicts.ContainsKey(_path)) return _savedXMLDicts[_path];
+            if (_savedXMLDicts.TryGetValue(path, out Dictionary<string, string> dict)) return dict;
 
-            Dictionary<string, string> _nativeDict = new Dictionary<string, string>();
+            var nativeDict = new Dictionary<string, string>();
 
-            using (ExcelPackage xlPackage = new ExcelPackage(new FileInfo(_path)))
+            using (var xlPackage = new ExcelPackage(new FileInfo(path)))
             {
-                var myWorksheet = xlPackage.Workbook.Worksheets.First();
-                var totalRows = myWorksheet.Dimension.End.Row;
-                var totalColumns = myWorksheet.Dimension.End.Column;
+                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                int totalRows = myWorksheet.Dimension.End.Row;
+                int totalColumns = myWorksheet.Dimension.End.Column;
 
-                for (int rowNum = 1; rowNum <= totalRows; rowNum++)
+                for (var rowNum = 1; rowNum <= totalRows; rowNum++)
                 {
-                    ExcelRange _first_row = myWorksheet.Cells[rowNum, 1];
-                    ExcelRange _second_row = myWorksheet.Cells[rowNum, _column + 1];
+                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                    ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
 
-                    string _first_row_str = _first_row != null && _first_row.Value != null
-                                                ? _first_row.Value.ToString()
+                    string firstRowStr = firstRow != null && firstRow.Value != null
+                                                ? firstRow.Value.ToString()
                                                 : "";
-                    string _second_row_str = _second_row != null && _second_row.Value != null
-                                                 ? _second_row.Value.ToString()
+                    string secondRowStr = secondRow != null && secondRow.Value != null
+                                                 ? secondRow.Value.ToString()
                                                  : " ";
 
-                    if (string.IsNullOrEmpty(_first_row_str)) continue;
+                    if (string.IsNullOrEmpty(firstRowStr)) continue;
 
-                    if (!_nativeDict.ContainsKey(_first_row_str))
-                    {
-                        _nativeDict.Add(_first_row_str, _second_row_str);
-                    }
+                    if (!nativeDict.ContainsKey(firstRowStr))
+                        nativeDict.Add(firstRowStr, secondRowStr);
                     else
-                    {
-                        Console.WriteLine("double key critical error " + _first_row_str);
-                    }
+                        Console.WriteLine("double key critical error " + firstRowStr);
                 }
             }
 
-            _savedXMLDicts.Add(_path, _nativeDict);
+            _savedXMLDicts.Add(path, nativeDict);
 
-            return _nativeDict;
+            return nativeDict;
         }
 
-        public Dictionary<string, string> GetNativeDict() { return XMLTableToDict(GetLocalizTablesPath(ProjectPath)); }
+        public Dictionary<string, string> GetNativeDict() => XMLTableToDict(GetLocalizTablesPath(_projectPath));
 
-        public AJFile GetParsedFlowJSONFile()
+        public AJFile GetParsedFlowJsonFile()
         {
-            AJFile _json_obj;
+            AJFile jsonObj;
 
-            using (StreamReader r = new StreamReader(GetFlowJSONPath(ProjectPath)))
+            using (var r = new StreamReader(GetFlowJsonPath(_projectPath)))
             {
                 string json = r.ReadToEnd();
-                _json_obj = JsonConvert.DeserializeObject<AJFile>(json);
+                jsonObj = JsonConvert.DeserializeObject<AJFile>(json);
             }
 
-            return _json_obj;
+            return jsonObj;
         }
 
-        public AJLinkerMeta GetParsedMetaInputJSONFile()
+        public AJLinkerMeta GetParsedMetaInputJsonFile()
         {
-            AJLinkerMeta _json_obj = new AJLinkerMeta();
+            var jsonObj = new AJLinkerMeta { Version = new BookVersionInfo() };
 
-            _json_obj.Version = new BookVersionInfo();
+            string metaXMLPath = _projectPath + @"\Raw\Meta.xlsx";
 
-            string _meta_xml_path = ProjectPath + @"\Raw\Meta.xlsx";
-
-            Dictionary<string, string> _nativeDict = new Dictionary<string, string>();
-
-            using (ExcelPackage xlPackage = new ExcelPackage(new FileInfo(_meta_xml_path)))
+            using (var xlPackage = new ExcelPackage(new FileInfo(metaXMLPath)))
             {
-                var myWorksheet = xlPackage.Workbook.Worksheets.First();
-                var totalRows = myWorksheet.Dimension.End.Row;
+                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                int totalRows = myWorksheet.Dimension.End.Row;
 
-                for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
                 {
-                    ExcelRange _first_row = myWorksheet.Cells[rowNum, 1];
-                    ExcelRange _second_row = myWorksheet.Cells[rowNum, 2];
+                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                    ExcelRange secondRow = myWorksheet.Cells[rowNum, 2];
 
-                    string _field_name = _first_row.Value.ToString();
-                    string _field_value = _second_row.Value.ToString();
+                    var fieldName = firstRow.Value.ToString();
+                    var fieldValue = secondRow.Value.ToString();
 
-                    string[] _values;
+                    string[] values;
 
-                    switch (_field_name)
+                    switch (fieldName)
                     {
-                        case "UniqueID":
-                            _json_obj.UniqueID = _field_value;
-                            break;
-                        case "SpritePrefix":
-                            _json_obj.SpritePrefix = _field_value;
-                            break;
-                        case "VersionBin":
-                            _json_obj.Version.BinVersion = _field_value;
-                            break;
-                        case "VersionPreview":
-                            _json_obj.Version.PreviewVersion = _field_value;
-                            break;
-                        case "VersionBaseResources":
-                            _json_obj.Version.BaseResourcesVersion = _field_value;
-                            break;
-                        case "StandartizedUI":
-                            _json_obj.StandartizedUI = _field_value == "1";
-                            break;
-                        case "UITextBlockFontSize":
-                            _json_obj.UITextBlockFontSize = int.Parse(_field_value);
-                            break;
-                        case "UIChoiceBlockFontSize":
-                            _json_obj.UIChoiceBlockFontSize = int.Parse(_field_value);
-                            break;
-                        case "KarmaCurrency":
-                            _json_obj.KarmaCurrency = _field_value;
-                            break;
-                        case "KarmaBadBorder":
-                            _json_obj.KarmaBadBorder = int.Parse(_field_value);
-                            break;
-                        case "KarmaGoodBorder":
-                            _json_obj.KarmaGoodBorder = int.Parse(_field_value);
-                            break;
-                        case "KarmaTopLimit":
-                            _json_obj.KarmaTopLimit = int.Parse(_field_value);
-                            break;
+                        case "UniqueID": jsonObj.UniqueID = fieldValue; break;
+                        case "SpritePrefix": jsonObj.SpritePrefix = fieldValue; break;
+                        case "VersionBin": jsonObj.Version.BinVersion = fieldValue; break;
+                        case "VersionPreview": jsonObj.Version.PreviewVersion = fieldValue; break;
+                        case "VersionBaseResources": jsonObj.Version.BaseResourcesVersion = fieldValue; break;
+                        case "StandartizedUI": jsonObj.StandartizedUI = fieldValue == "1"; break;
+                        case "UITextBlockFontSize": jsonObj.UITextBlockFontSize = int.Parse(fieldValue); break;
+                        case "UIChoiceBlockFontSize": jsonObj.UIChoiceBlockFontSize = int.Parse(fieldValue); break;
+                        case "KarmaCurrency": jsonObj.KarmaCurrency = fieldValue; break;
+                        case "KarmaBadBorder": jsonObj.KarmaBadBorder = int.Parse(fieldValue); break;
+                        case "KarmaGoodBorder": jsonObj.KarmaGoodBorder = int.Parse(fieldValue); break;
+                        case "KarmaTopLimit": jsonObj.KarmaTopLimit = int.Parse(fieldValue); break;
                         case "CurrenciesInOrderOfUI":
-                            _json_obj.CurrenciesInOrderOfUI = new List<string>(_field_value.Split(','));
+                            jsonObj.CurrenciesInOrderOfUI = new List<string>(fieldValue.Split(','));
                             break;
                         case "RacesList":
-                            _json_obj.RacesList = _field_value != "-" 
-                                                      ? new List<string>(_field_value.Split(',')) 
+                            jsonObj.RacesList = fieldValue != "-"
+                                                      ? new List<string>(fieldValue.Split(','))
                                                       : new List<string>();
-
                             break;
                         case "ClothesSpriteNames":
-                            _json_obj.ClothesSpriteNames = new List<string>(_field_value.Split(','));
+                            jsonObj.ClothesSpriteNames = new List<string>(fieldValue.Split(','));
                             break;
                         case "UndefinedClothesFuncVariant":
-                            _json_obj.UndefinedClothesFuncVariant = int.Parse(_field_value);
+                            jsonObj.UndefinedClothesFuncVariant = int.Parse(fieldValue);
                             break;
-                        case "ExceptionsWeaponLayer":
-                            _json_obj.ExceptionsWeaponLayer = _field_value == "1";
-                            break;
+                        case "ExceptionsWeaponLayer": jsonObj.ExceptionsWeaponLayer = fieldValue == "1"; break;
                         case "UITextPlateLimits":
-                            _values = _field_value.Split(',');
+                            values = fieldValue.Split(',');
 
-                            _json_obj.UITextPlateLimits = new List<int>();
+                            jsonObj.UITextPlateLimits = new List<int>();
 
-                            foreach (var el in _values)
-                            {
-                                _json_obj.UITextPlateLimits.Add(int.Parse(el));
-                            }
+                            foreach (string el in values) jsonObj.UITextPlateLimits.Add(int.Parse(el));
 
                             break;
                         case "UIPaintFirstLetterInRedException":
-                            _json_obj.UIPaintFirstLetterInRedException = _field_value == "1";
+                            jsonObj.UIPaintFirstLetterInRedException = fieldValue == "1";
                             break;
-                        case "UITextPlateOffset":
-                            _json_obj.UITextPlateOffset = int.Parse(_field_value);
-                            break;
-                        case "UIOverridedTextColor":
-                            _json_obj.UIOverridedTextColor = _field_value == "1";
-                            break;
+                        case "UITextPlateOffset": jsonObj.UITextPlateOffset = int.Parse(fieldValue); break;
+                        case "UIOverridedTextColor": jsonObj.UIOverridedTextColor = fieldValue == "1"; break;
                         case "UITextColor":
-                            _values = _field_value.Split(',');
+                            values = fieldValue.Split(',');
 
-                            _json_obj.UITextColor = new List<int>();
+                            jsonObj.UITextColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UITextColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UITextColor.Add(int.Parse(el));
 
                             break;
                         case "UIBlockedTextColor":
-                            _values = _field_value.Split(',');
+                            values = fieldValue.Split(',');
 
-                            _json_obj.UIBlockedTextColor = new List<int>();
+                            jsonObj.UIBlockedTextColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UIBlockedTextColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UIBlockedTextColor.Add(int.Parse(el));
 
                             break;
                         case "UIChNameTextColor":
-                            _values = _field_value.Split(',');
+                            values = fieldValue.Split(',');
 
-                            _json_obj.UIChNameTextColor = new List<int>();
+                            jsonObj.UIChNameTextColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UIChNameTextColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UIChNameTextColor.Add(int.Parse(el));
 
                             break;
                         case "UIOutlineColor":
-                            _values = _field_value.Split(',');
+                            values = fieldValue.Split(',');
 
-                            _json_obj.UIOutlineColor = new List<int>();
+                            jsonObj.UIOutlineColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UIOutlineColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UIOutlineColor.Add(int.Parse(el));
 
                             break;
                         case "UIResTextColor":
-                            _values = _field_value.Split(',');
+                            values = fieldValue.Split(',');
 
-                            _json_obj.UIResTextColor = new List<int>();
+                            jsonObj.UIResTextColor = new List<int>();
 
-                            foreach (var el in _values) _json_obj.UIResTextColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UIResTextColor.Add(int.Parse(el));
 
                             break;
-                        case "WardrobeEnabled":
-                            _json_obj.WardrobeEnabled = _field_value == "1";
-                            break;
+                        case "WardrobeEnabled": jsonObj.WardrobeEnabled = fieldValue == "1"; break;
                         case "MainHeroHasDifferentGenders":
-                            _json_obj.MainHeroHasDifferentGenders = _field_value == "1";
+                            jsonObj.MainHeroHasDifferentGenders = fieldValue == "1";
                             break;
                         case "MainHeroHasSplittedHairSprite":
-                            _json_obj.MainHeroHasSplittedHairSprite = _field_value == "1";
+                            jsonObj.MainHeroHasSplittedHairSprite = fieldValue == "1";
                             break;
-                        case "CustomClothesCount":
-                            _json_obj.CustomClothesCount = int.Parse(_field_value);
-                            break;
-                        case "CustomHairsCount":
-                            _json_obj.CustomHairCount = int.Parse(_field_value);
-                            break;
+                        case "CustomClothesCount": jsonObj.CustomClothesCount = int.Parse(fieldValue); break;
+                        case "CustomHairsCount": jsonObj.CustomHairCount = int.Parse(fieldValue); break;
                     }
                 }
 
                 myWorksheet = xlPackage.Workbook.Worksheets[2];
                 totalRows = myWorksheet.Dimension.End.Row;
 
-                var _check_row = CheckRow();
+                Func<object[], int> checkRow = CheckRow();
 
-                List<AJMetaCharacterData> _characters = new List<AJMetaCharacterData>();
+                var characters = new List<AJMetaCharacterData>();
 
-                for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
                 {
-                    object[] _cells = new object[]
-                                      {
-                                          myWorksheet.Cells[rowNum, 1].Value,
-                                          myWorksheet.Cells[rowNum, 2].Value,
-                                          myWorksheet.Cells[rowNum, 3].Value,
-                                          myWorksheet.Cells[rowNum, 4].Value
-                                      };
+                    var cells = new object[]
+                                 {
+                                     myWorksheet.Cells[rowNum, 1].Value,
+                                     myWorksheet.Cells[rowNum, 2].Value,
+                                     myWorksheet.Cells[rowNum, 3].Value,
+                                     myWorksheet.Cells[rowNum, 4].Value
+                                 };
 
-                    int _ch_result = _check_row(_cells);
+                    int chResult = checkRow(cells);
 
-                    switch (_ch_result)
+                    switch (chResult)
                     {
                         case -1: continue;
                         case 0: return null;
                     }
 
-                    AJMetaCharacterData _ch = new AJMetaCharacterData();
+                    var ch = new AJMetaCharacterData
+                             {
+                                 DisplayName = cells[0].ToString(),
+                                 ClothesVariableName = cells[1].ToString(),
+                                 AtlasFileName = cells[2].ToString(),
+                                 BaseNameInAtlas = cells[3].ToString()
+                             };
 
-                    _ch.DisplayName = _cells[0].ToString();
-                    _ch.ClothesVariableName = _cells[1].ToString();
-                    _ch.AtlasFileName = _cells[2].ToString();
-                    _ch.BaseNameInAtlas = _cells[3].ToString();
-
-                    _characters.Add(_ch);
+                    characters.Add(ch);
                 }
 
-                _json_obj.Characters = _characters;
+                jsonObj.Characters = characters;
 
                 myWorksheet = xlPackage.Workbook.Worksheets[3];
                 totalRows = myWorksheet.Dimension.End.Row;
 
-                List<AJMetaLocationData> _locations = new List<AJMetaLocationData>();
+                var locations = new List<AJMetaLocationData>();
 
-                for (int rowNum = 2; rowNum <= totalRows; rowNum++)
+                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
                 {
-                    object[] _cells = new object[]
-                                      {
-                                          myWorksheet.Cells[rowNum, 1].Value,
-                                          myWorksheet.Cells[rowNum, 2].Value,
-                                          myWorksheet.Cells[rowNum, 3].Value,
-                                          myWorksheet.Cells[rowNum, 4].Value,
-                                          myWorksheet.Cells[rowNum, 5].Value
-                                      };
+                    var cells = new object[]
+                                 {
+                                     myWorksheet.Cells[rowNum, 1].Value,
+                                     myWorksheet.Cells[rowNum, 2].Value,
+                                     myWorksheet.Cells[rowNum, 3].Value,
+                                     myWorksheet.Cells[rowNum, 4].Value,
+                                     myWorksheet.Cells[rowNum, 5].Value
+                                 };
 
-                    int _ch_result = _check_row(_cells);
+                    int chResult = checkRow(cells);
 
-                    switch (_ch_result)
+                    switch (chResult)
                     {
                         case -1: continue;
                         case 0: return null;
                     }
 
-                    AJMetaLocationData _loc = new AJMetaLocationData
-                                              {
-                                                  ID = int.Parse(_cells[0].ToString()), DisplayName = _cells[1].ToString(),
-                                                  SpriteName = _cells[2].ToString(),
-                                                  SoundIdleName = _cells[3].ToString()
-                                              };
+                    var loc = new AJMetaLocationData
+                               {
+                                   ID = int.Parse(cells[0].ToString()),
+                                   DisplayName = cells[1].ToString(),
+                                   SpriteName = cells[2].ToString(),
+                                   SoundIdleName = cells[3].ToString()
+                               };
 
-                    if (_cells[4].ToString() == "1")
-                    {
-                        _json_obj.IntroLocation = rowNum - 1;
-                    }
+                    if (cells[4].ToString() == "1") jsonObj.IntroLocation = rowNum - 1;
 
-                    _locations.Add(_loc);
+                    locations.Add(loc);
                 }
 
-                _json_obj.Locations = _locations;
+                jsonObj.Locations = locations;
             }
 
-            return _json_obj;
+            return jsonObj;
         }
 
         private static Func<object[], int> CheckRow()
         {
-            Func<object[], int> _check_row = (_cells) =>
-                                             {
-                                                 bool _row_is_completely_empty = true;
-                                                 bool _row_has_empty_field = false;
+            int Row(object[] cells)
+            {
+                var rowIsCompletelyEmpty = true;
+                var rowHasEmptyField = false;
 
-                                                 foreach (object _cell in _cells)
-                                                 {
-                                                     if (_cell == null
-                                                         || string.IsNullOrEmpty(_cell.ToString().Trim()))
-                                                     {
-                                                         _row_has_empty_field = true;
-                                                     }
-                                                     else
-                                                     {
-                                                         _row_is_completely_empty = false;
-                                                     }
-                                                 }
+                foreach (object cell in cells)
+                    if (cell == null || string.IsNullOrEmpty(cell.ToString().Trim()))
+                        rowHasEmptyField = true;
+                    else
+                        rowIsCompletelyEmpty = false;
 
-                                                 if (_row_is_completely_empty)
-                                                     return -1;
-                                                 else if (_row_has_empty_field) return 0;
+                if (rowIsCompletelyEmpty)
+                    return -1;
+                else if (rowHasEmptyField) return 0;
 
-                                                 return 1;
-                                             };
-            return _check_row;
+                return 1;
+            }
+
+            return Row;
         }
 
-        public Dictionary<string, AJObj> GetAricyBookEntities(AJFile _ajfile, Dictionary<string, string> _nativeDict)
+        public Dictionary<string, AJObj> GetAricyBookEntities(AJFile ajfile, Dictionary<string, string> nativeDict)
         {
-            Dictionary<string, AJObj> ObjectsList = new Dictionary<string, AJObj>();
+            var objectsList = new Dictionary<string, AJObj>();
 
-            List<AJObj> Models = _ajfile.Packages[0].Models;
+            List<AJObj> models = ajfile.Packages[0].Models;
 
-            Dictionary<string, int> _chapters_id_names = new Dictionary<string, int>();
-
-            foreach (AJObj _ns in Models)
+            foreach (AJObj ns in models)
             {
-                AJType _type;
+                objectsList.Add(ns.Properties.Id, ns);
+            }
 
-                switch (_ns.Type)
+            return objectsList;
+        }
+
+        private List<string> GetSortedChaptersList(Dictionary<string, AJObj> objList,
+                                                   Dictionary<string, string> nativeDict)
+        {
+            var chaptersIds = new List<string>();
+
+            var chaptersIDNames = new Dictionary<string, int>();
+
+            foreach (KeyValuePair<string, AJObj> kobj in objList)
+            {
+                if (kobj.Value.EType != AJType.FlowFragment) continue;
+
+                string value = Regex.Match(nativeDict[kobj.Value.Properties.DisplayName], @"\d+").Value;
+
+                int intValue = int.Parse(value);
+
+                chaptersIDNames.Add(kobj.Value.Properties.Id, intValue);
+            }
+
+            IOrderedEnumerable<KeyValuePair<string, int>> sortedChapterNames =
+                from entry in chaptersIDNames orderby entry.Value ascending select entry;
+
+            foreach (KeyValuePair<string, int> pair in sortedChapterNames) chaptersIds.Add(pair.Key);
+
+            return chaptersIds;
+        }
+
+        private List<string>[] GetChaptersAndSubchaptersParentsIDs(List<string> chaptersIds,
+                                                                   Dictionary<string, AJObj> objList)
+        {
+            var ids = new List<List<string>>();
+
+            for (var i = 0; i < chaptersIds.Count; i++)
+            {
+                string chapterID = chaptersIds[i];
+
+                ids.Add(new List<string>());
+                ids[i].Add(chapterID);
+
+                foreach (KeyValuePair<string, AJObj> kobj in objList)
                 {
-                    case "FlowFragment":
-                        _type = AJType.FlowFragment;
-                        string _value = Regex.Match(_nativeDict[_ns.Properties.DisplayName], @"\d+").Value;
+                    if (kobj.Value.EType != AJType.Dialogue) continue; //subchapter 
 
-                        int _int_value = int.Parse(_value);
+                    string subchapterID = kobj.Value.Properties.Id;
 
-                        _chapters_id_names.Add(_ns.Properties.Id, _int_value);
-                        break;
-                    case "Dialogue":
-                        _type = AJType.Dialogue;
-                        break;
-                    case "Entity":
-                        _type = AJType.Entity;
-                        break;
-                    case "DefaultSupportingCharacterTemplate":
-                        _type = AJType.Entity;
-                        break;
-                    case "DefaultMainCharacterTemplate":
-                        _type = AJType.Entity;
-                        break;
-                    case "Location":
-                        _type = AJType.Location;
-                        break;
-                    case "DialogueFragment":
-                        _type = AJType.DialogueFragment;
-                        break;
-                    case "Instruction":
-                        _type = AJType.Instruction;
-                        break;
-                    case "Condition":
-                        _type = AJType.Condition;
-                        break;
-                    case "Jump":
-                        _type = AJType.Jump;
-                        break;
-                    default:
-                        _type = AJType.Other;
-                        break;
-                }
-
-                _ns.EType = _type;
-
-                ObjectsList.Add(_ns.Properties.Id, _ns);
-            }
-
-            return ObjectsList;
-        }
-
-        private List<string> GetSortedChaptersList(Dictionary<string, AJObj> _objList,
-                                                   Dictionary<string, string> _nativeDict)
-        {
-            List<string> _chapters_ids = new List<string>();
-
-            Dictionary<string, int> _chapters_id_names = new Dictionary<string, int>();
-
-            foreach (KeyValuePair<string, AJObj> _kobj in _objList)
-            {
-                if (_kobj.Value.EType != AJType.FlowFragment) continue;
-                
-                string _value = Regex.Match(_nativeDict[_kobj.Value.Properties.DisplayName], @"\d+").Value;
-
-                int _int_value = int.Parse(_value);
-
-                _chapters_id_names.Add(_kobj.Value.Properties.Id, _int_value);
-            }
-
-            var sorted_chapter_names = from entry in _chapters_id_names orderby entry.Value ascending select entry;
-
-            foreach (KeyValuePair<string, int> _pair in sorted_chapter_names)
-            {
-                _chapters_ids.Add(_pair.Key);
-            }
-
-            return _chapters_ids;
-        }
-
-        private List<string>[] GetChaptersAndSubchaptersParentsIDs(List<string> _chapters_ids,
-                                                                   Dictionary<string, AJObj> _objList)
-        {
-            List<List<string>> _ids = new List<List<string>>();
-
-            for (int i = 0; i < _chapters_ids.Count; i++)
-            {
-                string _chapter_id = _chapters_ids[i];
-
-                _ids.Add(new List<string>());
-                _ids[i].Add(_chapter_id);
-
-                foreach (KeyValuePair<string, AJObj> _kobj in _objList)
-                {
-                    if (_kobj.Value.EType != AJType.Dialogue) continue; //subchapter 
-                    
-                    string _subchapter_id = _kobj.Value.Properties.Id;
-
-                    string _parent = _kobj.Value.Properties.Parent;
+                    string parent = kobj.Value.Properties.Parent;
 
                     while (true)
-                    {
-                        if (_parent == _chapter_id)
+                        if (parent == chapterID)
                         {
-                            _ids[i].Add(_subchapter_id);
+                            ids[i].Add(subchapterID);
                             break;
                         }
                         else
                         {
-                            if (_objList.ContainsKey(_parent))
-                            {
-                                _parent = _objList[_parent].Properties.Parent;
-                            }
+                            if (objList.TryGetValue(parent, out AJObj value))
+                                parent = value.Properties.Parent;
                             else
-                            {
                                 break;
-                            }
                         }
-                    }
                 }
             }
 
-            return _ids.ToArray();
+            return ids.ToArray();
         }
 
-        public enum EChEmotion
+        private enum EChEmotion
         {
             Angry, //red
             Happy, //green
@@ -494,259 +383,228 @@ namespace StoriesLinker
 
         public bool GenerateLocalizTables()
         {
-            if (Directory.Exists(ProjectPath + @"\Localization"))
-                Directory.Delete(ProjectPath + @"\Localization", true);
+            if (Directory.Exists(_projectPath + @"\Localization"))
+                Directory.Delete(_projectPath + @"\Localization", true);
 
-            Directory.CreateDirectory(ProjectPath + @"\Localization");
-            Directory.CreateDirectory(ProjectPath + @"\Localization\Russian");
+            Directory.CreateDirectory(_projectPath + @"\Localization");
+            Directory.CreateDirectory(_projectPath + @"\Localization\Russian");
 
-            AJFile _ajfile = GetParsedFlowJSONFile();
+            AJFile ajfile = GetParsedFlowJsonFile();
 
-            Dictionary<string, string> _native_dict = GetNativeDict();
-            Dictionary<string, AJObj> _objects_list = GetAricyBookEntities(_ajfile, _native_dict);
+            Dictionary<string, string> nativeDict = GetNativeDict();
+            Dictionary<string, AJObj> objectsList = GetAricyBookEntities(ajfile, nativeDict);
 
-            List<string> _chapters_ids = GetSortedChaptersList(_objects_list, _native_dict);
+            List<string> chaptersIds = GetSortedChaptersList(objectsList, nativeDict);
 
-            if (_chapters_ids.Count < Form1.AvailableChapters)
+            if (chaptersIds.Count < Form1.AvailableChapters)
             {
                 Form1.ShowMessage("Глав в книге меньше введённого количества");
 
                 return false;
             }
 
-            _chapters_ids.RemoveRange(Form1.AvailableChapters, _chapters_ids.Count - Form1.AvailableChapters);
+            chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
 
-            Func<AJColor, string> _recognize_emotion = (_color) =>
-                                                       {
-                                                           EChEmotion _emotion = EChEmotion.IsntSetOrNeutral;
-
-                                                           Func<Color32, Color32, bool> _colors_equals = (_a, _b) =>
-                                                                                                         {
-                                                                                                             return
-                                                                                                                 (Math
-                                                                                                                      .Abs(_a
-                                                                                                                               .r
-                                                                                                                           - _b
-                                                                                                                               .r)
-                                                                                                                  < 20
-                                                                                                                  && Math
-                                                                                                                      .Abs(_a
-                                                                                                                               .g
-                                                                                                                           - _b
-                                                                                                                               .g)
-                                                                                                                  < 20
-                                                                                                                  && Math
-                                                                                                                      .Abs(_a
-                                                                                                                               .b
-                                                                                                                           - _b
-                                                                                                                               .b)
-                                                                                                                  < 20);
-                                                                                                         };
-
-                                                           Color32 _frag_color = _color.ToColor32();
-                                                           Color32[] _emotions_color
-                                                               = new Color32[]
-                                                                 {
-                                                                     new Color32(255, 0, 0, 0),
-                                                                     new Color32(0, 110, 20, 0),
-                                                                     new Color32(41, 6, 88, 0),
-                                                                     new Color32(255, 134, 0, 0)
-                                                                 };
-
-                                                           for (int i = 0; i < _emotions_color.Length; i++)
-                                                           {
-                                                               if (_colors_equals(_emotions_color[i], _frag_color))
-                                                               {
-                                                                   _emotion = (EChEmotion)i;
-                                                                   break;
-                                                               }
-                                                           }
-
-                                                           return _emotion.ToString();
-                                                       };
-
-            List<string>[] _csparents_ids = GetChaptersAndSubchaptersParentsIDs(_chapters_ids, _objects_list);
-
-            List<string> _characters_ids = new List<string>();
-            List<LocalizEntity> _characters_localiz_ids = new List<LocalizEntity>();
-
-            Dictionary<string, string> _characters_names = new Dictionary<string, string>();
-
-            for (int i = 0; i < _csparents_ids.Length; i++)
+            string RecognizeEmotion(AJColor color)
             {
-                int _chapter_n = i + 1;
+                var emotion = EChEmotion.IsntSetOrNeutral;
 
-                List<LocalizEntity> _for_translating = new List<LocalizEntity>();
-                List<LocalizEntity> _non_translating = new List<LocalizEntity>();
-                List<string> _parents_ids = _csparents_ids[i];
+                bool ColorsEquals(Color32 a, Color32 b) =>
+                    Math.Abs(a.r - b.r) < 20 && Math.Abs(a.g - b.g) < 20 && Math.Abs(a.b - b.b) < 20;
 
-                foreach (KeyValuePair<string, AJObj> _scobj in _objects_list)
+                var fragColor = color.ToColor32();
+                var emotionsColor = new Color32[]
+                                    {
+                                        new Color32(255, 0, 0, 0),
+                                        new Color32(0, 110, 20, 0),
+                                        new Color32(41, 6, 88, 0),
+                                        new Color32(255, 134, 0, 0)
+                                    };
+
+                for (var i = 0; i < emotionsColor.Length; i++)
                 {
-                    if (_parents_ids.Contains(_scobj.Value.Properties.Parent))
-                    {
-                        AJObj _dfobj = _scobj.Value;
-
-                        if (_dfobj.EType != AJType.DialogueFragment) continue;
-
-                        string _ch_id = _dfobj.Properties.Speaker;
-
-                        if (!_characters_ids.Contains(_ch_id))
-                        {
-                            LocalizEntity _entity = new LocalizEntity();
-
-                            _entity.LocalizID = _objects_list[_ch_id].Properties.DisplayName;
-
-                            _characters_ids.Add(_ch_id);
-                            _characters_localiz_ids.Add(_entity);
-
-                            _characters_names.Add(_ch_id, _native_dict[_objects_list[_ch_id].Properties.DisplayName]);
-                        }
-
-
-                        if (!string.IsNullOrEmpty(_dfobj.Properties.Text))
-                        {
-                            LocalizEntity _entity = new LocalizEntity();
-
-                            _entity.LocalizID = _dfobj.Properties.Text;
-                            _entity.SpeakerDisplayName = _characters_names[_ch_id];
-                            _entity.Emotion = _recognize_emotion(_dfobj.Properties.Color);
-
-                            _for_translating.Add(_entity);
-                        }
-
-                        if (!string.IsNullOrEmpty(_dfobj.Properties.MenuText))
-                        {
-                            LocalizEntity _entity = new LocalizEntity();
-
-                            _entity.LocalizID = _dfobj.Properties.MenuText;
-                            _entity.SpeakerDisplayName = _characters_names[_ch_id];
-                            _entity.Emotion = _recognize_emotion(_dfobj.Properties.Color);
-
-                            _for_translating.Add(_entity);
-                        }
-
-                        if (!string.IsNullOrEmpty(_dfobj.Properties.StageDirections))
-                        {
-                            LocalizEntity _entity = new LocalizEntity();
-
-                            _entity.LocalizID = _dfobj.Properties.StageDirections;
-                            _entity.SpeakerDisplayName = "";
-
-                            _non_translating.Add(_entity);
-                        }
-                    }
+                    if (!ColorsEquals(emotionsColor[i], fragColor)) continue;
+                    
+                    emotion = (EChEmotion)i;
+                    break;
                 }
 
-                CreateLocalizTable(string.Format("Chapter_{0}_for_translating", _chapter_n),
-                                   _for_translating,
-                                   _native_dict);
-                CreateLocalizTable(string.Format("Chapter_{0}_internal", _chapter_n), _non_translating, _native_dict);
+                return emotion.ToString();
             }
 
-            CreateLocalizTable(string.Format("CharacterNames"), _characters_localiz_ids, _native_dict);
+            List<string>[] csparentsIds = GetChaptersAndSubchaptersParentsIDs(chaptersIds, objectsList);
+
+            var charactersIds = new List<string>();
+            var charactersLocalizIds = new List<LocalizEntity>();
+
+            var charactersNames = new Dictionary<string, string>();
+
+            for (var i = 0; i < csparentsIds.Length; i++)
+            {
+                int chapterN = i + 1;
+
+                var forTranslating = new List<LocalizEntity>();
+                var nonTranslating = new List<LocalizEntity>();
+                List<string> parentsIds = csparentsIds[i];
+
+                foreach (KeyValuePair<string, AJObj> scobj in objectsList)
+                    if (parentsIds.Contains(scobj.Value.Properties.Parent))
+                    {
+                        AJObj dfobj = scobj.Value;
+
+                        if (dfobj.EType != AJType.DialogueFragment) continue;
+
+                        string chID = dfobj.Properties.Speaker;
+
+                        if (!charactersIds.Contains(chID))
+                        {
+                            var entity = new LocalizEntity();
+
+                            entity.LocalizID = objectsList[chID].Properties.DisplayName;
+
+                            charactersIds.Add(chID);
+                            charactersLocalizIds.Add(entity);
+
+                            charactersNames.Add(chID, nativeDict[objectsList[chID].Properties.DisplayName]);
+                        }
+
+
+                        if (!string.IsNullOrEmpty(dfobj.Properties.Text))
+                        {
+                            var entity = new LocalizEntity
+                                         {
+                                             LocalizID = dfobj.Properties.Text, SpeakerDisplayName = charactersNames[chID],
+                                             Emotion = RecognizeEmotion(dfobj.Properties.Color)
+                                         };
+
+                            forTranslating.Add(entity);
+                        }
+
+                        if (!string.IsNullOrEmpty(dfobj.Properties.MenuText))
+                        {
+                            var entity = new LocalizEntity
+                                         {
+                                             LocalizID = dfobj.Properties.MenuText, SpeakerDisplayName = charactersNames[chID],
+                                             Emotion = RecognizeEmotion(dfobj.Properties.Color)
+                                         };
+
+                            forTranslating.Add(entity);
+                        }
+
+                        if (!string.IsNullOrEmpty(dfobj.Properties.StageDirections))
+                        {
+                            var entity = new LocalizEntity
+                                         {
+                                             LocalizID = dfobj.Properties.StageDirections, SpeakerDisplayName = ""
+                                         };
+
+                            nonTranslating.Add(entity);
+                        }
+                    }
+
+                CreateLocalizTable($"Chapter_{chapterN}_for_translating",
+                                   forTranslating,
+                                   nativeDict);
+                CreateLocalizTable($"Chapter_{chapterN}_internal", nonTranslating, nativeDict);
+            }
+
+            CreateLocalizTable(string.Format("CharacterNames"), charactersLocalizIds, nativeDict);
 
             return true;
         }
 
-        private int AllWordsCount = 0;
+        private int _allWordsCount = 0;
 
-        private void CreateLocalizTable(string _name, List<LocalizEntity> _ids, Dictionary<string, string> _nativeDict)
+        private void CreateLocalizTable(string name, List<LocalizEntity> ids, Dictionary<string, string> nativeDict)
         {
-            int _wordCount = 0;
+            var wordCount = 0;
 
             using (var eP = new ExcelPackage())
             {
-                bool _for_translating = _name.Contains("for_translating");
-                var sheet = eP.Workbook.Worksheets.Add("Data");
+                bool forTranslating = name.Contains("for_translating");
+                ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Data");
 
-                bool _for_localizators_mode = Form1.ForLocalizatorsMode;
+                bool forLocalizatorsMode = Form1.ForLocalizatorsMode;
 
                 var row = 1;
                 var col = 1;
 
                 sheet.Cells[row, col].Value = "ID";
 
-                if (_for_localizators_mode)
+                if (forLocalizatorsMode)
                 {
                     sheet.Cells[row, col + 1].Value = "Speaker";
                     sheet.Cells[row, col + 2].Value = "Emotion";
                 }
 
-                sheet.Cells[row, col + (_for_localizators_mode ? 3 : 1)].Value = "Text";
+                sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = "Text";
 
                 row++;
 
-                List<string> _replaced_ids = new List<string>();
+                var replacedIds = new List<string>();
 
-                foreach (LocalizEntity item in _ids)
+                foreach (LocalizEntity item in ids)
                 {
-                    string _id = item.LocalizID;
+                    string id = item.LocalizID;
 
-                    string _value = _nativeDict[_id];
+                    string value = nativeDict[id];
 
-                    if (_for_translating && _for_localizators_mode)
+                    if (forTranslating && forLocalizatorsMode)
                     {
-                        _value = _value.Replace("pname", "%pname%");
-                        _value = _value.Replace("Pname", "%pname%");
+                        value = value.Replace("pname", "%pname%");
+                        value = value.Replace("Pname", "%pname%");
 
-                        if (!_replaced_ids.Contains(_id))
+                        if (!replacedIds.Contains(id))
                         {
-                            List<string> _repeated_values = new List<string>();
+                            var repeatedValues = new List<string>();
 
-                            foreach (KeyValuePair<string, string> _pair in _nativeDict)
-                            {
-                                if (_pair.Value == _value && _pair.Key != _id)
-                                {
-                                    _repeated_values.Add(_pair.Key);
-                                }
-                            }
+                            foreach (KeyValuePair<string, string> pair in nativeDict)
+                                if (pair.Value == value && pair.Key != id)
+                                    repeatedValues.Add(pair.Key);
 
-                            if (_repeated_values.Count == 1 || (_repeated_values.Count > 1 && _value.Contains("?")))
+                            if (repeatedValues.Count == 1 || (repeatedValues.Count > 1 && value.Contains("?")))
                             {
-                                foreach (var el in _repeated_values)
+                                foreach (string el in repeatedValues)
                                 {
-                                    _nativeDict[el] = "*SystemLinkTo*" + _id + "*";
-                                    _replaced_ids.Add(el);
+                                    nativeDict[el] = "*SystemLinkTo*" + id + "*";
+                                    replacedIds.Add(el);
                                 }
                             }
                         }
                     }
 
-                    if (string.IsNullOrEmpty(_value.Trim())) continue;
+                    if (string.IsNullOrEmpty(value.Trim())) continue;
 
                     sheet.Cells[row, col].Value = item.LocalizID;
 
-                    if (_for_localizators_mode)
+                    if (forLocalizatorsMode)
                     {
                         sheet.Cells[row, col + 1].Value = item.SpeakerDisplayName;
                         sheet.Cells[row, col + 2].Value = item.Emotion;
                     }
 
-                    sheet.Cells[row, col + (_for_localizators_mode ? 3 : 1)].Value = _value;
+                    sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = value;
 
-                    if (_for_localizators_mode && !_replaced_ids.Contains(_id))
-                    {
-                        _wordCount += CountWords(_value);
-                    }
+                    if (forLocalizatorsMode && !replacedIds.Contains(id)) wordCount += CountWords(value);
 
                     row++;
                 }
 
-                var bin = eP.GetAsByteArray();
+                byte[] bin = eP.GetAsByteArray();
 
-                File.WriteAllBytes(ProjectPath + @"\Localization\Russian\" + _name + ".xlsx", bin);
+                File.WriteAllBytes(_projectPath + @"\Localization\Russian\" + name + ".xlsx", bin);
 
-                if (_name.Contains("internal") || !_for_localizators_mode) return;
-                
-                Console.WriteLine("Таблица " + _name + " сгенерирована, количество слов: " + _wordCount);
+                if (name.Contains("internal") || !forLocalizatorsMode) return;
 
-                AllWordsCount += _wordCount;
+                Console.WriteLine("Таблица " + name + " сгенерирована, количество слов: " + wordCount);
 
-                if (_name.Contains("12")) Console.WriteLine("total count = " + AllWordsCount);
+                _allWordsCount += wordCount;
+
+                if (name.Contains("12")) Console.WriteLine("total count = " + _allWordsCount);
             }
         }
 
-        public int CountWords(string text)
+        private int CountWords(string text)
         {
             int wordCount = 0, index = 0;
 
@@ -771,12 +629,12 @@ namespace StoriesLinker
         {
             Form1.ShowMessage("Начинаем...");
 
-            string _temp_folder = ProjectPath + @"\Temp\";
+            string tempFolder = _projectPath + @"\Temp\";
 
-            AJFile _ajfile = GetParsedFlowJSONFile();
-            AJLinkerMeta _meta = GetParsedMetaInputJSONFile();
+            AJFile ajfile = GetParsedFlowJsonFile();
+            AJLinkerMeta meta = GetParsedMetaInputJsonFile();
 
-            if (_meta == null)
+            if (meta == null)
             {
                 Form1.ShowMessage("Таблица содержит пустые поля в листе Characters или Locations.");
 
@@ -786,50 +644,50 @@ namespace StoriesLinker
 
             // проверка на дубль имён персонажей и их имён в атласах
 
-            for (int i = 0; i < _meta.Characters.Count; i++)
+            for (var i = 0; i < meta.Characters.Count; i++)
             {
-                AJMetaCharacterData _c_obj = _meta.Characters[i];
+                AJMetaCharacterData cObj = meta.Characters[i];
 
-                for (int j = 0; j < _meta.Characters.Count; j++)
+                for (var j = 0; j < meta.Characters.Count; j++)
                 {
                     if (i == j) continue;
 
-                    AJMetaCharacterData _a_obj = _meta.Characters[j];
+                    AJMetaCharacterData aObj = meta.Characters[j];
 
-                    if (_c_obj.DisplayName != _a_obj.DisplayName
-                        && (_c_obj.BaseNameInAtlas != _a_obj.BaseNameInAtlas
-                            || _c_obj.BaseNameInAtlas == "-"
-                            || _meta.UniqueID == "Shism_1")
-                        && (_c_obj.ClothesVariableName != _a_obj.ClothesVariableName
-                            || _c_obj.ClothesVariableName.Trim() == "-"))
+                    if (cObj.DisplayName != aObj.DisplayName &&
+                        (cObj.BaseNameInAtlas != aObj.BaseNameInAtlas ||
+                         cObj.BaseNameInAtlas == "-" ||
+                         meta.UniqueID == "Shism_1") &&
+                        (cObj.ClothesVariableName != aObj.ClothesVariableName ||
+                         cObj.ClothesVariableName.Trim() == "-"))
                         continue;
-                    
-                    Form1.ShowMessage("Найдены дублирующиеся значения среди персонажей: " + _a_obj.DisplayName);
+
+                    Form1.ShowMessage("Найдены дублирующиеся значения среди персонажей: " + aObj.DisplayName);
 
                     return false;
                 }
 
-                if (_c_obj.AtlasFileName.Contains("Sec_") || _c_obj.BaseNameInAtlas.Contains("Sec_"))
+                if (cObj.AtlasFileName.Contains("Sec_") || cObj.BaseNameInAtlas.Contains("Sec_"))
                 {
-                    if (_c_obj.AtlasFileName != _c_obj.BaseNameInAtlas)
+                    if (cObj.AtlasFileName != cObj.BaseNameInAtlas)
                     {
-                        Form1.ShowMessage("AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: "
-                                          + _c_obj.DisplayName);
+                        Form1.ShowMessage("AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: " +
+                                          cObj.DisplayName);
 
                         return false;
                     }
                 }
 
-                int _clothes_ns_index = _ajfile.GlobalVariables.FindIndex(_ns => _ns.Namespace == "Clothes");
+                int clothesNsIndex = ajfile.GlobalVariables.FindIndex(ns => ns.Namespace == "Clothes");
 
-                var state1 = _clothes_ns_index != -1;
-                var state2 = _ajfile.GlobalVariables[_clothes_ns_index].Variables
-                                    .FindIndex(_v => _v.Variable == _c_obj.ClothesVariableName) != -1;
-                if (_c_obj.ClothesVariableName.Trim() == "-" || (state1 && state2))
-                    continue;
-                
-                Form1.ShowMessage("В артиси не определена переменная с именем Clothes."
-                                  + _c_obj.ClothesVariableName);
+                bool state1 = clothesNsIndex != -1;
+                bool state2 = ajfile.GlobalVariables[clothesNsIndex]
+                                     .Variables
+                                     .FindIndex(v => v.Variable == cObj.ClothesVariableName) !=
+                              -1;
+                if (cObj.ClothesVariableName.Trim() == "-" || (state1 && state2)) continue;
+
+                Form1.ShowMessage("В артиси не определена переменная с именем Clothes." + cObj.ClothesVariableName);
 
                 return false;
             }
@@ -837,113 +695,111 @@ namespace StoriesLinker
 
             // проверка на дубль имён и спрайтов локаций
 
-            if (_meta.UniqueID != "Pirates_1")
+            if (meta.UniqueID != "Pirates_1")
             {
-                for (int i = 0; i < _meta.Locations.Count; i++)
+                for (var i = 0; i < meta.Locations.Count; i++)
                 {
-                    AJMetaLocationData _c_obj = _meta.Locations[i];
+                    AJMetaLocationData cObj = meta.Locations[i];
 
-                    for (int j = 0; j < _meta.Locations.Count; j++)
+                    for (var j = 0; j < meta.Locations.Count; j++)
                     {
                         if (i == j) continue;
 
-                        AJMetaLocationData _a_obj = _meta.Locations[j];
+                        AJMetaLocationData aObj = meta.Locations[j];
 
-                        if (_c_obj.DisplayName != _a_obj.DisplayName && _c_obj.SpriteName != _a_obj.SpriteName)
+                        if (cObj.DisplayName != aObj.DisplayName && cObj.SpriteName != aObj.SpriteName)
                             continue;
-                        
-                        Form1.ShowMessage("Найдены дублирующиеся значения среди локаций: " + _a_obj.DisplayName);
+
+                        Form1.ShowMessage("Найдены дублирующиеся значения среди локаций: " + aObj.DisplayName);
                         return false;
                     }
                 }
             }
 
-            var _get_version_name = GetVersionName();
+            Func<string, string, string> getVersionName = GetVersionName();
 
-            if (Directory.Exists(_temp_folder)) Directory.Delete(_temp_folder, true);
+            if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
 
-            Directory.CreateDirectory(_temp_folder);
+            Directory.CreateDirectory(tempFolder);
 
-            string _bin_folder = _temp_folder + _get_version_name("bin", _meta.Version.BinVersion);
-            string _br_folder = _temp_folder + _get_version_name("baseResources", _meta.Version.BaseResourcesVersion);
-            string _preview_folder = _temp_folder + _get_version_name("preview", _meta.Version.PreviewVersion);
+            string binFolder = tempFolder + getVersionName("bin", meta.Version.BinVersion);
+            string brFolder = tempFolder + getVersionName("baseResources", meta.Version.BaseResourcesVersion);
+            string previewFolder = tempFolder + getVersionName("preview", meta.Version.PreviewVersion);
 
-            Directory.CreateDirectory(_preview_folder);
-            Directory.CreateDirectory(_preview_folder + @"\Covers");
-            Directory.CreateDirectory(_preview_folder + @"\Strings");
+            Directory.CreateDirectory(previewFolder);
+            Directory.CreateDirectory(previewFolder + @"\Covers");
+            Directory.CreateDirectory(previewFolder + @"\Strings");
 
-            Directory.CreateDirectory(_bin_folder);
-            Directory.CreateDirectory(_bin_folder + @"\SharedStrings");
-            Directory.CreateDirectory(_br_folder);
-            Directory.CreateDirectory(_br_folder + @"\UI");
-            Directory.CreateDirectory(_br_folder + @"\Music");
+            Directory.CreateDirectory(binFolder);
+            Directory.CreateDirectory(binFolder + @"\SharedStrings");
+            Directory.CreateDirectory(brFolder);
+            Directory.CreateDirectory(brFolder + @"\UI");
+            Directory.CreateDirectory(brFolder + @"\Music");
 
-            Dictionary<string, string> _native_dict = GetNativeDict();
-            Dictionary<string, AJObj> _objects_list = GetAricyBookEntities(_ajfile, _native_dict);
+            Dictionary<string, string> nativeDict = GetNativeDict();
+            Dictionary<string, AJObj> objectsList = GetAricyBookEntities(ajfile, nativeDict);
 
-            List<string> _chapters_ids = GetSortedChaptersList(_objects_list, _native_dict);
+            List<string> chaptersIds = GetSortedChaptersList(objectsList, nativeDict);
 
-            if (_chapters_ids.Count < Form1.AvailableChapters)
+            if (chaptersIds.Count < Form1.AvailableChapters)
             {
                 Form1.ShowMessage("Глав в книге меньше введённого количества");
 
                 return false;
             }
 
-            _chapters_ids.RemoveRange(Form1.AvailableChapters, _chapters_ids.Count - Form1.AvailableChapters);
+            chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
 
-            List<string>[] _csparents_ids = GetChaptersAndSubchaptersParentsIDs(_chapters_ids, _objects_list);
+            List<string>[] csparentsIds = GetChaptersAndSubchaptersParentsIDs(chaptersIds, objectsList);
 
-            AJAssetGridLinker _grid_linker = new AJAssetGridLinker();
+            var gridLinker = new AJAssetGridLinker();
 
-            var _check_add_ch = CheckAddCh(_native_dict, _objects_list, _meta, _grid_linker);
+            Action<string> checkAddCh = CheckAddCh(nativeDict, objectsList, meta, gridLinker);
 
-            var _check_add_loc_int = CheckAddLocINT(_meta, _grid_linker);
+            Action<int> checkAddLocINT = CheckAddLocINT(meta, gridLinker);
 
-            var _check_add_loc = CheckAddLoc(_native_dict, _objects_list, _meta, _grid_linker);
+            Action<string> checkAddLoc = CheckAddLoc(nativeDict, objectsList, meta, gridLinker);
 
-            List<string> _copiedChAtlasses = new List<string>();
-            List<string> _copiedLocSprites = new List<string>();
-            List<string> _copiedLocIdles = new List<string>();
+            var copiedChAtlasses = new List<string>();
+            var copiedLocSprites = new List<string>();
+            var copiedLocIdles = new List<string>();
 
-            List<AJObj> SharedObjs = new List<AJObj>();
+            var sharedObjs = new List<AJObj>();
 
-            foreach (KeyValuePair<string, AJObj> _pair in _objects_list)
+            foreach (KeyValuePair<string, AJObj> pair in objectsList)
             {
-                if (_pair.Value.EType != AJType.Entity && _pair.Value.EType != AJType.Location) continue;
-                
-                string _dname = _native_dict[_pair.Value.Properties.DisplayName];
+                if (pair.Value.EType != AJType.Entity && pair.Value.EType != AJType.Location) continue;
 
-                if (_pair.Value.EType == AJType.Entity)
+                string dname = nativeDict[pair.Value.Properties.DisplayName];
+
+                if (pair.Value.EType == AJType.Entity)
                 {
-                    int _index = _meta.Characters.FindIndex(_ch => _ch.DisplayName == _dname);
+                    int index = meta.Characters.FindIndex(ch => ch.DisplayName == dname);
 
-                    if (_index != -1) _meta.Characters[_index].AID = _pair.Key;
+                    if (index != -1) meta.Characters[index].AID = pair.Key;
                 }
                 else
                 {
-                    int _index = _meta.Locations.FindIndex(_loc => _loc.DisplayName == _dname);
+                    int index = meta.Locations.FindIndex(loc => loc.DisplayName == dname);
 
-                    if (_index != -1) _meta.Locations[_index].AID = _pair.Key;
+                    if (index != -1) meta.Locations[index].AID = pair.Key;
                 }
 
-                SharedObjs.Add(_pair.Value);
+                sharedObjs.Add(pair.Value);
             }
 
-            foreach (var el in _meta.Locations.Where(el => string.IsNullOrEmpty(el.AID)))
-            {
+            foreach (AJMetaLocationData el in meta.Locations.Where(el => string.IsNullOrEmpty(el.AID)))
                 el.AID = "fake_location_aid" + el.ID;
-            }
 
-            string _translated_data_folder = ProjectPath + @"\TranslatedData\";
+            string translatedDataFolder = _projectPath + @"\TranslatedData\";
 
-            bool _multi_lang_output = Directory.Exists(_translated_data_folder);
+            bool multiLangOutput = Directory.Exists(translatedDataFolder);
 
-            Dictionary<string, int> _langs_cols = new Dictionary<string, int> { { "Russian", _multi_lang_output ? 3 : 1 } };
+            var langsCols = new Dictionary<string, int> { { "Russian", multiLangOutput ? 3 : 1 } };
 
-            if (_multi_lang_output)
+            if (multiLangOutput)
             {
-                _langs_cols.Add("English", 4);
+                langsCols.Add("English", 4);
                 //_langs_cols.Add("Polish", 4);
                 //_langs_cols.Add("Deutsch", 4);
                 //_langs_cols.Add("French", 4);
@@ -951,74 +807,76 @@ namespace StoriesLinker
                 //_langs_cols.Add("Japan", 4);
             }
 
-            _meta.ChaptersEntryPoints = new List<string>();
+            meta.ChaptersEntryPoints = new List<string>();
 
-            AJGridAssetJSON _grid_asset_file = new AJGridAssetJSON();
+            var gridAssetFile = new AJGridAssetJSON();
 
-            Dictionary<string, Dictionary<string, string>> _allDicts
+            var allDicts
                 = new Dictionary<string, Dictionary<string, string>>();
 
 
-            for (int i = 0; i < _csparents_ids.Length; i++)
+            for (var i = 0; i < csparentsIds.Length; i++)
             {
-                _grid_linker.AddChapter();
+                gridLinker.AddChapter();
 
-                int _chapter_n = i + 1;
-                List<string> _parents_ids = _csparents_ids[i];
+                int chapterN = i + 1;
+                List<string> parentsIds = csparentsIds[i];
 
-                _meta.ChaptersEntryPoints.Add(_parents_ids[0]);
+                meta.ChaptersEntryPoints.Add(parentsIds[0]);
 
-                List<AJObj> _chapter_objs = new List<AJObj>();
+                var chapterObjs = new List<AJObj>();
 
-                foreach (KeyValuePair<string, AJObj> _pair in _objects_list)
+                foreach (KeyValuePair<string, AJObj> pair in objectsList)
                 {
-                    if (!_parents_ids.Contains(_pair.Value.Properties.Parent)
-                        && !_parents_ids.Contains(_pair.Value.Properties.Id))
+                    if (!parentsIds.Contains(pair.Value.Properties.Parent) &&
+                        !parentsIds.Contains(pair.Value.Properties.Id))
                         continue;
-                    
-                    AJObj _dfobj = _pair.Value;
 
-                    switch (_dfobj.EType)
+                    AJObj dfobj = pair.Value;
+
+                    switch (dfobj.EType)
                     {
                         case AJType.DialogueFragment:
                         {
-                            string _ch_id = _dfobj.Properties.Speaker;
+                            string chID = dfobj.Properties.Speaker;
 
-                            _check_add_ch(_ch_id);
+                            checkAddCh(chID);
                             break;
                         }
                         case AJType.Dialogue:
                         {
-                            List<string> _attachments = _dfobj.Properties.Attachments;
+                            List<string> attachments = dfobj.Properties.Attachments;
 
-                            foreach (var el in _attachments)
+                            foreach (string el in attachments)
                             {
-                                AJObj _at_obj = _objects_list[el];
+                                AJObj atObj = objectsList[el];
 
-                                if (_at_obj.EType == AJType.Location)
-                                    _check_add_loc(el);
-                                else if (_at_obj.EType == AJType.Entity) _check_add_ch(el);
+                                switch (atObj.EType)
+                                {
+                                    case AJType.Location: checkAddLoc(el); break;
+                                    case AJType.Entity: checkAddCh(el); break;
+                                }
                             }
 
                             break;
                         }
                         case AJType.Instruction:
                         {
-                            string _raw_script = _dfobj.Properties.Expression;
+                            string rawScript = dfobj.Properties.Expression;
 
-                            if (_raw_script.Contains("Location.loc"))
+                            if (rawScript.Contains("Location.loc"))
                             {
-                                string[] _scripts = _raw_script.Replace("\\n", "")
+                                string[] scripts = rawScript.Replace("\\n", "")
                                                                .Replace("\\r", "")
                                                                .Split(';');
 
-                                foreach (var _uscript in _scripts)
+                                foreach (string uscript in scripts)
                                 {
-                                    if (!_uscript.Contains("Location.loc")) continue;
-                                    
-                                    string[] _parts = _uscript.Split('=');
-                                    int _loc_id = int.Parse(_parts[1].Trim());
-                                    _check_add_loc_int(_loc_id);
+                                    if (!uscript.Contains("Location.loc")) continue;
+
+                                    string[] parts = uscript.Split('=');
+                                    int locID = int.Parse(parts[1].Trim());
+                                    checkAddLocINT(locID);
                                 }
                             }
 
@@ -1026,216 +884,206 @@ namespace StoriesLinker
                         }
                     }
 
-                    _chapter_objs.Add(_dfobj);
+                    chapterObjs.Add(dfobj);
                 }
 
-                AJLinkerOutputChapterFlow _flow_json = new AJLinkerOutputChapterFlow { Objects = _chapter_objs };
+                var flowJson = new AJLinkerOutputChapterFlow { Objects = chapterObjs };
 
-                string _chapter_folder
-                    = _temp_folder + _get_version_name("chapter" + _chapter_n, _meta.Version.BinVersion);
+                string chapterFolder
+                    = tempFolder + getVersionName("chapter" + chapterN, meta.Version.BinVersion);
 
-                Directory.CreateDirectory(_chapter_folder);
-                Directory.CreateDirectory(_chapter_folder + @"\Resources");
-                Directory.CreateDirectory(_chapter_folder + @"\Strings");
+                Directory.CreateDirectory(chapterFolder);
+                Directory.CreateDirectory(chapterFolder + @"\Resources");
+                Directory.CreateDirectory(chapterFolder + @"\Strings");
 
-                File.WriteAllText(_chapter_folder + @"\Flow.json", JsonConvert.SerializeObject(_flow_json));
+                File.WriteAllText(chapterFolder + @"\Flow.json", JsonConvert.SerializeObject(flowJson));
 
-                string[] _chapter_chs = _grid_linker.GetCharactersNamesFromCurChapter();
-                string[] _locations_chs = _grid_linker.GetLocationsNamesFromCurChapter();
+                string[] chapterChs = gridLinker.GetCharactersNamesFromCurChapter();
+                string[] locationsChs = gridLinker.GetLocationsNamesFromCurChapter();
 
-                foreach (var el in _chapter_chs)
+                foreach (string el in chapterChs)
                 {
-                    AJMetaCharacterData _ch = _meta.Characters.Find(_lch => _lch.DisplayName.Trim() == el.Trim());
+                    AJMetaCharacterData ch = meta.Characters.Find(lch => lch.DisplayName.Trim() == el.Trim());
 
-                    string _atlasNameFiled = _ch.AtlasFileName;
+                    string atlasNameFiled = ch.AtlasFileName;
 
-                    List<string> _atlases = new List<string>();
+                    var atlases = new List<string>();
 
-                    if (!_atlasNameFiled.Contains(","))
-                    {
-                        _atlases.Add(_atlasNameFiled);
-                    }
+                    if (!atlasNameFiled.Contains(","))
+                        atlases.Add(atlasNameFiled);
                     else
                     {
-                        string[] _atlas_strs = _atlasNameFiled.Split(',');
+                        string[] atlasStrs = atlasNameFiled.Split(',');
 
-                        _atlases.AddRange(_atlas_strs.Where(t => !string.IsNullOrEmpty(t)));
+                        atlases.AddRange(atlasStrs.Where(t => !string.IsNullOrEmpty(t)));
                     }
 
-                    foreach (var _atlasFileName in _atlases)
+                    foreach (string atlasFileName in atlases)
                     {
-                        if (_ch.BaseNameInAtlas == "-" 
-                            || _atlasFileName == "-" 
-                            || _copiedChAtlasses.Contains(_atlasFileName))
+                        if (ch.BaseNameInAtlas == "-" ||
+                            atlasFileName == "-" ||
+                            copiedChAtlasses.Contains(atlasFileName))
                             continue;
-                        
-                        _copiedChAtlasses.Add(_atlasFileName);
 
-                        if (!_atlasFileName.Contains("Sec_"))
+                        copiedChAtlasses.Add(atlasFileName);
+
+                        if (!atlasFileName.Contains("Sec_"))
                         {
-                            File.Copy(string.Format(ProjectPath + @"\Art\Characters\{0}.png", _atlasFileName),
-                                      string.Format(_chapter_folder + @"\Resources\{0}.png", _atlasFileName));
-                            File.Copy(string.Format(ProjectPath + @"\Art\Characters\{0}.tpsheet", _atlasFileName),
-                                      string.Format(_chapter_folder + @"\Resources\{0}.tpsheet", _atlasFileName));
+                            File.Copy(string.Format(_projectPath + @"\Art\Characters\{0}.png", atlasFileName),
+                                      string.Format(chapterFolder + @"\Resources\{0}.png", atlasFileName));
+                            File.Copy(string.Format(_projectPath + @"\Art\Characters\{0}.tpsheet", atlasFileName),
+                                      string.Format(chapterFolder + @"\Resources\{0}.tpsheet", atlasFileName));
                         }
                         else
                         {
-                            string _file_name = _atlasFileName;
-                            _file_name = _file_name.Replace("Sec_", _meta.SpritePrefix);
+                            string fileName = atlasFileName;
+                            fileName = fileName.Replace("Sec_", meta.SpritePrefix);
 
-                            File.Copy(string.Format(ProjectPath + @"\Art\Characters\Secondary\{0}.png", _file_name),
-                                      string.Format(_chapter_folder + @"\Resources\{0}.png", _atlasFileName));
+                            File.Copy(string.Format(_projectPath + @"\Art\Characters\Secondary\{0}.png", fileName),
+                                      string.Format(chapterFolder + @"\Resources\{0}.png", atlasFileName));
                         }
                     }
                 }
 
-                foreach (var el in _locations_chs)
+                foreach (string el in locationsChs)
                 {
-                    AJMetaLocationData _loc = _meta.Locations.Find(_lloc => _lloc.DisplayName == el);
+                    AJMetaLocationData loc = meta.Locations.Find(lloc => lloc.DisplayName == el);
 
-                    if (!_copiedLocSprites.Contains(_loc.SpriteName))
+                    if (!copiedLocSprites.Contains(loc.SpriteName))
                     {
-                        _copiedLocSprites.Add(_loc.SpriteName);
+                        copiedLocSprites.Add(loc.SpriteName);
 
-                        File.Copy(string.Format(ProjectPath + @"\Art\Locations\{0}.png", _loc.SpriteName),
-                                  string.Format(_chapter_folder + @"\Resources\{0}.png", _loc.SpriteName));
+                        File.Copy(string.Format(_projectPath + @"\Art\Locations\{0}.png", loc.SpriteName),
+                                  string.Format(chapterFolder + @"\Resources\{0}.png", loc.SpriteName));
                     }
 
 
-                    if (_loc.SoundIdleName == "-" || _copiedLocIdles.Contains(_loc.SoundIdleName)) continue;
-                    
-                    _copiedLocIdles.Add(_loc.SoundIdleName);
-                    File.Copy(string.Format(ProjectPath + @"\Audio\Idles\{0}.mp3", _loc.SoundIdleName),
-                              string.Format(_chapter_folder + @"\Resources\{0}.mp3", _loc.SoundIdleName));
+                    if (loc.SoundIdleName == "-" || copiedLocIdles.Contains(loc.SoundIdleName)) continue;
+
+                    copiedLocIdles.Add(loc.SoundIdleName);
+                    File.Copy(string.Format(_projectPath + @"\Audio\Idles\{0}.mp3", loc.SoundIdleName),
+                              string.Format(chapterFolder + @"\Resources\{0}.mp3", loc.SoundIdleName));
                 }
 
-                AJGridAssetChapterJSON _grid_asset_chapter = new AJGridAssetChapterJSON
-                                                             {
-                                                                 CharactersIDs
-                                                                     = _grid_linker.GetCharactersIDsFromCurChapter(),
-                                                                 LocationsIDs = _grid_linker.GetLocationsIDsFromCurChapter()
-                                                             };
+                var gridAssetChapter = new AJGridAssetChapterJSON
+                                          {
+                                              CharactersIDs
+                                                  = gridLinker.GetCharactersIDsFromCurChapter(),
+                                              LocationsIDs = gridLinker.GetLocationsIDsFromCurChapter()
+                                          };
 
-                _grid_asset_file.Chapters.Add(_grid_asset_chapter);
+                gridAssetFile.Chapters.Add(gridAssetChapter);
 
-                Dictionary<string, AJLocalizInJSONFile> _orig_lang_data = new Dictionary<string, AJLocalizInJSONFile>();
+                var origLangData = new Dictionary<string, AJLocalizInJSONFile>();
 
-                var _generate_ljson = GenerateLjson(_allDicts, _orig_lang_data);
+                Func<string, string, string[], string, int, string> generateLjson =
+                    GenerateLjson(allDicts, origLangData);
 
-                string _lang_origin_folder = ProjectPath + @"\Localization\Russian";
+                string langOriginFolder = _projectPath + @"\Localization\Russian";
 
-                Action<string, string> _show_localiz_error = ShowLocalizError();
+                Action<string, string> showLocalizError = ShowLocalizError();
 
                 if (Form1.OnlyEnglishMode)
+                    if (!langsCols.ContainsKey("English"))
+                        langsCols.Add("English", -1);
+
+                foreach (KeyValuePair<string, int> langPair in langsCols)
                 {
-                    if (!_langs_cols.ContainsKey("English")) _langs_cols.Add("English", -1);
-                }
+                    string lang = langPair.Key;
+                    int colNum = langPair.Value;
 
-                foreach (KeyValuePair<string, int> _lang_pair in _langs_cols)
-                {
-                    string _lang = _lang_pair.Key;
-                    int _col_num = _lang_pair.Value;
+                    bool nativeLang = lang == "Russian" || colNum == -1;
 
-                    bool _native_lang = _lang == "Russian" || _col_num == -1;
+                    string langFolder
+                        = nativeLang ? langOriginFolder : _projectPath + @"\TranslatedData\" + lang;
+                    string bookDescsPath = _projectPath + @"\Raw\BookDescriptions\" + lang + ".xlsx";
 
-                    string _lang_folder
-                        = (_native_lang ? _lang_origin_folder : ProjectPath + @"\TranslatedData\" + _lang);
-                    string _book_descs_path = ProjectPath + @"\Raw\BookDescriptions\" + _lang + ".xlsx";
+                    Console.WriteLine("GENERATE TABLES FOR LANGUAGE: " + lang);
 
-                    Console.WriteLine("GENERATE TABLES FOR LANGUAGE: " + _lang);
+                    if (!Directory.Exists(langFolder)) continue;
 
-                    if (!Directory.Exists(_lang_folder)) continue;
-                    
-                    string[] _lang_files = new string[]
-                                           {
-                                               string.Format(_lang_folder + @"\Chapter_{0}_for_translating.xlsx",
-                                                             _chapter_n),
-                                               string.Format(_lang_origin_folder + @"\Chapter_{0}_internal.xlsx",
-                                                             _chapter_n)
-                                           };
+                    var langFiles = new string[]
+                                      {
+                                          string.Format(langFolder + @"\Chapter_{0}_for_translating.xlsx",
+                                                        chapterN),
+                                          string.Format(langOriginFolder + @"\Chapter_{0}_internal.xlsx",
+                                                        chapterN)
+                                      };
 
-                    if (!File.Exists(_lang_files[0])) break;
+                    if (!File.Exists(langFiles[0])) break;
 
-                    string _correct = _generate_ljson(_lang,
-                                                      "chapter" + _chapter_n,
-                                                      _lang_files,
-                                                      _chapter_folder + @"\Strings\" + _lang + ".json",
-                                                      _col_num != -1 ? _col_num : 1);
+                    string correct = generateLjson(lang,
+                                                      "chapter" + chapterN,
+                                                      langFiles,
+                                                      chapterFolder + @"\Strings\" + lang + ".json",
+                                                      colNum != -1 ? colNum : 1);
 
-                    if (!string.IsNullOrEmpty(_correct))
+                    if (!string.IsNullOrEmpty(correct))
                     {
-                        _show_localiz_error(_correct, "chapter" + _chapter_n);
+                        showLocalizError(correct, "chapter" + chapterN);
 
                         //return false;
                     }
 
-                    if (_chapter_n != 1) continue;
-                        
-                    string[] _shared_lang_files = new string[]
-                                                  {
-                                                      string.Format(_lang_folder + @"\CharacterNames.xlsx",
-                                                                    _chapter_n),
-                                                      _book_descs_path
-                                                  };
+                    if (chapterN != 1) continue;
 
-                    Console.WriteLine("generate sharedstrings " + _book_descs_path);
+                    var sharedLangFiles = new string[]
+                                             {
+                                                 string.Format(langFolder + @"\CharacterNames.xlsx",
+                                                               chapterN),
+                                                 bookDescsPath
+                                             };
 
-                    _correct = _generate_ljson(_lang,
+                    Console.WriteLine("generate sharedstrings " + bookDescsPath);
+
+                    correct = generateLjson(lang,
                                                "sharedstrings",
-                                               _shared_lang_files,
-                                               _bin_folder + @"\SharedStrings\" + _lang + ".json",
-                                               _col_num != -1 ? _col_num : 1);
+                                               sharedLangFiles,
+                                               binFolder + @"\SharedStrings\" + lang + ".json",
+                                               colNum != -1 ? colNum : 1);
 
-                    string[] _string_to_preview_file = new string[] { _book_descs_path };
+                    var stringToPreviewFile = new string[] { bookDescsPath };
 
-                    if (!string.IsNullOrEmpty(_correct))
+                    if (!string.IsNullOrEmpty(correct))
                     {
-                        _show_localiz_error(_correct, "sharedstrings");
+                        showLocalizError(correct, "sharedstrings");
                         return false;
                     }
 
-                    _correct = _generate_ljson(_lang,
+                    correct = generateLjson(lang,
                                                "previewstrings",
-                                               _string_to_preview_file,
-                                               _preview_folder + @"\Strings\" + _lang + ".json",
-                                               _col_num != -1 ? _col_num : 1);
+                                               stringToPreviewFile,
+                                               previewFolder + @"\Strings\" + lang + ".json",
+                                               colNum != -1 ? colNum : 1);
 
-                    if (string.IsNullOrEmpty(_correct)) continue;
-                            
-                    _show_localiz_error(_correct, "previewstrings");
+                    if (string.IsNullOrEmpty(correct)) continue;
+
+                    showLocalizError(correct, "previewstrings");
                     return false;
                 }
             }
 
-            AJLinkerOutputBase _base_json = new AJLinkerOutputBase
-                                            {
-                                                GlobalVariables = _ajfile.GlobalVariables, SharedObjs = SharedObjs
-                                            };
+            var baseJson = new AJLinkerOutputBase
+                             {
+                                 GlobalVariables = ajfile.GlobalVariables, SharedObjs = sharedObjs
+                             };
 
-            File.WriteAllText(_bin_folder + @"\Base.json", JsonConvert.SerializeObject(_base_json));
-            File.WriteAllText(_bin_folder + @"\Meta.json", JsonConvert.SerializeObject(_meta));
-            File.WriteAllText(_bin_folder + @"\AssetsByChapters.json", JsonConvert.SerializeObject(_grid_asset_file));
+            File.WriteAllText(binFolder + @"\Base.json", JsonConvert.SerializeObject(baseJson));
+            File.WriteAllText(binFolder + @"\Meta.json", JsonConvert.SerializeObject(meta));
+            File.WriteAllText(binFolder + @"\AssetsByChapters.json", JsonConvert.SerializeObject(gridAssetFile));
 
-            string musicSourcePath = ProjectPath + @"\Audio\Music";
-            string musicTempPath = _br_folder + @"\Music";
-            if (!Directory.Exists(musicTempPath))
-            {
-                Directory.CreateDirectory(musicTempPath);
-            }
+            string musicSourcePath = _projectPath + @"\Audio\Music";
+            string musicTempPath = brFolder + @"\Music";
+            if (!Directory.Exists(musicTempPath)) Directory.CreateDirectory(musicTempPath);
 
-            foreach (var srcPath in Directory.GetFiles(musicSourcePath))
-            {
+            foreach (string srcPath in Directory.GetFiles(musicSourcePath))
                 //Copy the file from sourcepath and place into mentioned target path, 
                 //Overwrite the file if same file is exist in target path
                 File.Copy(srcPath, srcPath.Replace(musicSourcePath, musicTempPath), true);
-            }
 
-            string pcoversSourcePath = ProjectPath + @"\Art\PreviewCovers";
-            string pcoversTempPath = _preview_folder + @"\Covers";
-            if (!Directory.Exists(pcoversTempPath))
-            {
-                Directory.CreateDirectory(pcoversTempPath);
-            }
+            string pcoversSourcePath = _projectPath + @"\Art\PreviewCovers";
+            string pcoversTempPath = previewFolder + @"\Covers";
+            if (!Directory.Exists(pcoversTempPath)) Directory.CreateDirectory(pcoversTempPath);
 
             if (!File.Exists(pcoversSourcePath + @"\Russian\PreviewCover.png") /*||
                 (_multi_lang_output && !File.Exists(pcoversSourcePath + @"\English\PreviewCover_English.png"))*/)
@@ -1251,17 +1099,15 @@ namespace StoriesLinker
             foreach (string newPath in Directory.GetFiles(pcoversSourcePath, "*.*", SearchOption.AllDirectories))
                 File.Copy(newPath, newPath.Replace(pcoversSourcePath, pcoversTempPath), true);
 
-            string pbannersSourcePath = ProjectPath + @"\Art\SliderBanners";
+            string pbannersSourcePath = _projectPath + @"\Art\SliderBanners";
 
             if (!Directory.Exists(pbannersSourcePath)) return true;
             {
-                string pbannersTempPath = _preview_folder + @"\Banners";
-                if (!Directory.Exists(pbannersTempPath))
-                {
-                    Directory.CreateDirectory(pbannersTempPath);
-                }
+                string pbannersTempPath = previewFolder + @"\Banners";
+                if (!Directory.Exists(pbannersTempPath)) Directory.CreateDirectory(pbannersTempPath);
 
-                foreach (string dirPath in Directory.GetDirectories(pbannersSourcePath, "*", SearchOption.AllDirectories))
+                foreach (string dirPath in
+                         Directory.GetDirectories(pbannersSourcePath, "*", SearchOption.AllDirectories))
                     Directory.CreateDirectory(dirPath.Replace(pbannersSourcePath, pbannersTempPath));
 
                 //Copy all the files & Replaces any files with the same name
@@ -1274,232 +1120,222 @@ namespace StoriesLinker
 
         private static Func<string, string, string> GetVersionName()
         {
-            Func<string, string, string> _get_version_name = (_folder_name, _version) => char.ToUpper(_folder_name[0])
-                                                                                         + _folder_name.Substring(1);
-            return _get_version_name;
+            string VersionName(string folderName, string version) => char.ToUpper(folderName[0]) + folderName.Substring(1);
+            return VersionName;
         }
 
-        private static Action<string> CheckAddCh(Dictionary<string, string> _native_dict,
-                                                 Dictionary<string, AJObj> _objects_list,
-                                                 AJLinkerMeta _meta,
-                                                 AJAssetGridLinker _grid_linker)
+        private static Action<string> CheckAddCh(Dictionary<string, string> nativeDict,
+                                                 Dictionary<string, AJObj> objectsList,
+                                                 AJLinkerMeta meta,
+                                                 AJAssetGridLinker gridLinker)
         {
-            Action<string> _check_add_ch = _aid =>
-                                           {
-                                               string _dname = _native_dict[_objects_list[_aid].Properties.DisplayName];
+            void AddCh(string aid)
+            {
+                string dname = nativeDict[objectsList[aid].Properties.DisplayName];
 
-                                               if (_meta.Characters.Find(_l => _l.DisplayName == _dname) == null)
-                                               {
-                                                   Form1.ShowMessage("В таблице нет персонажа с именем " + _dname);
+                if (meta.Characters.Find(l => l.DisplayName == dname) == null)
+                {
+                    Form1.ShowMessage("В таблице нет персонажа с именем " + dname);
 
-                                                   throw new Exception("В таблице нет персонажа с именем " + _dname);
-                                               }
+                    throw new Exception("В таблице нет персонажа с именем " + dname);
+                }
 
-                                               if (!_grid_linker.isChExist(_dname))
-                                                   _grid_linker.AddCharacter(_dname, _aid);
-                                           };
-            return _check_add_ch;
+                if (!gridLinker.isChExist(dname)) gridLinker.AddCharacter(dname, aid);
+            }
+
+            return AddCh;
         }
 
-        private static Action<int> CheckAddLocINT(AJLinkerMeta _meta, AJAssetGridLinker _grid_linker)
+        private static Action<int> CheckAddLocINT(AJLinkerMeta meta, AJAssetGridLinker gridLinker)
         {
-            Action<int> _check_add_loc_int = _int_id =>
-                                             {
-                                                 AJMetaLocationData _mdata
-                                                     = _meta.Locations.Find(_chf => _chf.ID == _int_id);
+            void AddLocINT(int intID)
+            {
+                AJMetaLocationData mdata = meta.Locations.Find(chf => chf.ID == intID);
 
-                                                 if (!_grid_linker.isLocExist(_mdata.DisplayName))
-                                                     _grid_linker.AddLocation(_mdata.DisplayName, _mdata.AID);
-                                             };
-            return _check_add_loc_int;
+                if (!gridLinker.isLocExist(mdata.DisplayName)) gridLinker.AddLocation(mdata.DisplayName, mdata.AID);
+            }
+
+            return AddLocINT;
         }
 
-        private static Action<string> CheckAddLoc(Dictionary<string, string> _native_dict,
-                                                  Dictionary<string, AJObj> _objects_list,
-                                                  AJLinkerMeta _meta,
-                                                  AJAssetGridLinker _grid_linker)
+        private static Action<string> CheckAddLoc(Dictionary<string, string> nativeDict,
+                                                  Dictionary<string, AJObj> objectsList,
+                                                  AJLinkerMeta meta,
+                                                  AJAssetGridLinker gridLinker)
         {
-            Action<string> _check_add_loc = _aid =>
-                                            {
-                                                string _dname
-                                                    = _native_dict[_objects_list[_aid].Properties.DisplayName];
+            void AddLoc(string aid)
+            {
+                string dname = nativeDict[objectsList[aid].Properties.DisplayName];
 
-                                                if (_meta.Locations.Find(_l => _l.DisplayName == _dname) == null)
-                                                {
-                                                    Form1.ShowMessage("В таблице нет локации с именем " + _dname);
+                if (meta.Locations.Find(l => l.DisplayName == dname) == null)
+                {
+                    Form1.ShowMessage("В таблице нет локации с именем " + dname);
 
-                                                    throw new Exception("В таблице нет локации с именем " + _dname);
-                                                }
+                    throw new Exception("В таблице нет локации с именем " + dname);
+                }
 
-                                                if (!_grid_linker.isLocExist(_dname))
-                                                    _grid_linker.AddLocation(_dname, _objects_list[_aid].Properties.Id);
-                                            };
-            return _check_add_loc;
+                if (!gridLinker.isLocExist(dname)) gridLinker.AddLocation(dname, objectsList[aid].Properties.Id);
+            }
+
+            return AddLoc;
         }
 
         private static Action<string, string> ShowLocalizError()
         {
-            Action<string, string> _show_localiz_error = (_cell, _file_id) =>
-                                                         {
-                                                             Form1.ShowMessage("Ошибка мультиязыкового вывода: "
-                                                                               + _cell
-                                                                               + " в файле "
-                                                                               + _file_id);
-                                                         };
-            return _show_localiz_error;
+            void LocalizError(string cell, string fileID)
+            {
+                Form1.ShowMessage("Ошибка мультиязыкового вывода: " + cell + " в файле " + fileID);
+            }
+
+            return LocalizError;
         }
 
-        private Func<string, string, string[], string, int, string> GenerateLjson(Dictionary<string, Dictionary<string, string>> allDicts,
-                                                                                  Dictionary<string, AJLocalizInJSONFile> origLangData)
+        private Func<string, string, string[], string, int, string> GenerateLjson(
+            Dictionary<string, Dictionary<string, string>> allDicts,
+            Dictionary<string, AJLocalizInJSONFile> origLangData)
         {
             return (language, id, inPaths, outputPath, colN) =>
-                   {
-                       if (!allDicts.TryGetValue(language, out var allStrings))
-                       {
-                           allStrings = new Dictionary<string, string>();
-                           allDicts[language] = allStrings;
-                       }
+            {
+                if (!allDicts.TryGetValue(language, out Dictionary<string, string> allStrings))
+                {
+                    allStrings = new Dictionary<string, string>();
+                    allDicts[language] = allStrings;
+                }
 
-                       var jsonData = GetXMLFile(inPaths, colN);
-                       var origLang = !origLangData.ContainsKey(id);
+                AJLocalizInJSONFile jsonData = GetXMLFile(inPaths, colN);
+                bool origLang = !origLangData.ContainsKey(id);
 
-                       if (origLang) origLangData[id] = jsonData;
+                if (origLang) origLangData[id] = jsonData;
 
-                       var origJsonData = origLangData[id];
-                       if (origLang) jsonData = GetXMLFile(inPaths, colN);
+                AJLocalizInJSONFile origJsonData = origLangData[id];
+                if (origLang) jsonData = GetXMLFile(inPaths, colN);
 
-                       if (Form1.ForLocalizatorsMode)
-                       {
-                           Console.WriteLine($"start {id} {allStrings.Count}");
-                           foreach (var pair in origJsonData.Data)
-                           {
-                               var origValue = pair.Value.Trim();
-                               if (!jsonData.Data.TryGetValue(pair.Key, out var translatedValue))
-                               {
-                                   Console.WriteLine($"String with ID {pair.Key} not found");
-                                   continue;
-                               }
+                if (Form1.ForLocalizatorsMode)
+                {
+                    Console.WriteLine($"start {id} {allStrings.Count}");
+                    foreach (KeyValuePair<string, string> pair in origJsonData.Data)
+                    {
+                        string origValue = pair.Value.Trim();
+                        if (!jsonData.Data.TryGetValue(pair.Key, out string translatedValue))
+                        {
+                            Console.WriteLine($"String with ID {pair.Key} not found");
+                            continue;
+                        }
 
-                               translatedValue = translatedValue.Replace("Pname", "pname");
+                        translatedValue = translatedValue.Replace("Pname", "pname");
 
-                               if (!allStrings.ContainsKey(pair.Key)) allStrings[pair.Key] = translatedValue;
+                        if (!allStrings.ContainsKey(pair.Key)) allStrings[pair.Key] = translatedValue;
 
-                               if (origValue.Contains("*SystemLinkTo*"))
-                               {
-                                   var linkId = origValue.Split('*')[2];
-                                   if (!jsonData.Data.TryGetValue(linkId, out var linkedValue)
-                                       && !allStrings.TryGetValue(linkId, out linkedValue))
-                                   {
-                                       Console.WriteLine($"String with {linkId} is not found");
-                                       continue;
-                                   }
+                        if (origValue.Contains("*SystemLinkTo*"))
+                        {
+                            string linkId = origValue.Split('*')[2];
+                            if (!jsonData.Data.TryGetValue(linkId, out string linkedValue) &&
+                                !allStrings.TryGetValue(linkId, out linkedValue))
+                            {
+                                Console.WriteLine($"String with {linkId} is not found");
+                                continue;
+                            }
 
-                                   jsonData.Data[pair.Key] = linkedValue;
-                                   translatedValue = linkedValue;
-                               }
+                            jsonData.Data[pair.Key] = linkedValue;
+                            translatedValue = linkedValue;
+                        }
 
-                               if (IsTranslationIncomplete(translatedValue,
-                                                           origValue,
-                                                           origLang,
-                                                           jsonData.Data[pair.Key]))
-                                   Console.WriteLine($"String with ID {pair.Key} isn't translated");
-                           }
-                       }
+                        if (IsTranslationIncomplete(translatedValue,
+                                                    origValue,
+                                                    origLang,
+                                                    jsonData.Data[pair.Key]))
+                            Console.WriteLine($"String with ID {pair.Key} isn't translated");
+                    }
+                }
 
-                       var localizationIssue = CheckLocalizationIssues(origJsonData, jsonData, origLang);
-                       WriteJSONFile(jsonData, outputPath);
+                string localizationIssue = CheckLocalizationIssues(origJsonData, jsonData, origLang);
+                WriteJsonFile(jsonData, outputPath);
 
-                       return localizationIssue;
-                   };
+                return localizationIssue;
+            };
         }
 
         private bool
-            IsTranslationIncomplete(string translatedValue, string origValue, bool origLang, string jsonDataValue)
-        {
-            return string.IsNullOrEmpty(translatedValue.Trim())
-                   || (origValue.Trim() == translatedValue.Trim()
-                       && !origLang
-                       && origValue.Length > 10
-                       && !origValue.Contains("*SystemLinkTo*")
-                       && !origValue.Contains("NextChoiceIsTracked")
-                       && !jsonDataValue.Contains("StageDirections")
-                       && !string.IsNullOrEmpty(jsonDataValue.Replace(".", "").Trim())
-                       && !origValue.ToLower().Contains("%pname%"));
-        }
+            IsTranslationIncomplete(string translatedValue, string origValue, bool origLang, string jsonDataValue) =>
+            string.IsNullOrEmpty(translatedValue.Trim()) ||
+            (origValue.Trim() == translatedValue.Trim() &&
+             !origLang &&
+             origValue.Length > 10 &&
+             !origValue.Contains("*SystemLinkTo*") &&
+             !origValue.Contains("NextChoiceIsTracked") &&
+             !jsonDataValue.Contains("StageDirections") &&
+             !string.IsNullOrEmpty(jsonDataValue.Replace(".", "").Trim()) &&
+             !origValue.ToLower().Contains("%pname%"));
 
         private string CheckLocalizationIssues(AJLocalizInJSONFile origJsonData,
                                                AJLocalizInJSONFile jsonData,
                                                bool origLang)
         {
-            foreach (var pair in origJsonData.Data)
-                if (!jsonData.Data.ContainsKey(pair.Key)
-                    || string.IsNullOrEmpty(jsonData.Data[pair.Key].Trim())
-                    || (jsonData.Data[pair.Key] == pair.Value && !Form1.OnlyEnglishMode && !origLang))
+            foreach (KeyValuePair<string, string> pair in origJsonData.Data)
+                if (!jsonData.Data.ContainsKey(pair.Key) ||
+                    string.IsNullOrEmpty(jsonData.Data[pair.Key].Trim()) ||
+                    (jsonData.Data[pair.Key] == pair.Value && !Form1.OnlyEnglishMode && !origLang))
                     return pair.Key;
 
             return string.Empty;
         }
 
 
-        private AJLocalizInJSONFile GetXMLFile(string[] _paths_to_xmls, int _column)
+        private AJLocalizInJSONFile GetXMLFile(string[] pathsToXmls, int column)
         {
-            Dictionary<string, string> _total = new Dictionary<string, string>();
+            var total = new Dictionary<string, string>();
 
-            foreach (var el in _paths_to_xmls)
+            foreach (string el in pathsToXmls)
             {
-                Dictionary<string, string> _file_dict = XMLTableToDict(el, _column);
+                Dictionary<string, string> fileDict = XMLTableToDict(el, column);
 
-                foreach (var _pair in _file_dict.Where(_pair => _pair.Key != "ID"))
-                {
-                    _total.Add(_pair.Key, _pair.Value);
-                }
+                foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
+                    total.Add(pair.Key, pair.Value);
             }
 
-            AJLocalizInJSONFile _json_file = new AJLocalizInJSONFile { Data = _total };
+            var jsonFile = new AJLocalizInJSONFile { Data = total };
 
-            return _json_file;
+            return jsonFile;
         }
 
-        private AJLocalizInJSONFile WriteJSONFile(AJLocalizInJSONFile _json_file, string _path_to_json)
+        private AJLocalizInJSONFile WriteJsonFile(AJLocalizInJSONFile jsonFile, string pathToJson)
         {
-            File.WriteAllText(_path_to_json, JsonConvert.SerializeObject(_json_file));
+            File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
 
-            return _json_file;
+            return jsonFile;
         }
 
-        public AJLocalizInJSONFile ConvertXMLToJSON(string[] _paths_to_xmls, string _path_to_json, int _column)
+        public AJLocalizInJSONFile ConvertXMLToJson(string[] pathsToXmls, string pathToJson, int column)
         {
-            Dictionary<string, string> _total = new Dictionary<string, string>();
+            var total = new Dictionary<string, string>();
 
-            foreach (var el in _paths_to_xmls)
+            foreach (string el in pathsToXmls)
             {
-                Dictionary<string, string> _file_dict = XMLTableToDict(el, _column);
+                Dictionary<string, string> fileDict = XMLTableToDict(el, column);
 
-                foreach (var _pair in _file_dict.Where(_pair => _pair.Key != "ID"))
-                {
-                    _total.Add(_pair.Key, _pair.Value);
-                }
+                foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
+                    total.Add(pair.Key, pair.Value);
             }
 
-            AJLocalizInJSONFile _json_file = new AJLocalizInJSONFile();
-            _json_file.Data = _total;
+            var jsonFile = new AJLocalizInJSONFile();
+            jsonFile.Data = total;
 
-            File.WriteAllText(_path_to_json, JsonConvert.SerializeObject(_json_file));
+            File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
 
-            return _json_file;
+            return jsonFile;
         }
 
-        public static string GetLocalizTablesPath(string _proj_path)
+        public static string GetLocalizTablesPath(string projPath)
         {
-            string _path = _proj_path + @"\Raw\loc_All objects_en.xlsx";
+            string path = projPath + @"\Raw\loc_All objects_en.xlsx";
 
-            if (!File.Exists(_path)) _path = _proj_path + @"\Raw\loc_All objects_ru.xlsx";
+            if (!File.Exists(path)) path = projPath + @"\Raw\loc_All objects_ru.xlsx";
 
-            return _path;
+            return path;
         }
 
-        public static string GetFlowJSONPath(string _proj_path) { return _proj_path + @"\Raw\Flow.json"; }
+        public static string GetFlowJsonPath(string projPath) => projPath + @"\Raw\Flow.json";
 
-        public static string GetMetaJSONPath(string _proj_path) { return _proj_path + @"\Raw\Meta.json"; }
+        public static string GetMetaJsonPath(string projPath) => projPath + @"\Raw\Meta.json";
     }
 }

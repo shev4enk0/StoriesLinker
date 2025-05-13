@@ -155,7 +155,7 @@ namespace StoriesLinker
 
         private void GenerateOutputFolderForBundles(object sender, EventArgs e)
         {
-            string _flow_json_path = LinkerBin.GetFlowJSONPath(ProjectPath);
+            string _flow_json_path = LinkerBin.GetFlowJsonPath(ProjectPath);
             string _strings_xml_path = LinkerBin.GetLocalizTablesPath(ProjectPath);
 
             if (File.Exists(_flow_json_path) && File.Exists(_strings_xml_path))
@@ -197,12 +197,12 @@ namespace StoriesLinker
             {
                 LinkerBin _linker = new LinkerBin(ProjectPath);
 
-                AJLinkerMeta _meta = _linker.GetParsedMetaInputJSONFile();
+                AJLinkerMeta _meta = _linker.GetParsedMetaInputJsonFile();
 
                 LinkerAtlasChecker _checker = new LinkerAtlasChecker(_meta, _meta.Characters);
 
                 Dictionary<string, AJObj> _objects_list
-                    = _linker.GetAricyBookEntities(_linker.GetParsedFlowJSONFile(), _linker.GetNativeDict());
+                    = _linker.GetAricyBookEntities(_linker.GetParsedFlowJsonFile(), _linker.GetNativeDict());
 
                 foreach (KeyValuePair<string, AJObj> _object in _objects_list)
                 {
@@ -257,7 +257,7 @@ namespace StoriesLinker
                 return;
             }
 
-            string _flow_json_path = LinkerBin.GetFlowJSONPath(ProjectPath);
+            string _flow_json_path = LinkerBin.GetFlowJsonPath(ProjectPath);
             string _strings_xml_path = LinkerBin.GetLocalizTablesPath(ProjectPath);
 
             if (File.Exists(_flow_json_path) && File.Exists(_strings_xml_path))
