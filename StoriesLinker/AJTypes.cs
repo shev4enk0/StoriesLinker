@@ -5,15 +5,15 @@ using System.Collections.Generic;
 namespace StoriesLinker
 {
     [Serializable]
-    public class AJNamespace
+    public class AjNamespace
     {
         public string Namespace;
         public string Description;
-        public List<AJVariable> Variables;
+        public List<AjVariable> Variables;
     }
 
     [Serializable]
-    public class AJVariable
+    public class AjVariable
     {
         public string Variable;
         public string Type;
@@ -22,22 +22,22 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AJPackage
+    public class AjPackage
     {
         public string Name;
         public string Description;
         public bool IsDefaultPackage;
-        public List<AJObj> Models;
+        public List<AjObj> Models;
     }
 
     [Serializable]
-    public class AJFile
+    public class AjFile
     {
-        public List<AJNamespace> GlobalVariables;
-        public List<AJPackage> Packages;
+        public List<AjNamespace> GlobalVariables;
+        public List<AjPackage> Packages;
     }
 
-    public enum AJType
+    public enum AjType
     {
         FlowFragment,
         Dialogue,
@@ -51,21 +51,21 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AJObj
+    public class AjObj
     {
         public string Type;
-        public AJType EType => GetEType();
-        public AJObjProps Properties;
+        public AjType EType => GetEType();
+        public AjObjProps Properties;
 
         public override string ToString()
         {
             return Properties.Id + " " + Properties.DisplayName + " " + Type;
         }
-        public AJType GetEType() => Enum.TryParse(Type, out AJType result) ? result : AJType.Other;
+        public AjType GetEType() => Enum.TryParse(Type, out AjType result) ? result : AjType.Other;
     }
 
     [Serializable]
-    public class AJConnection
+    public class AjConnection
     {
         public string Label;
         public string TargetPin;
@@ -73,17 +73,17 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AJPin
+    public class AjPin
     {
         public string Text;
         public string Id;
         public string Owner;
 
-        public List<AJConnection> Connections;
+        public List<AjConnection> Connections;
     }
 
     [Serializable]
-    public class AJObjProps //FlowFragment, Dialogue, Entity, Location
+    public class AjObjProps //FlowFragment, Dialogue, Entity, Location
     {
         public string TechnicalName;
         public string Id;
@@ -91,14 +91,14 @@ namespace StoriesLinker
         public string Parent;
         public List<string> Attachments;
 
-        public AJColor Color;
+        public AjColor Color;
 
         public string Text;
         public string ExternalId;
         public string ShortId;
 
-        public List<AJPin> InputPins;
-        public List<AJPin> OutputPins;
+        public List<AjPin> InputPins;
+        public List<AjPin> OutputPins;
 
         //DialogueFragment
         public string MenuText;
@@ -114,52 +114,52 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AJColor
+    public class AjColor
     {
-        public float r;
-        public float g;
-        public float b;
-        public float a;
+        public float R;
+        public float G;
+        public float B;
+        public float A;
 
         public Color32 ToColor32()
         {
-            return new Color32(r * 255f, g * 255f, b * 255f, a * 255f);
+            return new Color32(R * 255f, G * 255f, B * 255f, A * 255f);
         }
     }
 
     public class Color32
     {
-        public float r;
-        public float g;
-        public float b;
-        public float a;
+        public float R;
+        public float G;
+        public float B;
+        public float A;
 
-        public Color32(float _r, float _g, float _b, float _a)
+        public Color32(float r, float g, float b, float a)
         {
-            r = _r;
-            g = _g;
-            b = _b;
-            a = _a;
+            R = r;
+            G = g;
+            B = b;
+            A = a;
         }
     }
 
     [Serializable]
-    public class AJLinkerOutputBase
+    public class AjLinkerOutputBase
     {
-        public List<AJNamespace> GlobalVariables;
-        public List<AJObj> SharedObjs;
+        public List<AjNamespace> GlobalVariables;
+        public List<AjObj> SharedObjs;
     }
 
     [Serializable]
-    public class AJLinkerOutputChapterFlow
+    public class AjLinkerOutputChapterFlow
     {
-        public List<AJObj> Objects;
+        public List<AjObj> Objects;
     }
 
     [Serializable]
-    public class AJMetaCharacterData
+    public class AjMetaCharacterData
     {
-        public string AID;
+        public string Aid;
 
         public string DisplayName;
         public string ClothesVariableName;
@@ -168,20 +168,20 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AJMetaLocationData
+    public class AjMetaLocationData
     {
-        public string AID;
+        public string Aid;
 
-        public int ID;
+        public int Id;
         public string DisplayName;
         public string SpriteName;
         public string SoundIdleName;
     }
 
     [Serializable]
-    public class AJLinkerMeta
+    public class AjLinkerMeta
     {
-        public string UniqueID;
+        public string UniqueId;
         public string SpritePrefix;
 
         public BookVersionInfo Version;
@@ -191,10 +191,10 @@ namespace StoriesLinker
         public int UndefinedClothesFuncVariant;
         public bool ExceptionsWeaponLayer;
 
-        public bool StandartizedUI;
+        public bool StandartizedUi;
 
-        public int UITextBlockFontSize;
-        public int UIChoiceBlockFontSize;
+        public int UiTextBlockFontSize;
+        public int UiChoiceBlockFontSize;
 
         public string KarmaCurrency;
 
@@ -202,18 +202,18 @@ namespace StoriesLinker
         public int KarmaGoodBorder;
         public int KarmaTopLimit;
 
-        public List<int> UITextPlateLimits;
-        public bool UIPaintFirstLetterInRedException;
-        public int UITextPlateOffset;
+        public List<int> UiTextPlateLimits;
+        public bool UiPaintFirstLetterInRedException;
+        public int UiTextPlateOffset;
 
-        public bool UIOverridedTextColor;
+        public bool UiOverridedTextColor;
 
-        public List<int> UITextColor;
-        public List<int> UIBlockedTextColor;
-        public List<int> UIChNameTextColor;
+        public List<int> UiTextColor;
+        public List<int> UiBlockedTextColor;
+        public List<int> UiChNameTextColor;
 
-        public List<int> UIOutlineColor;
-        public List<int> UIResTextColor;
+        public List<int> UiOutlineColor;
+        public List<int> UiResTextColor;
         
         public bool WardrobeEnabled;
         public bool MainHeroHasDifferentGenders;
@@ -224,12 +224,12 @@ namespace StoriesLinker
         public int CustomClothesCount;
         public int CustomHairCount;
 
-        public List<string> CurrenciesInOrderOfUI;
+        public List<string> CurrenciesInOrderOfUi;
         public List<string> RacesList;
         public List<string> ChaptersEntryPoints;
 
-        public List<AJMetaCharacterData> Characters;
-        public List<AJMetaLocationData> Locations;
+        public List<AjMetaCharacterData> Characters;
+        public List<AjMetaLocationData> Locations;
     }
 
     [Serializable]
@@ -240,7 +240,7 @@ namespace StoriesLinker
         public string BaseResourcesVersion;
     }
 
-    public class AJChapterAsset
+    public class AjChapterAsset
     {
         public int ChapterN;
 
@@ -249,9 +249,9 @@ namespace StoriesLinker
         public List<string> LocationIDs;
         public List<string> LocationNames;
 
-        public AJChapterAsset(int _chapter_n)
+        public AjChapterAsset(int chapterN)
         {
-            ChapterN = _chapter_n;
+            ChapterN = chapterN;
 
             CharacterIDs = new List<string>();
             LocationIDs = new List<string>();
@@ -259,93 +259,93 @@ namespace StoriesLinker
             LocationNames = new List<string>();
         }
 
-        public void AddCh(string _name, string _aid)
+        public void AddCh(string name, string aid)
         {
-            CharacterNames.Add(_name);
-            CharacterIDs.Add(_aid);
+            CharacterNames.Add(name);
+            CharacterIDs.Add(aid);
         }
 
-        public void AddLoc(string _name, string _aid)
+        public void AddLoc(string name, string aid)
         {
-            LocationNames.Add(_name);
-            LocationIDs.Add(_aid);
+            LocationNames.Add(name);
+            LocationIDs.Add(aid);
         }
     }
 
-    public class AJAssetGridLinker
+    public class AjAssetGridLinker
     {
-        private List<string> AddedChs;
-        private List<string> AddedLocs;
+        private List<string> _addedChs;
+        private List<string> _addedLocs;
 
-        public List<AJChapterAsset> AssetsByChapters;
+        public List<AjChapterAsset> AssetsByChapters;
 
-        private int CurrentChapter;
+        private int _currentChapter;
 
-        public AJAssetGridLinker()
+        public AjAssetGridLinker()
         {
-            AssetsByChapters = new List<AJChapterAsset>();
+            AssetsByChapters = new List<AjChapterAsset>();
 
-            AddedChs = new List<string>();
-            AddedLocs = new List<string>();
+            _addedChs = new List<string>();
+            _addedLocs = new List<string>();
         }
 
-        public bool isLocExist(string _name)
+        public bool IsLocExist(string name)
         {
-            return AddedLocs.Contains(_name);
+            return _addedLocs.Contains(name);
         }
 
-        public bool isChExist(string _name)
+        public bool IsChExist(string name)
         {
-            return AddedChs.Contains(_name);
+            return _addedChs.Contains(name);
         }
 
         public void AddChapter()
         {
-            CurrentChapter = AssetsByChapters.Count + 1;
+            _currentChapter = AssetsByChapters.Count + 1;
 
-            AssetsByChapters.Add(new AJChapterAsset(CurrentChapter));
+            AssetsByChapters.Add(new AjChapterAsset(_currentChapter));
         }
 
-        public void AddCharacter(string _name, string _aid)
+        public void AddCharacter(string name, string aid)
         {
-            AddedChs.Add(_name);
-            AssetsByChapters[CurrentChapter - 1].AddCh(_name, _aid);
+            _addedChs.Add(name);
+            AssetsByChapters[_currentChapter - 1].AddCh(name, aid);
         }
 
-        public void AddLocation(string _name, string _aid)
+        public void AddLocation(string name, string aid)
         {
-            AddedLocs.Add(_name);
-            AssetsByChapters[CurrentChapter - 1].AddLoc(_name, _aid);
+            _addedLocs.Add(name);
+            AssetsByChapters[_currentChapter - 1].AddLoc(name, aid);
         }
 
         public string[] GetCharactersNamesFromCurChapter()
         {
-            return AssetsByChapters[CurrentChapter - 1].CharacterNames.ToArray();
+            return AssetsByChapters[_currentChapter - 1].CharacterNames.ToArray();
         }
 
         public string[] GetLocationsNamesFromCurChapter()
         {
-            return AssetsByChapters[CurrentChapter - 1].LocationNames.ToArray();
+            return AssetsByChapters[_currentChapter - 1].LocationNames.ToArray();
         }
 
         public List<string> GetCharactersIDsFromCurChapter()
         {
-            return AssetsByChapters[CurrentChapter - 1].CharacterIDs;
+            return AssetsByChapters[_currentChapter - 1].CharacterIDs;
         }
 
         public List<string> GetLocationsIDsFromCurChapter()
         {
-            return AssetsByChapters[CurrentChapter - 1].LocationIDs;
+            return AssetsByChapters[_currentChapter - 1].LocationIDs;
         }
     }
 
     [Serializable]
-    public class AJGridAssetChapterJSON
+    public class AjGridAssetChapterJson
     {
         public List<string> CharactersIDs;
         public List<string> LocationsIDs;
 
-        public AJGridAssetChapterJSON()
+        public AjGridAssetChapterJson()
         {
             CharactersIDs = new List<string>();
             LocationsIDs = new List<string>();
@@ -353,18 +353,18 @@ namespace StoriesLinker
     }
 
     [Serializable]
-    public class AJGridAssetJSON
+    public class AjGridAssetJson
     {
-        public List<AJGridAssetChapterJSON> Chapters;
+        public List<AjGridAssetChapterJson> Chapters;
 
-        public AJGridAssetJSON()
+        public AjGridAssetJson()
         {
-            Chapters = new List<AJGridAssetChapterJSON>();
+            Chapters = new List<AjGridAssetChapterJson>();
         }
     }
 
     [Serializable]
-    public class AJLocalizInJSONFile
+    public class AjLocalizInJsonFile
     {
         public Dictionary<string, string> Data;
     }

@@ -11,11 +11,11 @@ namespace StoriesLinker
     {
         public static int AvailableChapters;
 
-        public const bool ReleaseMode = false;
-        public const bool OnlyEnglishMode = false;
-        public const bool ForLocalizatorsMode = true;
+        public const bool RELEASE_MODE = false;
+        public const bool ONLY_ENGLISH_MODE = false;
+        public const bool FOR_LOCALIZATORS_MODE = true;
 
-        private string ProjectPath;
+        private string _projectPath;
 
         public Form1()
         {
@@ -25,10 +25,10 @@ namespace StoriesLinker
 
             if (key != null)
             {
-                string _path = key.GetValue("LastPath").ToString();
+                string path = key.GetValue("LastPath").ToString();
 
-                folderBrowserDialog1.SelectedPath = _path;
-                path_value.Text = _path;
+                folderBrowserDialog1.SelectedPath = path;
+                path_value.Text = path;
             }
             else
             {
@@ -40,19 +40,19 @@ namespace StoriesLinker
         {
             if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
             {
-                ProjectPath = folderBrowserDialog1.SelectedPath;
+                _projectPath = folderBrowserDialog1.SelectedPath;
 
-                path_value.Text = ProjectPath;
+                path_value.Text = _projectPath;
 
                 RegistryKey key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\StoriesLinker");
-                key.SetValue("LastPath", ProjectPath);
+                key.SetValue("LastPath", _projectPath);
                 key.Close();
 
-                textBox1.Text = ProjectPath;
+                textBox1.Text = _projectPath;
 
-                string[] _path_parts = ProjectPath.Split('/', '\\');
+                string[] pathParts = _projectPath.Split('/', '\\');
 
-                proj_name_value.Text = _path_parts[_path_parts.Length - 1];
+                proj_name_value.Text = pathParts[pathParts.Length - 1];
 
                 //UpdateLocalizTablesExistState();
             }
@@ -73,36 +73,36 @@ namespace StoriesLinker
 
                 FantasyBook.Init();
 
-                foreach (KeyValuePair<string, FantBookCharacter> _pair in FantasyBook.Characters)
+                foreach (KeyValuePair<string, FantBookCharacter> pair in FantasyBook.Characters)
                 {
-                    FantBookCharacter _ch_id = _pair.Value;
+                    FantBookCharacter chId = pair.Value;
 
-                    sheet.Cells[row, col].Value = _pair.Key;
+                    sheet.Cells[row, col].Value = pair.Key;
 
-                    if (_ch_id.ToString().Contains("Sec_"))
+                    if (chId.ToString().Contains("Sec_"))
                     {
-                        sheet.Cells[row, col + 1].Value = _ch_id.ToString();
-                        sheet.Cells[row, col + 2].Value = _ch_id.ToString();
-                        sheet.Cells[row, col + 3].Value = _ch_id.ToString();
+                        sheet.Cells[row, col + 1].Value = chId.ToString();
+                        sheet.Cells[row, col + 2].Value = chId.ToString();
+                        sheet.Cells[row, col + 3].Value = chId.ToString();
                     }
                     else
                     {
                         sheet.Cells[row, col + 1].Value
-                            = (FantasyBook.ChClothesVariablesMathcing.ContainsKey(_ch_id)
-                                   ? FantasyBook.ChClothesVariablesMathcing[_ch_id]
+                            = (FantasyBook.ChClothesVariablesMathcing.ContainsKey(chId)
+                                   ? FantasyBook.ChClothesVariablesMathcing[chId]
                                    : "-");
                         sheet.Cells[row, col + 2].Value
-                            = (FantasyBook.ChAtalsMathcing.ContainsKey(_ch_id)
-                                   ? FantasyBook.ChAtalsMathcing[_ch_id]
+                            = (FantasyBook.ChAtalsMathcing.ContainsKey(chId)
+                                   ? FantasyBook.ChAtalsMathcing[chId]
                                    : "-");
-                        sheet.Cells[row, col + 3].Value = _ch_id.ToString();
+                        sheet.Cells[row, col + 3].Value = chId.ToString();
                     }
 
                     row++;
                 }
 
                 var bin = eP.GetAsByteArray();
-                File.WriteAllBytes(ProjectPath + @"\TempMetaCharacters.xlsx", bin);
+                File.WriteAllBytes(_projectPath + @"\TempMetaCharacters.xlsx", bin);
             }
         }
 
@@ -135,54 +135,54 @@ namespace StoriesLinker
                 }*/
 
 
-                foreach (KeyValuePair<string, FantBookLocation> _pair in FantasyBook.Locations)
+                foreach (KeyValuePair<string, FantBookLocation> pair in FantasyBook.Locations)
                 {
-                    FantBookLocation _loc_id = _pair.Value;
+                    FantBookLocation locId = pair.Value;
 
                     sheet.Cells[row, col].Value = 0;
-                    sheet.Cells[row, col + 1].Value = _pair.Key;
-                    sheet.Cells[row, col + 2].Value = FantasyBook.LocSpriteMatching[_loc_id];
-                    sheet.Cells[row, col + 3].Value = FantasyBook.LocSoundMatching[_loc_id];
+                    sheet.Cells[row, col + 1].Value = pair.Key;
+                    sheet.Cells[row, col + 2].Value = FantasyBook.LocSpriteMatching[locId];
+                    sheet.Cells[row, col + 3].Value = FantasyBook.LocSoundMatching[locId];
                     sheet.Cells[row, col + 4].Value = 0;
 
                     row++;
                 }
 
                 var bin = eP.GetAsByteArray();
-                File.WriteAllBytes(ProjectPath + @"\TempMetaLocations.xlsx", bin);
+                File.WriteAllBytes(_projectPath + @"\TempMetaLocations.xlsx", bin);
             }
         }
 
-        private void GenerateOutputFolderForBundles(object sender, EventArgs e)
+        private void GenerateOutputFolderForBundles(object sender, EventArgs eventArgs)
         {
-            string _flow_json_path = LinkerBin.GetFlowJsonPath(ProjectPath);
-            string _strings_xml_path = LinkerBin.GetLocalizTablesPath(ProjectPath);
+            string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
+            string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
 
-            if (File.Exists(_flow_json_path) && File.Exists(_strings_xml_path))
+            if (File.Exists(flowJsonPath) && File.Exists(stringsXmlPath))
             {
-                LinkerBin _linker = new LinkerBin(ProjectPath);
+                LinkerBin linker = new LinkerBin(_projectPath);
 
-                if (ReleaseMode)
+                if (RELEASE_MODE)
                 {
                     try
                     {
-                        bool _result = _linker.GenerateOutputFolder();
+                        bool result = linker.GenerateOutputFolder();
 
-                        StartCheckAfterBundleGeneration(_result);
+                        StartCheckAfterBundleGeneration(result);
                     }
-                    catch (Exception _e)
+                    catch (Exception e)
                     {
-                        if (_e.Message != "")
+                        if (e.Message != "")
                         {
-                            ShowMessage("Ошибка: " + _e.Message + " " + e.ToString());
+                            ShowMessage("Ошибка: " + e.Message + " " + e.ToString());
                         }
                     }
                 }
                 else
                 {
-                    bool _result = _linker.GenerateOutputFolder();
+                    bool result = linker.GenerateOutputFolder();
 
-                    StartCheckAfterBundleGeneration(_result);
+                    StartCheckAfterBundleGeneration(result);
                 }
             }
             else
@@ -191,44 +191,44 @@ namespace StoriesLinker
             }
         }
 
-        private void StartCheckAfterBundleGeneration(bool _result)
+        private void StartCheckAfterBundleGeneration(bool result)
         {
-            if (_result)
+            if (result)
             {
-                LinkerBin _linker = new LinkerBin(ProjectPath);
+                LinkerBin linker = new LinkerBin(_projectPath);
 
-                AJLinkerMeta _meta = _linker.GetParsedMetaInputJsonFile();
+                AjLinkerMeta meta = linker.GetParsedMetaInputJsonFile();
 
-                LinkerAtlasChecker _checker = new LinkerAtlasChecker(_meta, _meta.Characters);
+                LinkerAtlasChecker checker = new LinkerAtlasChecker(meta, meta.Characters);
 
-                Dictionary<string, AJObj> _objects_list
-                    = _linker.GetAricyBookEntities(_linker.GetParsedFlowJsonFile(), _linker.GetNativeDict());
+                Dictionary<string, AjObj> objectsList
+                    = linker.GetAricyBookEntities(linker.GetParsedFlowJsonFile(), linker.GetNativeDict());
 
-                foreach (KeyValuePair<string, AJObj> _object in _objects_list)
+                foreach (KeyValuePair<string, AjObj> @object in objectsList)
                 {
-                    if (_object.Value.EType == AJType.Instruction)
+                    if (@object.Value.EType == AjType.Instruction)
                     {
-                        string _expr = _object.Value.Properties.Expression;
+                        string expr = @object.Value.Properties.Expression;
 
-                        if (_expr.Contains("Clothes."))
+                        if (expr.Contains("Clothes."))
                         {
-                            _checker.PassClothesInstruction(_expr);
+                            checker.PassClothesInstruction(expr);
                         }
                     }
                 }
 
-                string _check_result = "";
+                string checkResult = "";
 
-                if (_meta.UniqueID != "Shism_1" && _meta.UniqueID != "Shism_2")
-                    _check_result = _checker.BeginFinalCheck(ProjectPath);
+                if (meta.UniqueId != "Shism_1" && meta.UniqueId != "Shism_2")
+                    checkResult = checker.BeginFinalCheck(_projectPath);
 
-                if (string.IsNullOrEmpty(_check_result))
+                if (string.IsNullOrEmpty(checkResult))
                 {
                     ShowMessage("Иерархия для бандлов успешно сгенерирована.");
                 }
                 else
                 {
-                    ShowMessage("Ошибка: " + _check_result);
+                    ShowMessage("Ошибка: " + checkResult);
                 }
             }
         }
@@ -241,45 +241,45 @@ namespace StoriesLinker
             loc_state_value.Text = _loc_dir_exists ? "Созданы" : "Отсуствуют";
         }*/
 
-        public static void ShowMessage(string _message)
+        public static void ShowMessage(string message)
         {
-            Application.OpenForms["Form1"].Controls["textBox2"].Text = _message;
+            Application.OpenForms["Form1"].Controls["textBox2"].Text = message;
         }
 
-        private void GenerateLocalizTables(object sender, EventArgs e)
+        private void GenerateLocalizTables(object sender, EventArgs eventArgs)
         {
-            string _chapters_count_text = chapters_count_value.Text;
+            string chaptersCountText = chapters_count_value.Text;
 
-            if (!int.TryParse(_chapters_count_text, out AvailableChapters))
+            if (!int.TryParse(chaptersCountText, out AvailableChapters))
             {
                 ShowMessage("Некорректное количество глав");
 
                 return;
             }
 
-            string _flow_json_path = LinkerBin.GetFlowJsonPath(ProjectPath);
-            string _strings_xml_path = LinkerBin.GetLocalizTablesPath(ProjectPath);
+            string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
+            string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
 
-            if (File.Exists(_flow_json_path) && File.Exists(_strings_xml_path))
+            if (File.Exists(flowJsonPath) && File.Exists(stringsXmlPath))
             {
                 ShowMessage("Файлы найдены. Генерация началась...");
 
-                LinkerBin _linker = new LinkerBin(ProjectPath);
+                LinkerBin linker = new LinkerBin(_projectPath);
 
                 try
                 {
-                    bool _result = _linker.GenerateLocalizTables();
+                    bool result = linker.GenerateLocalizTables();
 
-                    if (_result)
+                    if (result)
                     {
                         ShowMessage("Таблицы локализации успешно сгенерированы.");
                     }
                 }
-                catch (Exception _e)
+                catch (Exception e)
                 {
-                    if (_e.Message != "")
+                    if (e.Message != "")
                     {
-                        ShowMessage("Ошибка: " + _e.Message);
+                        ShowMessage("Ошибка: " + e.Message);
                     }
                 }
             }

@@ -61,22 +61,22 @@ namespace StoriesLinker
 
         public Dictionary<string, string> GetNativeDict() => XMLTableToDict(GetLocalizTablesPath(_projectPath));
 
-        public AJFile GetParsedFlowJsonFile()
+        public AjFile GetParsedFlowJsonFile()
         {
-            AJFile jsonObj;
+            AjFile jsonObj;
 
             using (var r = new StreamReader(GetFlowJsonPath(_projectPath)))
             {
                 string json = r.ReadToEnd();
-                jsonObj = JsonConvert.DeserializeObject<AJFile>(json);
+                jsonObj = JsonConvert.DeserializeObject<AjFile>(json);
             }
 
             return jsonObj;
         }
 
-        public AJLinkerMeta GetParsedMetaInputJsonFile()
+        public AjLinkerMeta GetParsedMetaInputJsonFile()
         {
-            var jsonObj = new AJLinkerMeta { Version = new BookVersionInfo() };
+            var jsonObj = new AjLinkerMeta { Version = new BookVersionInfo() };
 
             string metaXMLPath = _projectPath + @"\Raw\Meta.xlsx";
 
@@ -97,20 +97,20 @@ namespace StoriesLinker
 
                     switch (fieldName)
                     {
-                        case "UniqueID": jsonObj.UniqueID = fieldValue; break;
+                        case "UniqueID": jsonObj.UniqueId = fieldValue; break;
                         case "SpritePrefix": jsonObj.SpritePrefix = fieldValue; break;
                         case "VersionBin": jsonObj.Version.BinVersion = fieldValue; break;
                         case "VersionPreview": jsonObj.Version.PreviewVersion = fieldValue; break;
                         case "VersionBaseResources": jsonObj.Version.BaseResourcesVersion = fieldValue; break;
-                        case "StandartizedUI": jsonObj.StandartizedUI = fieldValue == "1"; break;
-                        case "UITextBlockFontSize": jsonObj.UITextBlockFontSize = int.Parse(fieldValue); break;
-                        case "UIChoiceBlockFontSize": jsonObj.UIChoiceBlockFontSize = int.Parse(fieldValue); break;
+                        case "StandartizedUI": jsonObj.StandartizedUi = fieldValue == "1"; break;
+                        case "UITextBlockFontSize": jsonObj.UiTextBlockFontSize = int.Parse(fieldValue); break;
+                        case "UIChoiceBlockFontSize": jsonObj.UiChoiceBlockFontSize = int.Parse(fieldValue); break;
                         case "KarmaCurrency": jsonObj.KarmaCurrency = fieldValue; break;
                         case "KarmaBadBorder": jsonObj.KarmaBadBorder = int.Parse(fieldValue); break;
                         case "KarmaGoodBorder": jsonObj.KarmaGoodBorder = int.Parse(fieldValue); break;
                         case "KarmaTopLimit": jsonObj.KarmaTopLimit = int.Parse(fieldValue); break;
                         case "CurrenciesInOrderOfUI":
-                            jsonObj.CurrenciesInOrderOfUI = new List<string>(fieldValue.Split(','));
+                            jsonObj.CurrenciesInOrderOfUi = new List<string>(fieldValue.Split(','));
                             break;
                         case "RacesList":
                             jsonObj.RacesList = fieldValue != "-"
@@ -127,54 +127,54 @@ namespace StoriesLinker
                         case "UITextPlateLimits":
                             values = fieldValue.Split(',');
 
-                            jsonObj.UITextPlateLimits = new List<int>();
+                            jsonObj.UiTextPlateLimits = new List<int>();
 
-                            foreach (string el in values) jsonObj.UITextPlateLimits.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UiTextPlateLimits.Add(int.Parse(el));
 
                             break;
                         case "UIPaintFirstLetterInRedException":
-                            jsonObj.UIPaintFirstLetterInRedException = fieldValue == "1";
+                            jsonObj.UiPaintFirstLetterInRedException = fieldValue == "1";
                             break;
-                        case "UITextPlateOffset": jsonObj.UITextPlateOffset = int.Parse(fieldValue); break;
-                        case "UIOverridedTextColor": jsonObj.UIOverridedTextColor = fieldValue == "1"; break;
+                        case "UITextPlateOffset": jsonObj.UiTextPlateOffset = int.Parse(fieldValue); break;
+                        case "UIOverridedTextColor": jsonObj.UiOverridedTextColor = fieldValue == "1"; break;
                         case "UITextColor":
                             values = fieldValue.Split(',');
 
-                            jsonObj.UITextColor = new List<int>();
+                            jsonObj.UiTextColor = new List<int>();
 
-                            foreach (string el in values) jsonObj.UITextColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UiTextColor.Add(int.Parse(el));
 
                             break;
                         case "UIBlockedTextColor":
                             values = fieldValue.Split(',');
 
-                            jsonObj.UIBlockedTextColor = new List<int>();
+                            jsonObj.UiBlockedTextColor = new List<int>();
 
-                            foreach (string el in values) jsonObj.UIBlockedTextColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UiBlockedTextColor.Add(int.Parse(el));
 
                             break;
                         case "UIChNameTextColor":
                             values = fieldValue.Split(',');
 
-                            jsonObj.UIChNameTextColor = new List<int>();
+                            jsonObj.UiChNameTextColor = new List<int>();
 
-                            foreach (string el in values) jsonObj.UIChNameTextColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UiChNameTextColor.Add(int.Parse(el));
 
                             break;
                         case "UIOutlineColor":
                             values = fieldValue.Split(',');
 
-                            jsonObj.UIOutlineColor = new List<int>();
+                            jsonObj.UiOutlineColor = new List<int>();
 
-                            foreach (string el in values) jsonObj.UIOutlineColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UiOutlineColor.Add(int.Parse(el));
 
                             break;
                         case "UIResTextColor":
                             values = fieldValue.Split(',');
 
-                            jsonObj.UIResTextColor = new List<int>();
+                            jsonObj.UiResTextColor = new List<int>();
 
-                            foreach (string el in values) jsonObj.UIResTextColor.Add(int.Parse(el));
+                            foreach (string el in values) jsonObj.UiResTextColor.Add(int.Parse(el));
 
                             break;
                         case "WardrobeEnabled": jsonObj.WardrobeEnabled = fieldValue == "1"; break;
@@ -194,7 +194,7 @@ namespace StoriesLinker
 
                 Func<object[], int> checkRow = CheckRow();
 
-                var characters = new List<AJMetaCharacterData>();
+                var characters = new List<AjMetaCharacterData>();
 
                 for (var rowNum = 2; rowNum <= totalRows; rowNum++)
                 {
@@ -214,7 +214,7 @@ namespace StoriesLinker
                         case 0: return null;
                     }
 
-                    var ch = new AJMetaCharacterData
+                    var ch = new AjMetaCharacterData
                              {
                                  DisplayName = cells[0].ToString(),
                                  ClothesVariableName = cells[1].ToString(),
@@ -230,7 +230,7 @@ namespace StoriesLinker
                 myWorksheet = xlPackage.Workbook.Worksheets[3];
                 totalRows = myWorksheet.Dimension.End.Row;
 
-                var locations = new List<AJMetaLocationData>();
+                var locations = new List<AjMetaLocationData>();
 
                 for (var rowNum = 2; rowNum <= totalRows; rowNum++)
                 {
@@ -251,9 +251,9 @@ namespace StoriesLinker
                         case 0: return null;
                     }
 
-                    var loc = new AJMetaLocationData
+                    var loc = new AjMetaLocationData
                                {
-                                   ID = int.Parse(cells[0].ToString()),
+                                   Id = int.Parse(cells[0].ToString()),
                                    DisplayName = cells[1].ToString(),
                                    SpriteName = cells[2].ToString(),
                                    SoundIdleName = cells[3].ToString()
@@ -293,13 +293,13 @@ namespace StoriesLinker
             return Row;
         }
 
-        public Dictionary<string, AJObj> GetAricyBookEntities(AJFile ajfile, Dictionary<string, string> nativeDict)
+        public Dictionary<string, AjObj> GetAricyBookEntities(AjFile ajfile, Dictionary<string, string> nativeDict)
         {
-            var objectsList = new Dictionary<string, AJObj>();
+            var objectsList = new Dictionary<string, AjObj>();
 
-            List<AJObj> models = ajfile.Packages[0].Models;
+            List<AjObj> models = ajfile.Packages[0].Models;
 
-            foreach (AJObj ns in models)
+            foreach (AjObj ns in models)
             {
                 objectsList.Add(ns.Properties.Id, ns);
             }
@@ -307,16 +307,16 @@ namespace StoriesLinker
             return objectsList;
         }
 
-        private List<string> GetSortedChaptersList(Dictionary<string, AJObj> objList,
+        private List<string> GetSortedChaptersList(Dictionary<string, AjObj> objList,
                                                    Dictionary<string, string> nativeDict)
         {
             var chaptersIds = new List<string>();
 
             var chaptersIDNames = new Dictionary<string, int>();
 
-            foreach (KeyValuePair<string, AJObj> kobj in objList)
+            foreach (KeyValuePair<string, AjObj> kobj in objList)
             {
-                if (kobj.Value.EType != AJType.FlowFragment) continue;
+                if (kobj.Value.EType != AjType.FlowFragment) continue;
 
                 string value = Regex.Match(nativeDict[kobj.Value.Properties.DisplayName], @"\d+").Value;
 
@@ -334,7 +334,7 @@ namespace StoriesLinker
         }
 
         private List<string>[] GetChaptersAndSubchaptersParentsIDs(List<string> chaptersIds,
-                                                                   Dictionary<string, AJObj> objList)
+                                                                   Dictionary<string, AjObj> objList)
         {
             var ids = new List<List<string>>();
 
@@ -345,9 +345,9 @@ namespace StoriesLinker
                 ids.Add(new List<string>());
                 ids[i].Add(chapterID);
 
-                foreach (KeyValuePair<string, AJObj> kobj in objList)
+                foreach (KeyValuePair<string, AjObj> kobj in objList)
                 {
-                    if (kobj.Value.EType != AJType.Dialogue) continue; //subchapter 
+                    if (kobj.Value.EType != AjType.Dialogue) continue; //subchapter 
 
                     string subchapterID = kobj.Value.Properties.Id;
 
@@ -361,7 +361,7 @@ namespace StoriesLinker
                         }
                         else
                         {
-                            if (objList.TryGetValue(parent, out AJObj value))
+                            if (objList.TryGetValue(parent, out AjObj value))
                                 parent = value.Properties.Parent;
                             else
                                 break;
@@ -389,10 +389,10 @@ namespace StoriesLinker
             Directory.CreateDirectory(_projectPath + @"\Localization");
             Directory.CreateDirectory(_projectPath + @"\Localization\Russian");
 
-            AJFile ajfile = GetParsedFlowJsonFile();
+            AjFile ajfile = GetParsedFlowJsonFile();
 
             Dictionary<string, string> nativeDict = GetNativeDict();
-            Dictionary<string, AJObj> objectsList = GetAricyBookEntities(ajfile, nativeDict);
+            Dictionary<string, AjObj> objectsList = GetAricyBookEntities(ajfile, nativeDict);
 
             List<string> chaptersIds = GetSortedChaptersList(objectsList, nativeDict);
 
@@ -405,12 +405,12 @@ namespace StoriesLinker
 
             chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
 
-            string RecognizeEmotion(AJColor color)
+            string RecognizeEmotion(AjColor color)
             {
                 var emotion = EChEmotion.IsntSetOrNeutral;
 
                 bool ColorsEquals(Color32 a, Color32 b) =>
-                    Math.Abs(a.r - b.r) < 20 && Math.Abs(a.g - b.g) < 20 && Math.Abs(a.b - b.b) < 20;
+                    Math.Abs(a.R - b.R) < 20 && Math.Abs(a.G - b.G) < 20 && Math.Abs(a.B - b.B) < 20;
 
                 var fragColor = color.ToColor32();
                 var emotionsColor = new Color32[]
@@ -447,12 +447,12 @@ namespace StoriesLinker
                 var nonTranslating = new List<LocalizEntity>();
                 List<string> parentsIds = csparentsIds[i];
 
-                foreach (KeyValuePair<string, AJObj> scobj in objectsList)
+                foreach (KeyValuePair<string, AjObj> scobj in objectsList)
                     if (parentsIds.Contains(scobj.Value.Properties.Parent))
                     {
-                        AJObj dfobj = scobj.Value;
+                        AjObj dfobj = scobj.Value;
 
-                        if (dfobj.EType != AJType.DialogueFragment) continue;
+                        if (dfobj.EType != AjType.DialogueFragment) continue;
 
                         string chID = dfobj.Properties.Speaker;
 
@@ -524,7 +524,7 @@ namespace StoriesLinker
                 bool forTranslating = name.Contains("for_translating");
                 ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Data");
 
-                bool forLocalizatorsMode = Form1.ForLocalizatorsMode;
+                bool forLocalizatorsMode = Form1.FOR_LOCALIZATORS_MODE;
 
                 var row = 1;
                 var col = 1;
@@ -631,8 +631,8 @@ namespace StoriesLinker
 
             string tempFolder = _projectPath + @"\Temp\";
 
-            AJFile ajfile = GetParsedFlowJsonFile();
-            AJLinkerMeta meta = GetParsedMetaInputJsonFile();
+            AjFile ajfile = GetParsedFlowJsonFile();
+            AjLinkerMeta meta = GetParsedMetaInputJsonFile();
 
             if (meta == null)
             {
@@ -646,18 +646,18 @@ namespace StoriesLinker
 
             for (var i = 0; i < meta.Characters.Count; i++)
             {
-                AJMetaCharacterData cObj = meta.Characters[i];
+                AjMetaCharacterData cObj = meta.Characters[i];
 
                 for (var j = 0; j < meta.Characters.Count; j++)
                 {
                     if (i == j) continue;
 
-                    AJMetaCharacterData aObj = meta.Characters[j];
+                    AjMetaCharacterData aObj = meta.Characters[j];
 
                     if (cObj.DisplayName != aObj.DisplayName &&
                         (cObj.BaseNameInAtlas != aObj.BaseNameInAtlas ||
                          cObj.BaseNameInAtlas == "-" ||
-                         meta.UniqueID == "Shism_1") &&
+                         meta.UniqueId == "Shism_1") &&
                         (cObj.ClothesVariableName != aObj.ClothesVariableName ||
                          cObj.ClothesVariableName.Trim() == "-"))
                         continue;
@@ -695,17 +695,17 @@ namespace StoriesLinker
 
             // проверка на дубль имён и спрайтов локаций
 
-            if (meta.UniqueID != "Pirates_1")
+            if (meta.UniqueId != "Pirates_1")
             {
                 for (var i = 0; i < meta.Locations.Count; i++)
                 {
-                    AJMetaLocationData cObj = meta.Locations[i];
+                    AjMetaLocationData cObj = meta.Locations[i];
 
                     for (var j = 0; j < meta.Locations.Count; j++)
                     {
                         if (i == j) continue;
 
-                        AJMetaLocationData aObj = meta.Locations[j];
+                        AjMetaLocationData aObj = meta.Locations[j];
 
                         if (cObj.DisplayName != aObj.DisplayName && cObj.SpriteName != aObj.SpriteName)
                             continue;
@@ -737,7 +737,7 @@ namespace StoriesLinker
             Directory.CreateDirectory(brFolder + @"\Music");
 
             Dictionary<string, string> nativeDict = GetNativeDict();
-            Dictionary<string, AJObj> objectsList = GetAricyBookEntities(ajfile, nativeDict);
+            Dictionary<string, AjObj> objectsList = GetAricyBookEntities(ajfile, nativeDict);
 
             List<string> chaptersIds = GetSortedChaptersList(objectsList, nativeDict);
 
@@ -752,7 +752,7 @@ namespace StoriesLinker
 
             List<string>[] csparentsIds = GetChaptersAndSubchaptersParentsIDs(chaptersIds, objectsList);
 
-            var gridLinker = new AJAssetGridLinker();
+            var gridLinker = new AjAssetGridLinker();
 
             Action<string> checkAddCh = CheckAddCh(nativeDict, objectsList, meta, gridLinker);
 
@@ -764,32 +764,32 @@ namespace StoriesLinker
             var copiedLocSprites = new List<string>();
             var copiedLocIdles = new List<string>();
 
-            var sharedObjs = new List<AJObj>();
+            var sharedObjs = new List<AjObj>();
 
-            foreach (KeyValuePair<string, AJObj> pair in objectsList)
+            foreach (KeyValuePair<string, AjObj> pair in objectsList)
             {
-                if (pair.Value.EType != AJType.Entity && pair.Value.EType != AJType.Location) continue;
+                if (pair.Value.EType != AjType.Entity && pair.Value.EType != AjType.Location) continue;
 
                 string dname = nativeDict[pair.Value.Properties.DisplayName];
 
-                if (pair.Value.EType == AJType.Entity)
+                if (pair.Value.EType == AjType.Entity)
                 {
                     int index = meta.Characters.FindIndex(ch => ch.DisplayName == dname);
 
-                    if (index != -1) meta.Characters[index].AID = pair.Key;
+                    if (index != -1) meta.Characters[index].Aid = pair.Key;
                 }
                 else
                 {
                     int index = meta.Locations.FindIndex(loc => loc.DisplayName == dname);
 
-                    if (index != -1) meta.Locations[index].AID = pair.Key;
+                    if (index != -1) meta.Locations[index].Aid = pair.Key;
                 }
 
                 sharedObjs.Add(pair.Value);
             }
 
-            foreach (AJMetaLocationData el in meta.Locations.Where(el => string.IsNullOrEmpty(el.AID)))
-                el.AID = "fake_location_aid" + el.ID;
+            foreach (AjMetaLocationData el in meta.Locations.Where(el => string.IsNullOrEmpty(el.Aid)))
+                el.Aid = "fake_location_aid" + el.Id;
 
             string translatedDataFolder = _projectPath + @"\TranslatedData\";
 
@@ -809,7 +809,7 @@ namespace StoriesLinker
 
             meta.ChaptersEntryPoints = new List<string>();
 
-            var gridAssetFile = new AJGridAssetJSON();
+            var gridAssetFile = new AjGridAssetJson();
 
             var allDicts
                 = new Dictionary<string, Dictionary<string, string>>();
@@ -824,43 +824,43 @@ namespace StoriesLinker
 
                 meta.ChaptersEntryPoints.Add(parentsIds[0]);
 
-                var chapterObjs = new List<AJObj>();
+                var chapterObjs = new List<AjObj>();
 
-                foreach (KeyValuePair<string, AJObj> pair in objectsList)
+                foreach (KeyValuePair<string, AjObj> pair in objectsList)
                 {
                     if (!parentsIds.Contains(pair.Value.Properties.Parent) &&
                         !parentsIds.Contains(pair.Value.Properties.Id))
                         continue;
 
-                    AJObj dfobj = pair.Value;
+                    AjObj dfobj = pair.Value;
 
                     switch (dfobj.EType)
                     {
-                        case AJType.DialogueFragment:
+                        case AjType.DialogueFragment:
                         {
                             string chID = dfobj.Properties.Speaker;
 
                             checkAddCh(chID);
                             break;
                         }
-                        case AJType.Dialogue:
+                        case AjType.Dialogue:
                         {
                             List<string> attachments = dfobj.Properties.Attachments;
 
                             foreach (string el in attachments)
                             {
-                                AJObj atObj = objectsList[el];
+                                AjObj atObj = objectsList[el];
 
                                 switch (atObj.EType)
                                 {
-                                    case AJType.Location: checkAddLoc(el); break;
-                                    case AJType.Entity: checkAddCh(el); break;
+                                    case AjType.Location: checkAddLoc(el); break;
+                                    case AjType.Entity: checkAddCh(el); break;
                                 }
                             }
 
                             break;
                         }
-                        case AJType.Instruction:
+                        case AjType.Instruction:
                         {
                             string rawScript = dfobj.Properties.Expression;
 
@@ -887,7 +887,7 @@ namespace StoriesLinker
                     chapterObjs.Add(dfobj);
                 }
 
-                var flowJson = new AJLinkerOutputChapterFlow { Objects = chapterObjs };
+                var flowJson = new AjLinkerOutputChapterFlow { Objects = chapterObjs };
 
                 string chapterFolder
                     = tempFolder + getVersionName("chapter" + chapterN, meta.Version.BinVersion);
@@ -903,7 +903,7 @@ namespace StoriesLinker
 
                 foreach (string el in chapterChs)
                 {
-                    AJMetaCharacterData ch = meta.Characters.Find(lch => lch.DisplayName.Trim() == el.Trim());
+                    AjMetaCharacterData ch = meta.Characters.Find(lch => lch.DisplayName.Trim() == el.Trim());
 
                     string atlasNameFiled = ch.AtlasFileName;
 
@@ -947,7 +947,7 @@ namespace StoriesLinker
 
                 foreach (string el in locationsChs)
                 {
-                    AJMetaLocationData loc = meta.Locations.Find(lloc => lloc.DisplayName == el);
+                    AjMetaLocationData loc = meta.Locations.Find(lloc => lloc.DisplayName == el);
 
                     if (!copiedLocSprites.Contains(loc.SpriteName))
                     {
@@ -965,7 +965,7 @@ namespace StoriesLinker
                               string.Format(chapterFolder + @"\Resources\{0}.mp3", loc.SoundIdleName));
                 }
 
-                var gridAssetChapter = new AJGridAssetChapterJSON
+                var gridAssetChapter = new AjGridAssetChapterJson
                                           {
                                               CharactersIDs
                                                   = gridLinker.GetCharactersIDsFromCurChapter(),
@@ -974,7 +974,7 @@ namespace StoriesLinker
 
                 gridAssetFile.Chapters.Add(gridAssetChapter);
 
-                var origLangData = new Dictionary<string, AJLocalizInJSONFile>();
+                var origLangData = new Dictionary<string, AjLocalizInJsonFile>();
 
                 Func<string, string, string[], string, int, string> generateLjson =
                     GenerateLjson(allDicts, origLangData);
@@ -983,7 +983,7 @@ namespace StoriesLinker
 
                 Action<string, string> showLocalizError = ShowLocalizError();
 
-                if (Form1.OnlyEnglishMode)
+                if (Form1.ONLY_ENGLISH_MODE)
                     if (!langsCols.ContainsKey("English"))
                         langsCols.Add("English", -1);
 
@@ -1063,7 +1063,7 @@ namespace StoriesLinker
                 }
             }
 
-            var baseJson = new AJLinkerOutputBase
+            var baseJson = new AjLinkerOutputBase
                              {
                                  GlobalVariables = ajfile.GlobalVariables, SharedObjs = sharedObjs
                              };
@@ -1125,9 +1125,9 @@ namespace StoriesLinker
         }
 
         private static Action<string> CheckAddCh(Dictionary<string, string> nativeDict,
-                                                 Dictionary<string, AJObj> objectsList,
-                                                 AJLinkerMeta meta,
-                                                 AJAssetGridLinker gridLinker)
+                                                 Dictionary<string, AjObj> objectsList,
+                                                 AjLinkerMeta meta,
+                                                 AjAssetGridLinker gridLinker)
         {
             void AddCh(string aid)
             {
@@ -1140,28 +1140,28 @@ namespace StoriesLinker
                     throw new Exception("В таблице нет персонажа с именем " + dname);
                 }
 
-                if (!gridLinker.isChExist(dname)) gridLinker.AddCharacter(dname, aid);
+                if (!gridLinker.IsChExist(dname)) gridLinker.AddCharacter(dname, aid);
             }
 
             return AddCh;
         }
 
-        private static Action<int> CheckAddLocINT(AJLinkerMeta meta, AJAssetGridLinker gridLinker)
+        private static Action<int> CheckAddLocINT(AjLinkerMeta meta, AjAssetGridLinker gridLinker)
         {
             void AddLocINT(int intID)
             {
-                AJMetaLocationData mdata = meta.Locations.Find(chf => chf.ID == intID);
+                AjMetaLocationData mdata = meta.Locations.Find(chf => chf.Id == intID);
 
-                if (!gridLinker.isLocExist(mdata.DisplayName)) gridLinker.AddLocation(mdata.DisplayName, mdata.AID);
+                if (!gridLinker.IsLocExist(mdata.DisplayName)) gridLinker.AddLocation(mdata.DisplayName, mdata.Aid);
             }
 
             return AddLocINT;
         }
 
         private static Action<string> CheckAddLoc(Dictionary<string, string> nativeDict,
-                                                  Dictionary<string, AJObj> objectsList,
-                                                  AJLinkerMeta meta,
-                                                  AJAssetGridLinker gridLinker)
+                                                  Dictionary<string, AjObj> objectsList,
+                                                  AjLinkerMeta meta,
+                                                  AjAssetGridLinker gridLinker)
         {
             void AddLoc(string aid)
             {
@@ -1174,7 +1174,7 @@ namespace StoriesLinker
                     throw new Exception("В таблице нет локации с именем " + dname);
                 }
 
-                if (!gridLinker.isLocExist(dname)) gridLinker.AddLocation(dname, objectsList[aid].Properties.Id);
+                if (!gridLinker.IsLocExist(dname)) gridLinker.AddLocation(dname, objectsList[aid].Properties.Id);
             }
 
             return AddLoc;
@@ -1192,7 +1192,7 @@ namespace StoriesLinker
 
         private Func<string, string, string[], string, int, string> GenerateLjson(
             Dictionary<string, Dictionary<string, string>> allDicts,
-            Dictionary<string, AJLocalizInJSONFile> origLangData)
+            Dictionary<string, AjLocalizInJsonFile> origLangData)
         {
             return (language, id, inPaths, outputPath, colN) =>
             {
@@ -1202,15 +1202,15 @@ namespace StoriesLinker
                     allDicts[language] = allStrings;
                 }
 
-                AJLocalizInJSONFile jsonData = GetXMLFile(inPaths, colN);
+                AjLocalizInJsonFile jsonData = GetXMLFile(inPaths, colN);
                 bool origLang = !origLangData.ContainsKey(id);
 
                 if (origLang) origLangData[id] = jsonData;
 
-                AJLocalizInJSONFile origJsonData = origLangData[id];
+                AjLocalizInJsonFile origJsonData = origLangData[id];
                 if (origLang) jsonData = GetXMLFile(inPaths, colN);
 
-                if (Form1.ForLocalizatorsMode)
+                if (Form1.FOR_LOCALIZATORS_MODE)
                 {
                     Console.WriteLine($"start {id} {allStrings.Count}");
                     foreach (KeyValuePair<string, string> pair in origJsonData.Data)
@@ -1267,21 +1267,21 @@ namespace StoriesLinker
              !string.IsNullOrEmpty(jsonDataValue.Replace(".", "").Trim()) &&
              !origValue.ToLower().Contains("%pname%"));
 
-        private string CheckLocalizationIssues(AJLocalizInJSONFile origJsonData,
-                                               AJLocalizInJSONFile jsonData,
+        private string CheckLocalizationIssues(AjLocalizInJsonFile origJsonData,
+                                               AjLocalizInJsonFile jsonData,
                                                bool origLang)
         {
             foreach (KeyValuePair<string, string> pair in origJsonData.Data)
                 if (!jsonData.Data.ContainsKey(pair.Key) ||
                     string.IsNullOrEmpty(jsonData.Data[pair.Key].Trim()) ||
-                    (jsonData.Data[pair.Key] == pair.Value && !Form1.OnlyEnglishMode && !origLang))
+                    (jsonData.Data[pair.Key] == pair.Value && !Form1.ONLY_ENGLISH_MODE && !origLang))
                     return pair.Key;
 
             return string.Empty;
         }
 
 
-        private AJLocalizInJSONFile GetXMLFile(string[] pathsToXmls, int column)
+        private AjLocalizInJsonFile GetXMLFile(string[] pathsToXmls, int column)
         {
             var total = new Dictionary<string, string>();
 
@@ -1293,19 +1293,19 @@ namespace StoriesLinker
                     total.Add(pair.Key, pair.Value);
             }
 
-            var jsonFile = new AJLocalizInJSONFile { Data = total };
+            var jsonFile = new AjLocalizInJsonFile { Data = total };
 
             return jsonFile;
         }
 
-        private AJLocalizInJSONFile WriteJsonFile(AJLocalizInJSONFile jsonFile, string pathToJson)
+        private AjLocalizInJsonFile WriteJsonFile(AjLocalizInJsonFile jsonFile, string pathToJson)
         {
             File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
 
             return jsonFile;
         }
 
-        public AJLocalizInJSONFile ConvertXMLToJson(string[] pathsToXmls, string pathToJson, int column)
+        public AjLocalizInJsonFile ConvertXMLToJson(string[] pathsToXmls, string pathToJson, int column)
         {
             var total = new Dictionary<string, string>();
 
@@ -1317,7 +1317,7 @@ namespace StoriesLinker
                     total.Add(pair.Key, pair.Value);
             }
 
-            var jsonFile = new AJLocalizInJSONFile();
+            var jsonFile = new AjLocalizInJsonFile();
             jsonFile.Data = total;
 
             File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
