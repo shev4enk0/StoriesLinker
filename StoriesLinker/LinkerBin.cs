@@ -128,6 +128,56 @@ namespace StoriesLinker
             return nativeDict;
         }
 
+        // Специальная версия для обработки BookDescriptions для основного языка
+        private Dictionary<string, string> XMLTableToDictBookDesc(string path)
+        {
+            if (_savedXMLDicts.TryGetValue(path, out Dictionary<string, string> dict)) return dict;
+
+            var nativeDict = new Dictionary<string, string>();
+
+            using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+            {
+                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                int totalRows = myWorksheet.Dimension.End.Row;
+                int totalColumns = myWorksheet.Dimension.End.Column;
+
+                for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+                {
+                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];  // Колонка A (ID)
+                    ExcelRange columnD = myWorksheet.Cells[rowNum, 4];   // Колонка D
+                    ExcelRange columnB = myWorksheet.Cells[rowNum, 2];   // Колонка B
+
+                    string firstRowStr = firstRow != null && firstRow.Value != null
+                                                ? firstRow.Value.ToString()
+                                                : "";
+                                                
+                    if (string.IsNullOrEmpty(firstRowStr)) continue;
+
+                    // Проверяем сначала колонку D, если пусто, берем из B
+                    string valueStr;
+                    if (columnD != null && columnD.Value != null && !string.IsNullOrWhiteSpace(columnD.Value.ToString()))
+                    {
+                        valueStr = columnD.Value.ToString();
+                    }
+                    else
+                    {
+                        valueStr = columnB != null && columnB.Value != null
+                                      ? columnB.Value.ToString()
+                                      : " ";
+                    }
+
+                    if (!nativeDict.ContainsKey(firstRowStr))
+                        nativeDict.Add(firstRowStr, valueStr);
+                    else
+                        Console.WriteLine("double key critical error " + firstRowStr);
+                }
+            }
+
+            _savedXMLDicts.Add(path, nativeDict);
+
+            return nativeDict;
+        }
+
         // Получение основного словаря локализации
         public Dictionary<string, string> GetNativeDict() => XMLTableToDict(GetLocalizTablesPath(_projectPath));
 
@@ -374,7 +424,19 @@ namespace StoriesLinker
 
             foreach (string el in pathsToXmls)
             {
-                Dictionary<string, string> fileDict = XMLTableToDict(el, column);
+                Dictionary<string, string> fileDict;
+                
+                // Проверяем, является ли файл описанием книги для основного языка
+                if (el.Contains("BookDescriptions") && el.Contains(_baseLanguage))
+                {
+                    // Для основного языка используем специальный метод чтения BookDescriptions
+                    fileDict = XMLTableToDictBookDesc(el);
+                }
+                else
+                {
+                    // Для других файлов используем стандартный метод
+                    fileDict = XMLTableToDict(el, column);
+                }
 
                 foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
                     total.Add(pair.Key, pair.Value);
@@ -850,14 +912,16 @@ namespace StoriesLinker
 
             if (multiLangOutput)
             {
-                // Здесь добавляются другие языки
-                if (_baseLanguage != "Russian") langsCols.Add("Russian", 4);
-                /*if (_baseLanguage != "English") langsCols.Add("English", 4);
-                if (_baseLanguage != "Polish") langsCols.Add("Polish", 4);
-                if (_baseLanguage != "Deutsch") langsCols.Add("Deutsch", 4);
-                if (_baseLanguage != "French") langsCols.Add("French", 4);
-                if (_baseLanguage != "Spanish") langsCols.Add("Spanish", 4);
-                if (_baseLanguage != "Japan") langsCols.Add("Japan", 4);*/
+                // Определение доступных языков по наличию папок в TranslatedData
+                foreach (string langDir in Directory.GetDirectories(translatedDataFolder))
+                {
+                    string langName = Path.GetFileName(langDir);
+                    if (langName != _baseLanguage && !langsCols.ContainsKey(langName))
+                    {
+                        langsCols.Add(langName, 4);
+                        Console.WriteLine($"Добавлен язык для локализации: {langName}");
+                    }
+                }
             }
 
             meta.ChaptersEntryPoints = new List<string>();
@@ -1161,7 +1225,28 @@ namespace StoriesLinker
                 bool nativeLang = lang == _baseLanguage || colNum == -1;
 
                 string langFolder = nativeLang ? langOriginFolder : _projectPath + @"\TranslatedData\" + lang;
-                string bookDescsPath = _projectPath + @"\Raw\BookDescriptions\" + lang + ".xlsx";
+                string bookDescsPath;
+                
+                if (nativeLang)
+                {
+                    // Для основного языка ищем файл в папке Raw/BookDescriptions
+                    bookDescsPath = _projectPath + @"\Raw\BookDescriptions\" + lang + ".xlsx";
+                }
+                else
+                {
+                    // Для дополнительных языков проверяем, есть ли файл в папке с переводом
+                    string translatedBookPath = _projectPath + @"\TranslatedData\" + lang + @"\" + lang + ".xlsx";
+                    
+                    if (File.Exists(translatedBookPath))
+                    {
+                        bookDescsPath = translatedBookPath;
+                    }
+                    else
+                    {
+                        // Если файла в папке перевода нет, используем файл из основной папки
+                        bookDescsPath = _projectPath + @"\Raw\BookDescriptions\" + lang + ".xlsx";
+                    }
+                }
 
                 Console.WriteLine("GENERATE TABLES FOR LANGUAGE: " + lang);
 
