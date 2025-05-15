@@ -29,6 +29,13 @@ namespace StoriesLinker
 
                 folderBrowserDialog1.SelectedPath = path;
                 path_value.Text = path;
+                
+                // Также назначаем путь переменной _projectPath
+                _projectPath = path;
+                
+                // Обновляем имя проекта в интерфейсе
+                string[] pathParts = _projectPath.Split('/', '\\');
+                proj_name_value.Text = pathParts[pathParts.Length - 1];
             }
             else
             {
