@@ -10,17 +10,86 @@ namespace StoriesLinker
 {
     public class LinkerBin
     {
-        private string _projectPath;
+        #region Поля и инициализация
 
+        private string _projectPath;
+        private string _baseLanguage; // Базовый язык локализации
         private Dictionary<string, Dictionary<string, string>> _savedXMLDicts;
+        private int _allWordsCount = 0;
 
         public LinkerBin(string projectPath)
         {
             _projectPath = projectPath;
-
             _savedXMLDicts = new Dictionary<string, Dictionary<string, string>>();
+            
+            // Автоматически определяем язык по найденному файлу
+            DetermineBaseLanguage();
         }
 
+        #endregion
+
+        #region Работа с языками и локализацией
+
+        // Метод для определения базового языка на основе найденного файла локализации
+        private void DetermineBaseLanguage()
+        {
+            string locFilePath = GetLocalizTablesPath(_projectPath);
+            
+            if (locFilePath.Contains("loc_All objects_ru.xlsx"))
+                _baseLanguage = "Russian";
+            else if (locFilePath.Contains("loc_All objects_en.xlsx"))
+                _baseLanguage = "English";
+            else if (locFilePath.Contains("loc_All objects_pl.xlsx"))
+                _baseLanguage = "Polish";
+            else if (locFilePath.Contains("loc_All objects_de.xlsx"))
+                _baseLanguage = "Deutsch";
+            else if (locFilePath.Contains("loc_All objects_fr.xlsx"))
+                _baseLanguage = "French";
+            else if (locFilePath.Contains("loc_All objects_es.xlsx"))
+                _baseLanguage = "Spanish";
+            else if (locFilePath.Contains("loc_All objects_jp.xlsx"))
+                _baseLanguage = "Japan";
+            else
+                _baseLanguage = "Russian"; // По умолчанию русский
+            
+            Console.WriteLine($"Определен базовый язык: {_baseLanguage} на основе файла {locFilePath}");
+        }
+        
+        // Метод для ручной установки базового языка
+        public void SetBaseLanguage(string language)
+        {
+            _baseLanguage = language;
+        }
+
+        // Получение пути к основному файлу локализации
+        public static string GetLocalizTablesPath(string projPath)
+        {
+            // Пробуем варианты файлов
+            string[] langVariants = { "en", "ru", "pl", "de", "fr", "es", "jp" };
+            string path = "";
+            
+            foreach (string lang in langVariants)
+            {
+                path = projPath + $@"\Raw\loc_All objects_{lang}.xlsx";
+                if (File.Exists(path)) 
+                    return path;
+            }
+            
+            // Если ничего не найдено, возвращаем путь к русскому файлу
+            return projPath + @"\Raw\loc_All objects_ru.xlsx";
+        }
+
+        // Получение пути к файлу потока
+        public static string GetFlowJsonPath(string projPath) => projPath + @"\Raw\Flow.json";
+
+        // Получение пути к файлу метаданных
+        public static string GetMetaJsonPath(string projPath) => projPath + @"\Raw\Meta.json";
+
+        #endregion
+
+        #region Работа с Excel таблицами
+
+        // Преобразование Excel-таблицы в словарь
         private Dictionary<string, string> XMLTableToDict(string path, int column = 1)
         {
             if (_savedXMLDicts.TryGetValue(path, out Dictionary<string, string> dict)) return dict;
@@ -59,7 +128,12 @@ namespace StoriesLinker
             return nativeDict;
         }
 
+        // Получение основного словаря локализации
         public Dictionary<string, string> GetNativeDict() => XMLTableToDict(GetLocalizTablesPath(_projectPath));
+
+        #endregion
+
+        #region Работа с JSON файлами
 
         public AjFile GetParsedFlowJsonFile()
         {
@@ -270,6 +344,7 @@ namespace StoriesLinker
             return jsonObj;
         }
 
+        // Проверка строки в Excel таблице
         private static Func<object[], int> CheckRow()
         {
             int Row(object[] cells)
@@ -292,6 +367,54 @@ namespace StoriesLinker
 
             return Row;
         }
+
+        private AjLocalizInJsonFile GetXMLFile(string[] pathsToXmls, int column)
+        {
+            var total = new Dictionary<string, string>();
+
+            foreach (string el in pathsToXmls)
+            {
+                Dictionary<string, string> fileDict = XMLTableToDict(el, column);
+
+                foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
+                    total.Add(pair.Key, pair.Value);
+            }
+
+            var jsonFile = new AjLocalizInJsonFile { Data = total };
+
+            return jsonFile;
+        }
+
+        private AjLocalizInJsonFile WriteJsonFile(AjLocalizInJsonFile jsonFile, string pathToJson)
+        {
+            File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
+
+            return jsonFile;
+        }
+
+        public AjLocalizInJsonFile ConvertXMLToJson(string[] pathsToXmls, string pathToJson, int column)
+        {
+            var total = new Dictionary<string, string>();
+
+            foreach (string el in pathsToXmls)
+            {
+                Dictionary<string, string> fileDict = XMLTableToDict(el, column);
+
+                foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
+                    total.Add(pair.Key, pair.Value);
+            }
+
+            var jsonFile = new AjLocalizInJsonFile();
+            jsonFile.Data = total;
+
+            File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
+
+            return jsonFile;
+        }
+
+        #endregion
+
+        #region Работа с сущностями и главами
 
         public Dictionary<string, AjObj> GetAricyBookEntities(AjFile ajfile, Dictionary<string, string> nativeDict)
         {
@@ -381,13 +504,20 @@ namespace StoriesLinker
             IsntSetOrNeutral //blue
         }
 
+        #endregion
+
+        #region Генерация таблиц локализации
+
+        /// <summary>
+        /// Генерирует таблицы локализации на основе данных книги
+        /// </summary>
         public bool GenerateLocalizTables()
         {
             if (Directory.Exists(_projectPath + @"\Localization"))
                 Directory.Delete(_projectPath + @"\Localization", true);
 
             Directory.CreateDirectory(_projectPath + @"\Localization");
-            Directory.CreateDirectory(_projectPath + @"\Localization\Russian");
+            Directory.CreateDirectory(_projectPath + @"\Localization\" + _baseLanguage);
 
             AjFile ajfile = GetParsedFlowJsonFile();
 
@@ -513,8 +643,9 @@ namespace StoriesLinker
             return true;
         }
 
-        private int _allWordsCount = 0;
-
+        /// <summary>
+        /// Создает таблицу локализации в формате Excel
+        /// </summary>
         private void CreateLocalizTable(string name, List<LocalizEntity> ids, Dictionary<string, string> nativeDict)
         {
             var wordCount = 0;
@@ -592,7 +723,7 @@ namespace StoriesLinker
 
                 byte[] bin = eP.GetAsByteArray();
 
-                File.WriteAllBytes(_projectPath + @"\Localization\Russian\" + name + ".xlsx", bin);
+                File.WriteAllBytes(_projectPath + @"\Localization\" + _baseLanguage + @"\" + name + ".xlsx", bin);
 
                 if (name.Contains("internal") || !forLocalizatorsMode) return;
 
@@ -604,6 +735,9 @@ namespace StoriesLinker
             }
         }
 
+        /// <summary>
+        /// Подсчет слов в тексте
+        /// </summary>
         private int CountWords(string text)
         {
             int wordCount = 0, index = 0;
@@ -625,6 +759,13 @@ namespace StoriesLinker
             return wordCount;
         }
 
+        #endregion
+
+        #region Генерация выходных файлов
+
+        /// <summary>
+        /// Генерирует папки с выходными файлами для игры
+        /// </summary>
         public bool GenerateOutputFolder()
         {
             Form1.ShowMessage("Начинаем...");
@@ -641,80 +782,13 @@ namespace StoriesLinker
                 return false;
             }
 
-
-            // проверка на дубль имён персонажей и их имён в атласах
-
-            for (var i = 0; i < meta.Characters.Count; i++)
-            {
-                AjMetaCharacterData cObj = meta.Characters[i];
-
-                for (var j = 0; j < meta.Characters.Count; j++)
-                {
-                    if (i == j) continue;
-
-                    AjMetaCharacterData aObj = meta.Characters[j];
-
-                    if (cObj.DisplayName != aObj.DisplayName &&
-                        (cObj.BaseNameInAtlas != aObj.BaseNameInAtlas ||
-                         cObj.BaseNameInAtlas == "-" ||
-                         meta.UniqueId == "Shism_1") &&
-                        (cObj.ClothesVariableName != aObj.ClothesVariableName ||
-                         cObj.ClothesVariableName.Trim() == "-"))
-                        continue;
-
-                    Form1.ShowMessage("Найдены дублирующиеся значения среди персонажей: " + aObj.DisplayName);
-
-                    return false;
-                }
-
-                if (cObj.AtlasFileName.Contains("Sec_") || cObj.BaseNameInAtlas.Contains("Sec_"))
-                {
-                    if (cObj.AtlasFileName != cObj.BaseNameInAtlas)
-                    {
-                        Form1.ShowMessage("AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: " +
-                                          cObj.DisplayName);
-
-                        return false;
-                    }
-                }
-
-                int clothesNsIndex = ajfile.GlobalVariables.FindIndex(ns => ns.Namespace == "Clothes");
-
-                bool state1 = clothesNsIndex != -1;
-                bool state2 = ajfile.GlobalVariables[clothesNsIndex]
-                                     .Variables
-                                     .FindIndex(v => v.Variable == cObj.ClothesVariableName) !=
-                              -1;
-                if (cObj.ClothesVariableName.Trim() == "-" || (state1 && state2)) continue;
-
-                Form1.ShowMessage("В артиси не определена переменная с именем Clothes." + cObj.ClothesVariableName);
-
+            // Проверка персонажей
+            if (!CheckCharacters(meta, ajfile))
                 return false;
-            }
 
-
-            // проверка на дубль имён и спрайтов локаций
-
-            if (meta.UniqueId != "Pirates_1")
-            {
-                for (var i = 0; i < meta.Locations.Count; i++)
-                {
-                    AjMetaLocationData cObj = meta.Locations[i];
-
-                    for (var j = 0; j < meta.Locations.Count; j++)
-                    {
-                        if (i == j) continue;
-
-                        AjMetaLocationData aObj = meta.Locations[j];
-
-                        if (cObj.DisplayName != aObj.DisplayName && cObj.SpriteName != aObj.SpriteName)
-                            continue;
-
-                        Form1.ShowMessage("Найдены дублирующиеся значения среди локаций: " + aObj.DisplayName);
-                        return false;
-                    }
-                }
-            }
+            // Проверка локаций
+            if (!CheckLocations(meta))
+                return false;
 
             Func<string, string, string> getVersionName = GetVersionName();
 
@@ -766,6 +840,149 @@ namespace StoriesLinker
 
             var sharedObjs = new List<AjObj>();
 
+            ProcessSharedObjects(objectsList, nativeDict, meta, sharedObjs);
+
+            string translatedDataFolder = _projectPath + @"\TranslatedData\";
+
+            bool multiLangOutput = Directory.Exists(translatedDataFolder);
+
+            var langsCols = new Dictionary<string, int> { { _baseLanguage, multiLangOutput ? 3 : 1 } };
+
+            if (multiLangOutput)
+            {
+                // Здесь добавляются другие языки
+                if (_baseLanguage != "Russian") langsCols.Add("Russian", 4);
+                /*if (_baseLanguage != "English") langsCols.Add("English", 4);
+                if (_baseLanguage != "Polish") langsCols.Add("Polish", 4);
+                if (_baseLanguage != "Deutsch") langsCols.Add("Deutsch", 4);
+                if (_baseLanguage != "French") langsCols.Add("French", 4);
+                if (_baseLanguage != "Spanish") langsCols.Add("Spanish", 4);
+                if (_baseLanguage != "Japan") langsCols.Add("Japan", 4);*/
+            }
+
+            meta.ChaptersEntryPoints = new List<string>();
+
+            var gridAssetFile = new AjGridAssetJson();
+
+            var allDicts = new Dictionary<string, Dictionary<string, string>>();
+
+            // Обработка глав
+            ProcessChapters(csparentsIds, 
+                            gridLinker, 
+                            meta, 
+                            objectsList, 
+                            parentsIds => ProcessChapterObjects(parentsIds, objectsList, checkAddCh, checkAddLoc, checkAddLocINT), 
+                            tempFolder, 
+                            getVersionName, 
+                            allDicts, 
+                            copiedChAtlasses, 
+                            copiedLocSprites, 
+                            copiedLocIdles, 
+                            gridAssetFile, 
+                            langsCols
+            );
+
+            // Запись общих файлов
+            WriteSharedFiles(binFolder, brFolder, previewFolder, ajfile, meta, gridAssetFile, sharedObjs);
+
+            // Копирование ресурсов
+            CopyResources(musicSourcePath: _projectPath + @"\Audio\Music", 
+                          musicTempPath: brFolder + @"\Music", 
+                          pcoversSourcePath: _projectPath + @"\Art\PreviewCovers", 
+                          pcoversTempPath: previewFolder + @"\Covers", 
+                          pbannersSourcePath: _projectPath + @"\Art\SliderBanners", 
+                          previewFolder: previewFolder
+            );
+
+            return true;
+        }
+
+        #endregion
+
+        #region Вспомогательные методы
+
+        // Проверка персонажей
+        private bool CheckCharacters(AjLinkerMeta meta, AjFile ajfile)
+        {
+            for (var i = 0; i < meta.Characters.Count; i++)
+            {
+                AjMetaCharacterData cObj = meta.Characters[i];
+
+                for (var j = 0; j < meta.Characters.Count; j++)
+                {
+                    if (i == j) continue;
+
+                    AjMetaCharacterData aObj = meta.Characters[j];
+
+                    if (cObj.DisplayName != aObj.DisplayName &&
+                        (cObj.BaseNameInAtlas != aObj.BaseNameInAtlas ||
+                         cObj.BaseNameInAtlas == "-" ||
+                         meta.UniqueId == "Shism_1") &&
+                        (cObj.ClothesVariableName != aObj.ClothesVariableName ||
+                         cObj.ClothesVariableName.Trim() == "-"))
+                        continue;
+
+                    Form1.ShowMessage("Найдены дублирующиеся значения среди персонажей: " + aObj.DisplayName);
+
+                    return false;
+                }
+
+                if (cObj.AtlasFileName.Contains("Sec_") || cObj.BaseNameInAtlas.Contains("Sec_"))
+                {
+                    if (cObj.AtlasFileName != cObj.BaseNameInAtlas)
+                    {
+                        Form1.ShowMessage("AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: " +
+                                          cObj.DisplayName);
+
+                        return false;
+                    }
+                }
+
+                int clothesNsIndex = ajfile.GlobalVariables.FindIndex(ns => ns.Namespace == "Clothes");
+
+                bool state1 = clothesNsIndex != -1;
+                bool state2 = ajfile.GlobalVariables[clothesNsIndex]
+                                     .Variables
+                                     .FindIndex(v => v.Variable == cObj.ClothesVariableName) !=
+                              -1;
+                if (cObj.ClothesVariableName.Trim() == "-" || (state1 && state2)) continue;
+
+                Form1.ShowMessage("В артиси не определена переменная с именем Clothes." + cObj.ClothesVariableName);
+
+                return false;
+            }
+            return true;
+        }
+
+        // Проверка локаций
+        private bool CheckLocations(AjLinkerMeta meta)
+        {
+            if (meta.UniqueId != "Pirates_1")
+            {
+                for (var i = 0; i < meta.Locations.Count; i++)
+                {
+                    AjMetaLocationData cObj = meta.Locations[i];
+
+                    for (var j = 0; j < meta.Locations.Count; j++)
+                    {
+                        if (i == j) continue;
+
+                        AjMetaLocationData aObj = meta.Locations[j];
+
+                        if (cObj.DisplayName != aObj.DisplayName && cObj.SpriteName != aObj.SpriteName)
+                            continue;
+
+                        Form1.ShowMessage("Найдены дублирующиеся значения среди локаций: " + aObj.DisplayName);
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // Обработка общих объектов
+        private void ProcessSharedObjects(Dictionary<string, AjObj> objectsList, Dictionary<string, string> nativeDict, AjLinkerMeta meta, List<AjObj> sharedObjs)
+        {
             foreach (KeyValuePair<string, AjObj> pair in objectsList)
             {
                 if (pair.Value.EType != AjType.Entity && pair.Value.EType != AjType.Location) continue;
@@ -790,31 +1007,81 @@ namespace StoriesLinker
 
             foreach (AjMetaLocationData el in meta.Locations.Where(el => string.IsNullOrEmpty(el.Aid)))
                 el.Aid = "fake_location_aid" + el.Id;
+        }
 
-            string translatedDataFolder = _projectPath + @"\TranslatedData\";
-
-            bool multiLangOutput = Directory.Exists(translatedDataFolder);
-
-            var langsCols = new Dictionary<string, int> { { "Russian", multiLangOutput ? 3 : 1 } };
-
-            if (multiLangOutput)
+        // Обработка объектов в главе
+        private void ProcessChapterObjects(List<string> parentsIds, Dictionary<string, AjObj> objectsList, 
+                                          Action<string> checkAddCh, Action<string> checkAddLoc, Action<int> checkAddLocINT)
+        {
+            foreach (KeyValuePair<string, AjObj> pair in objectsList)
             {
-                langsCols.Add("English", 4);
-                //_langs_cols.Add("Polish", 4);
-                //_langs_cols.Add("Deutsch", 4);
-                //_langs_cols.Add("French", 4);
-                //_langs_cols.Add("Spanish", 4);
-                //_langs_cols.Add("Japan", 4);
+                if (!parentsIds.Contains(pair.Value.Properties.Parent) &&
+                    !parentsIds.Contains(pair.Value.Properties.Id))
+                    continue;
+
+                AjObj dfobj = pair.Value;
+
+                switch (dfobj.EType)
+                {
+                    case AjType.DialogueFragment:
+                    {
+                        string chID = dfobj.Properties.Speaker;
+
+                        checkAddCh(chID);
+                        break;
+                    }
+                    case AjType.Dialogue:
+                    {
+                        List<string> attachments = dfobj.Properties.Attachments;
+
+                        foreach (string el in attachments)
+                        {
+                            AjObj atObj = objectsList[el];
+
+                            switch (atObj.EType)
+                            {
+                                case AjType.Location: checkAddLoc(el); break;
+                                case AjType.Entity: checkAddCh(el); break;
+                            }
+                        }
+
+                        break;
+                    }
+                    case AjType.Instruction:
+                    {
+                        string rawScript = dfobj.Properties.Expression;
+
+                        if (rawScript.Contains("Location.loc"))
+                        {
+                            string[] scripts = rawScript.Replace("\\n", "")
+                                                           .Replace("\\r", "")
+                                                           .Split(';');
+
+                            foreach (string uscript in scripts)
+                            {
+                                if (!uscript.Contains("Location.loc")) continue;
+
+                                string[] parts = uscript.Split('=');
+                                int locID = int.Parse(parts[1].Trim());
+                                checkAddLocINT(locID);
+                            }
+                        }
+
+                        break;
+                    }
+                }
             }
+        }
 
-            meta.ChaptersEntryPoints = new List<string>();
-
-            var gridAssetFile = new AjGridAssetJson();
-
-            var allDicts
-                = new Dictionary<string, Dictionary<string, string>>();
-
-
+        // Обработка глав
+        private void ProcessChapters(List<string>[] csparentsIds, AjAssetGridLinker gridLinker, AjLinkerMeta meta, 
+                                     Dictionary<string, AjObj> objectsList, Action<List<string>> processChapterObjects,
+                                     string tempFolder, Func<string, string, string> getVersionName,
+                                     Dictionary<string, Dictionary<string, string>> allDicts, 
+                                     List<string> copiedChAtlasses, List<string> copiedLocSprites, List<string> copiedLocIdles,
+                                     AjGridAssetJson gridAssetFile, Dictionary<string, int> langsCols)
+        {
+            // Обработка по главам
             for (var i = 0; i < csparentsIds.Length; i++)
             {
                 gridLinker.AddChapter();
@@ -826,71 +1093,24 @@ namespace StoriesLinker
 
                 var chapterObjs = new List<AjObj>();
 
+                // Обработка объектов в главе
                 foreach (KeyValuePair<string, AjObj> pair in objectsList)
                 {
                     if (!parentsIds.Contains(pair.Value.Properties.Parent) &&
                         !parentsIds.Contains(pair.Value.Properties.Id))
                         continue;
 
-                    AjObj dfobj = pair.Value;
-
-                    switch (dfobj.EType)
-                    {
-                        case AjType.DialogueFragment:
-                        {
-                            string chID = dfobj.Properties.Speaker;
-
-                            checkAddCh(chID);
-                            break;
-                        }
-                        case AjType.Dialogue:
-                        {
-                            List<string> attachments = dfobj.Properties.Attachments;
-
-                            foreach (string el in attachments)
-                            {
-                                AjObj atObj = objectsList[el];
-
-                                switch (atObj.EType)
-                                {
-                                    case AjType.Location: checkAddLoc(el); break;
-                                    case AjType.Entity: checkAddCh(el); break;
-                                }
-                            }
-
-                            break;
-                        }
-                        case AjType.Instruction:
-                        {
-                            string rawScript = dfobj.Properties.Expression;
-
-                            if (rawScript.Contains("Location.loc"))
-                            {
-                                string[] scripts = rawScript.Replace("\\n", "")
-                                                               .Replace("\\r", "")
-                                                               .Split(';');
-
-                                foreach (string uscript in scripts)
-                                {
-                                    if (!uscript.Contains("Location.loc")) continue;
-
-                                    string[] parts = uscript.Split('=');
-                                    int locID = int.Parse(parts[1].Trim());
-                                    checkAddLocINT(locID);
-                                }
-                            }
-
-                            break;
-                        }
-                    }
-
-                    chapterObjs.Add(dfobj);
+                    chapterObjs.Add(pair.Value);
                 }
 
+                processChapterObjects(parentsIds);
+
+                // Создание файлов главы
                 var flowJson = new AjLinkerOutputChapterFlow { Objects = chapterObjs };
 
-                string chapterFolder
-                    = tempFolder + getVersionName("chapter" + chapterN, meta.Version.BinVersion);
+                string chapterFolder = tempFolder + getVersionName("chapter" + chapterN, meta.Version.BinVersion);
+                string binFolder = tempFolder + getVersionName("bin", meta.Version.BinVersion);
+                string previewFolder = tempFolder + getVersionName("preview", meta.Version.PreviewVersion);
 
                 Directory.CreateDirectory(chapterFolder);
                 Directory.CreateDirectory(chapterFolder + @"\Resources");
@@ -898,232 +1118,175 @@ namespace StoriesLinker
 
                 File.WriteAllText(chapterFolder + @"\Flow.json", JsonConvert.SerializeObject(flowJson));
 
-                string[] chapterChs = gridLinker.GetCharactersNamesFromCurChapter();
-                string[] locationsChs = gridLinker.GetLocationsNamesFromCurChapter();
+                // Копирование ресурсов
+                CopyChapterResources(chapterN, gridLinker, meta, chapterFolder, copiedChAtlasses, copiedLocSprites, copiedLocIdles);
 
-                foreach (string el in chapterChs)
-                {
-                    AjMetaCharacterData ch = meta.Characters.Find(lch => lch.DisplayName.Trim() == el.Trim());
+                // Создание таблиц локализации
+                CreateLocalizationTables(chapterN, gridLinker, meta, chapterFolder, allDicts, langsCols, gridAssetFile, binFolder, previewFolder);
+            }
+        }
 
-                    string atlasNameFiled = ch.AtlasFileName;
-
-                    var atlases = new List<string>();
-
-                    if (!atlasNameFiled.Contains(","))
-                        atlases.Add(atlasNameFiled);
-                    else
-                    {
-                        string[] atlasStrs = atlasNameFiled.Split(',');
-
-                        atlases.AddRange(atlasStrs.Where(t => !string.IsNullOrEmpty(t)));
-                    }
-
-                    foreach (string atlasFileName in atlases)
-                    {
-                        if (ch.BaseNameInAtlas == "-" ||
-                            atlasFileName == "-" ||
-                            copiedChAtlasses.Contains(atlasFileName))
-                            continue;
-
-                        copiedChAtlasses.Add(atlasFileName);
-
-                        if (!atlasFileName.Contains("Sec_"))
-                        {
-                            File.Copy(string.Format(_projectPath + @"\Art\Characters\{0}.png", atlasFileName),
-                                      string.Format(chapterFolder + @"\Resources\{0}.png", atlasFileName));
-                            File.Copy(string.Format(_projectPath + @"\Art\Characters\{0}.tpsheet", atlasFileName),
-                                      string.Format(chapterFolder + @"\Resources\{0}.tpsheet", atlasFileName));
-                        }
-                        else
-                        {
-                            string fileName = atlasFileName;
-                            fileName = fileName.Replace("Sec_", meta.SpritePrefix);
-
-                            File.Copy(string.Format(_projectPath + @"\Art\Characters\Secondary\{0}.png", fileName),
-                                      string.Format(chapterFolder + @"\Resources\{0}.png", atlasFileName));
-                        }
-                    }
-                }
-
-                foreach (string el in locationsChs)
-                {
-                    AjMetaLocationData loc = meta.Locations.Find(lloc => lloc.DisplayName == el);
-
-                    if (!copiedLocSprites.Contains(loc.SpriteName))
-                    {
-                        copiedLocSprites.Add(loc.SpriteName);
-
-                        File.Copy(string.Format(_projectPath + @"\Art\Locations\{0}.png", loc.SpriteName),
-                                  string.Format(chapterFolder + @"\Resources\{0}.png", loc.SpriteName));
-                    }
-
-
-                    if (loc.SoundIdleName == "-" || copiedLocIdles.Contains(loc.SoundIdleName)) continue;
-
-                    copiedLocIdles.Add(loc.SoundIdleName);
-                    File.Copy(string.Format(_projectPath + @"\Audio\Idles\{0}.mp3", loc.SoundIdleName),
-                              string.Format(chapterFolder + @"\Resources\{0}.mp3", loc.SoundIdleName));
-                }
-
-                var gridAssetChapter = new AjGridAssetChapterJson
-                                          {
-                                              CharactersIDs
-                                                  = gridLinker.GetCharactersIDsFromCurChapter(),
-                                              LocationsIDs = gridLinker.GetLocationsIDsFromCurChapter()
-                                          };
-
-                gridAssetFile.Chapters.Add(gridAssetChapter);
-
-                var origLangData = new Dictionary<string, AjLocalizInJsonFile>();
-
-                Func<string, string, string[], string, int, string> generateLjson =
-                    GenerateLjson(allDicts, origLangData);
-
-                string langOriginFolder = _projectPath + @"\Localization\Russian";
-
-                Action<string, string> showLocalizError = ShowLocalizError();
-
-                if (Form1.ONLY_ENGLISH_MODE)
-                    if (!langsCols.ContainsKey("English"))
-                        langsCols.Add("English", -1);
-
-                foreach (KeyValuePair<string, int> langPair in langsCols)
-                {
-                    string lang = langPair.Key;
-                    int colNum = langPair.Value;
-
-                    bool nativeLang = lang == "Russian" || colNum == -1;
-
-                    string langFolder
-                        = nativeLang ? langOriginFolder : _projectPath + @"\TranslatedData\" + lang;
-                    string bookDescsPath = _projectPath + @"\Raw\BookDescriptions\" + lang + ".xlsx";
-
-                    Console.WriteLine("GENERATE TABLES FOR LANGUAGE: " + lang);
-
-                    if (!Directory.Exists(langFolder)) continue;
-
-                    var langFiles = new string[]
+        // Создание таблиц локализации
+        private void CreateLocalizationTables(int chapterN, AjAssetGridLinker gridLinker, AjLinkerMeta meta, 
+                                              string chapterFolder, Dictionary<string, Dictionary<string, string>> allDicts,
+                                              Dictionary<string, int> langsCols, AjGridAssetJson gridAssetFile,
+                                              string binFolder, string previewFolder)
+        {
+            var gridAssetChapter = new AjGridAssetChapterJson
                                       {
-                                          string.Format(langFolder + @"\Chapter_{0}_for_translating.xlsx",
-                                                        chapterN),
-                                          string.Format(langOriginFolder + @"\Chapter_{0}_internal.xlsx",
-                                                        chapterN)
+                                          CharactersIDs = gridLinker.GetCharactersIDsFromCurChapter(),
+                                          LocationsIDs = gridLinker.GetLocationsIDsFromCurChapter()
                                       };
 
-                    if (!File.Exists(langFiles[0])) break;
+            gridAssetFile.Chapters.Add(gridAssetChapter);
 
-                    string correct = generateLjson(lang,
-                                                      "chapter" + chapterN,
-                                                      langFiles,
-                                                      chapterFolder + @"\Strings\" + lang + ".json",
-                                                      colNum != -1 ? colNum : 1);
+            var origLangData = new Dictionary<string, AjLocalizInJsonFile>();
 
-                    if (!string.IsNullOrEmpty(correct))
-                    {
-                        showLocalizError(correct, "chapter" + chapterN);
+            Func<string, string, string[], string, int, string> generateLjson =
+                GenerateLjson(allDicts, origLangData);
 
-                        //return false;
-                    }
+            string langOriginFolder = _projectPath + @"\Localization\" + _baseLanguage;
 
-                    if (chapterN != 1) continue;
+            Action<string, string> showLocalizError = ShowLocalizError();
 
-                    var sharedLangFiles = new string[]
-                                             {
-                                                 string.Format(langFolder + @"\CharacterNames.xlsx",
-                                                               chapterN),
-                                                 bookDescsPath
-                                             };
+            if (Form1.ONLY_ENGLISH_MODE)
+                if (!langsCols.ContainsKey("English"))
+                    langsCols.Add("English", -1);
 
-                    Console.WriteLine("generate sharedstrings " + bookDescsPath);
+            foreach (KeyValuePair<string, int> langPair in langsCols)
+            {
+                string lang = langPair.Key;
+                int colNum = langPair.Value;
 
-                    correct = generateLjson(lang,
-                                               "sharedstrings",
-                                               sharedLangFiles,
-                                               binFolder + @"\SharedStrings\" + lang + ".json",
-                                               colNum != -1 ? colNum : 1);
+                bool nativeLang = lang == _baseLanguage || colNum == -1;
 
-                    var stringToPreviewFile = new string[] { bookDescsPath };
+                string langFolder = nativeLang ? langOriginFolder : _projectPath + @"\TranslatedData\" + lang;
+                string bookDescsPath = _projectPath + @"\Raw\BookDescriptions\" + lang + ".xlsx";
 
-                    if (!string.IsNullOrEmpty(correct))
-                    {
-                        showLocalizError(correct, "sharedstrings");
-                        return false;
-                    }
+                Console.WriteLine("GENERATE TABLES FOR LANGUAGE: " + lang);
 
-                    correct = generateLjson(lang,
-                                               "previewstrings",
-                                               stringToPreviewFile,
-                                               previewFolder + @"\Strings\" + lang + ".json",
-                                               colNum != -1 ? colNum : 1);
+                if (!Directory.Exists(langFolder)) continue;
 
-                    if (string.IsNullOrEmpty(correct)) continue;
+                var langFiles = new string[]
+                                  {
+                                      string.Format(langFolder + @"\Chapter_{0}_for_translating.xlsx", chapterN),
+                                      string.Format(langOriginFolder + @"\Chapter_{0}_internal.xlsx", chapterN)
+                                  };
 
+                if (!File.Exists(langFiles[0])) break;
+
+                string correct = generateLjson(lang,
+                                                  "chapter" + chapterN,
+                                                  langFiles,
+                                                  chapterFolder + @"\Strings\" + lang + ".json",
+                                                  colNum != -1 ? colNum : 1);
+
+                if (!string.IsNullOrEmpty(correct))
+                {
+                    showLocalizError(correct, "chapter" + chapterN);
+                }
+
+                if (chapterN != 1) continue;
+
+                var sharedLangFiles = new string[]
+                                         {
+                                             string.Format(langFolder + @"\CharacterNames.xlsx", chapterN),
+                                             bookDescsPath
+                                         };
+
+                Console.WriteLine("generate sharedstrings " + bookDescsPath);
+
+                correct = generateLjson(lang,
+                                           "sharedstrings",
+                                           sharedLangFiles,
+                                           binFolder + @"\SharedStrings\" + lang + ".json",
+                                           colNum != -1 ? colNum : 1);
+
+                var stringToPreviewFile = new string[] { bookDescsPath };
+
+                if (!string.IsNullOrEmpty(correct))
+                {
+                    showLocalizError(correct, "sharedstrings");
+                    throw new Exception("Ошибка при генерации sharedstrings");
+                }
+
+                correct = generateLjson(lang,
+                                           "previewstrings",
+                                           stringToPreviewFile,
+                                           previewFolder + @"\Strings\" + lang + ".json",
+                                           colNum != -1 ? colNum : 1);
+
+                if (!string.IsNullOrEmpty(correct))
+                {
                     showLocalizError(correct, "previewstrings");
-                    return false;
+                    throw new Exception("Ошибка при генерации previewstrings");
                 }
             }
+        }
 
+        // Запись общих файлов
+        private void WriteSharedFiles(string binFolder, string brFolder, string previewFolder, AjFile ajfile, 
+                                     AjLinkerMeta meta, AjGridAssetJson gridAssetFile, List<AjObj> sharedObjs)
+        {
             var baseJson = new AjLinkerOutputBase
                              {
-                                 GlobalVariables = ajfile.GlobalVariables, SharedObjs = sharedObjs
+                                 GlobalVariables = ajfile.GlobalVariables, 
+                                 SharedObjs = sharedObjs
                              };
 
             File.WriteAllText(binFolder + @"\Base.json", JsonConvert.SerializeObject(baseJson));
             File.WriteAllText(binFolder + @"\Meta.json", JsonConvert.SerializeObject(meta));
             File.WriteAllText(binFolder + @"\AssetsByChapters.json", JsonConvert.SerializeObject(gridAssetFile));
+        }
 
-            string musicSourcePath = _projectPath + @"\Audio\Music";
-            string musicTempPath = brFolder + @"\Music";
+        // Копирование ресурсов
+        private void CopyResources(string musicSourcePath, string musicTempPath, 
+                                  string pcoversSourcePath, string pcoversTempPath,
+                                  string pbannersSourcePath, string previewFolder)
+        {
+            // Копирование музыки
             if (!Directory.Exists(musicTempPath)) Directory.CreateDirectory(musicTempPath);
 
             foreach (string srcPath in Directory.GetFiles(musicSourcePath))
-                //Copy the file from sourcepath and place into mentioned target path, 
-                //Overwrite the file if same file is exist in target path
                 File.Copy(srcPath, srcPath.Replace(musicSourcePath, musicTempPath), true);
 
-            string pcoversSourcePath = _projectPath + @"\Art\PreviewCovers";
-            string pcoversTempPath = previewFolder + @"\Covers";
+            // Копирование обложек
             if (!Directory.Exists(pcoversTempPath)) Directory.CreateDirectory(pcoversTempPath);
 
-            if (!File.Exists(pcoversSourcePath + @"\Russian\PreviewCover.png") /*||
-                (_multi_lang_output && !File.Exists(pcoversSourcePath + @"\English\PreviewCover_English.png"))*/)
+            if (!File.Exists(pcoversSourcePath + @"\Russian\PreviewCover.png"))
             {
                 Form1.ShowMessage("Не все preview обложки присуствуют.");
-                return false;
+                throw new Exception("Отсутствуют preview обложки");
             }
 
             foreach (string dirPath in Directory.GetDirectories(pcoversSourcePath, "*", SearchOption.AllDirectories))
                 Directory.CreateDirectory(dirPath.Replace(pcoversSourcePath, pcoversTempPath));
 
-            //Copy all the files & Replaces any files with the same name
             foreach (string newPath in Directory.GetFiles(pcoversSourcePath, "*.*", SearchOption.AllDirectories))
                 File.Copy(newPath, newPath.Replace(pcoversSourcePath, pcoversTempPath), true);
 
-            string pbannersSourcePath = _projectPath + @"\Art\SliderBanners";
-
-            if (!Directory.Exists(pbannersSourcePath)) return true;
+            // Копирование баннеров
+            if (Directory.Exists(pbannersSourcePath))
             {
                 string pbannersTempPath = previewFolder + @"\Banners";
                 if (!Directory.Exists(pbannersTempPath)) Directory.CreateDirectory(pbannersTempPath);
 
-                foreach (string dirPath in
-                         Directory.GetDirectories(pbannersSourcePath, "*", SearchOption.AllDirectories))
+                foreach (string dirPath in Directory.GetDirectories(pbannersSourcePath, "*", SearchOption.AllDirectories))
                     Directory.CreateDirectory(dirPath.Replace(pbannersSourcePath, pbannersTempPath));
 
-                //Copy all the files & Replaces any files with the same name
                 foreach (string newPath in Directory.GetFiles(pbannersSourcePath, "*.*", SearchOption.AllDirectories))
                     File.Copy(newPath, newPath.Replace(pbannersSourcePath, pbannersTempPath), true);
             }
-
-            return true;
         }
 
+        // Получение имени версии
         private static Func<string, string, string> GetVersionName()
         {
             string VersionName(string folderName, string version) => char.ToUpper(folderName[0]) + folderName.Substring(1);
             return VersionName;
         }
 
+        // Добавление персонажа
         private static Action<string> CheckAddCh(Dictionary<string, string> nativeDict,
                                                  Dictionary<string, AjObj> objectsList,
                                                  AjLinkerMeta meta,
@@ -1146,6 +1309,7 @@ namespace StoriesLinker
             return AddCh;
         }
 
+        // Добавление локации по ID
         private static Action<int> CheckAddLocINT(AjLinkerMeta meta, AjAssetGridLinker gridLinker)
         {
             void AddLocINT(int intID)
@@ -1158,6 +1322,7 @@ namespace StoriesLinker
             return AddLocINT;
         }
 
+        // Добавление локации
         private static Action<string> CheckAddLoc(Dictionary<string, string> nativeDict,
                                                   Dictionary<string, AjObj> objectsList,
                                                   AjLinkerMeta meta,
@@ -1180,6 +1345,7 @@ namespace StoriesLinker
             return AddLoc;
         }
 
+        // Показ ошибки локализации
         private static Action<string, string> ShowLocalizError()
         {
             void LocalizError(string cell, string fileID)
@@ -1190,6 +1356,7 @@ namespace StoriesLinker
             return LocalizError;
         }
 
+        // Генерация JSON локализации
         private Func<string, string, string[], string, int, string> GenerateLjson(
             Dictionary<string, Dictionary<string, string>> allDicts,
             Dictionary<string, AjLocalizInJsonFile> origLangData)
@@ -1255,10 +1422,10 @@ namespace StoriesLinker
             };
         }
 
-        private bool
-            IsTranslationIncomplete(string translatedValue, string origValue, bool origLang, string jsonDataValue) =>
+        // Проверка неполного перевода
+        private bool IsTranslationIncomplete(string translatedValue, string origValue, bool origLang, string jsonDataValue) =>
             string.IsNullOrEmpty(translatedValue.Trim()) ||
-            (origValue.Trim() == translatedValue.Trim() &&
+            (/*origValue.Trim() == translatedValue.Trim() &&*/
              !origLang &&
              origValue.Length > 10 &&
              !origValue.Contains("*SystemLinkTo*") &&
@@ -1267,75 +1434,92 @@ namespace StoriesLinker
              !string.IsNullOrEmpty(jsonDataValue.Replace(".", "").Trim()) &&
              !origValue.ToLower().Contains("%pname%"));
 
+        // Проверка проблем локализации
         private string CheckLocalizationIssues(AjLocalizInJsonFile origJsonData,
                                                AjLocalizInJsonFile jsonData,
                                                bool origLang)
         {
             foreach (KeyValuePair<string, string> pair in origJsonData.Data)
                 if (!jsonData.Data.ContainsKey(pair.Key) ||
-                    string.IsNullOrEmpty(jsonData.Data[pair.Key].Trim()) ||
-                    (jsonData.Data[pair.Key] == pair.Value && !Form1.ONLY_ENGLISH_MODE && !origLang))
+                    string.IsNullOrEmpty(jsonData.Data[pair.Key].Trim()) /*||
+                    (jsonData.Data[pair.Key] == pair.Value && !Form1.ONLY_ENGLISH_MODE && !origLang)*/)
                     return pair.Key;
 
             return string.Empty;
         }
 
-
-        private AjLocalizInJsonFile GetXMLFile(string[] pathsToXmls, int column)
+        // Копирование ресурсов глав
+        private void CopyChapterResources(int chapterN, AjAssetGridLinker gridLinker, AjLinkerMeta meta, string chapterFolder,
+                                         List<string> copiedChAtlasses, List<string> copiedLocSprites, List<string> copiedLocIdles)
         {
-            var total = new Dictionary<string, string>();
+            string[] chapterChs = gridLinker.GetCharactersNamesFromCurChapter();
+            string[] locationsChs = gridLinker.GetLocationsNamesFromCurChapter();
 
-            foreach (string el in pathsToXmls)
+            foreach (string el in chapterChs)
             {
-                Dictionary<string, string> fileDict = XMLTableToDict(el, column);
+                AjMetaCharacterData ch = meta.Characters.Find(lch => lch.DisplayName.Trim() == el.Trim());
 
-                foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
-                    total.Add(pair.Key, pair.Value);
+                string atlasNameFiled = ch.AtlasFileName;
+
+                var atlases = new List<string>();
+
+                if (!atlasNameFiled.Contains(","))
+                    atlases.Add(atlasNameFiled);
+                else
+                {
+                    string[] atlasStrs = atlasNameFiled.Split(',');
+
+                    atlases.AddRange(atlasStrs.Where(t => !string.IsNullOrEmpty(t)));
+                }
+
+                foreach (string atlasFileName in atlases)
+                {
+                    if (ch.BaseNameInAtlas == "-" ||
+                        atlasFileName == "-" ||
+                        copiedChAtlasses.Contains(atlasFileName))
+                        continue;
+
+                    copiedChAtlasses.Add(atlasFileName);
+
+                    if (!atlasFileName.Contains("Sec_"))
+                    {
+                        File.Copy(string.Format(_projectPath + @"\Art\Characters\{0}.png", atlasFileName),
+                                  string.Format(chapterFolder + @"\Resources\{0}.png", atlasFileName));
+                        File.Copy(string.Format(_projectPath + @"\Art\Characters\{0}.tpsheet", atlasFileName),
+                                  string.Format(chapterFolder + @"\Resources\{0}.tpsheet", atlasFileName));
+                    }
+                    else
+                    {
+                        string fileName = atlasFileName;
+                        fileName = fileName.Replace("Sec_", meta.SpritePrefix);
+
+                        File.Copy(string.Format(_projectPath + @"\Art\Characters\Secondary\{0}.png", fileName),
+                                  string.Format(chapterFolder + @"\Resources\{0}.png", atlasFileName));
+                    }
+                }
             }
 
-            var jsonFile = new AjLocalizInJsonFile { Data = total };
-
-            return jsonFile;
-        }
-
-        private AjLocalizInJsonFile WriteJsonFile(AjLocalizInJsonFile jsonFile, string pathToJson)
-        {
-            File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
-
-            return jsonFile;
-        }
-
-        public AjLocalizInJsonFile ConvertXMLToJson(string[] pathsToXmls, string pathToJson, int column)
-        {
-            var total = new Dictionary<string, string>();
-
-            foreach (string el in pathsToXmls)
+            foreach (string el in locationsChs)
             {
-                Dictionary<string, string> fileDict = XMLTableToDict(el, column);
+                AjMetaLocationData loc = meta.Locations.Find(lloc => lloc.DisplayName == el);
 
-                foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
-                    total.Add(pair.Key, pair.Value);
+                if (!copiedLocSprites.Contains(loc.SpriteName))
+                {
+                    copiedLocSprites.Add(loc.SpriteName);
+
+                    File.Copy(string.Format(_projectPath + @"\Art\Locations\{0}.png", loc.SpriteName),
+                              string.Format(chapterFolder + @"\Resources\{0}.png", loc.SpriteName));
+                }
+
+
+                if (loc.SoundIdleName == "-" || copiedLocIdles.Contains(loc.SoundIdleName)) continue;
+
+                copiedLocIdles.Add(loc.SoundIdleName);
+                File.Copy(string.Format(_projectPath + @"\Audio\Idles\{0}.mp3", loc.SoundIdleName),
+                          string.Format(chapterFolder + @"\Resources\{0}.mp3", loc.SoundIdleName));
             }
-
-            var jsonFile = new AjLocalizInJsonFile();
-            jsonFile.Data = total;
-
-            File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
-
-            return jsonFile;
         }
 
-        public static string GetLocalizTablesPath(string projPath)
-        {
-            string path = projPath + @"\Raw\loc_All objects_en.xlsx";
-
-            if (!File.Exists(path)) path = projPath + @"\Raw\loc_All objects_ru.xlsx";
-
-            return path;
-        }
-
-        public static string GetFlowJsonPath(string projPath) => projPath + @"\Raw\Flow.json";
-
-        public static string GetMetaJsonPath(string projPath) => projPath + @"\Raw\Meta.json";
+        #endregion
     }
 }
