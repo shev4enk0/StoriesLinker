@@ -1,0 +1,136 @@
+{
+  "GlobalVariables": [
+    {
+      "Namespace": "General",
+      "Description": "",
+      "Variables": [
+        {
+          "Variable": "Gender",
+          "Type": "Integer",
+          "Value": "0",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Namespace": "Music",
+      "Description": "",
+      "Variables": [
+        {
+          "Variable": "Romance",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        },
+        {
+          "Variable": "Silence",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        },
+        {
+          "Variable": "Fear",
+          "Type": "Boolean",
+          "Value": "True",
+          "Description": ""
+        },
+        {
+          "Variable": "Adventure",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        },
+        {
+          "Variable": "Battle",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        },
+        {
+          "Variable": "Drama",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Namespace": "Clothes",
+      "Description": "",
+      "Variables": [
+        {
+          "Variable": "mainDress",
+          "Type": "Integer",
+          "Value": "0",
+          "Description": ""
+        },
+        {
+          "Variable": "Heidi_clothes",
+          "Type": "Integer",
+          "Value": "0",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Namespace": "Currency",
+      "Description": "",
+      "Variables": [
+        {
+          "Variable": "Keys",
+          "Type": "Integer",
+          "Value": "0",
+          "Description": ""
+        },
+        {
+          "Variable": "Premium",
+          "Type": "Integer",
+          "Value": "0",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Namespace": "Cards",
+      "Description": "",
+      "Variables": [
+        {
+          "Variable": "Scene_Dates_Heidi_1",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        }
+      ]
+    },
+    {
+      "Namespace": "Remember",
+      "Description": "",
+      "Variables": [
+        {
+          "Variable": "NoSex",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        },
+        {
+          "Variable": "DeanLeave",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        },
+        {
+          "Variable": "RoomSearch",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        },
+        {
+          "Variable": "LasloDefeated",
+          "Type": "Boolean",
+          "Value": "False",
+          "Description": ""
+        }
+      ]
+    }
+  ]
+}

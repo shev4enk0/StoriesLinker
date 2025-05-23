@@ -1,17 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net48</TargetFramework>
-    <RootNamespace>StoriesLinker</RootNamespace>
-    <AssemblyName>StoriesLinker</AssemblyName>
-    <UseWindowsForms>true</UseWindowsForms>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <ApplicationIcon />
-    <StartupObject />
-    <Platforms>AnyCPU</Platforms>
-    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
-  </PropertyGroup>
+    <PropertyGroup>    <OutputType>Exe</OutputType>    <TargetFramework>net48</TargetFramework>    <RootNamespace>StoriesLinker</RootNamespace>    <AssemblyName>StoriesLinker</AssemblyName>    <UseWindowsForms>true</UseWindowsForms>    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>    <ApplicationIcon />    <StartupObject>StoriesLinker.Program</StartupObject>    <Platforms>AnyCPU</Platforms>    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="EPPlus" Version="4.5.2.1" />

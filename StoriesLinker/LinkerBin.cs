@@ -503,7 +503,20 @@ namespace StoriesLinker
             {
                 if (kobj.Value.EType != AjType.FlowFragment) continue;
 
-                string value = Regex.Match(nativeDict[kobj.Value.Properties.DisplayName], @"\d+").Value;
+                string displayNameKey = kobj.Value.Properties.DisplayName;
+                if (!nativeDict.TryGetValue(displayNameKey, out string displayValue))
+                {
+                    Console.WriteLine($"Предупреждение: ключ главы '{displayNameKey}' не найден в словаре локализации. Пропускаем главу.");
+                    continue;
+                }
+
+                string value = Regex.Match(displayValue, @"\d+").Value;
+
+                if (string.IsNullOrEmpty(value))
+                {
+                    Console.WriteLine($"Предупреждение: не найден номер главы в значении '{displayValue}' для ключа '{displayNameKey}'. Пропускаем главу.");
+                    continue;
+                }
 
                 int intValue = int.Parse(value);
 
@@ -657,7 +670,17 @@ namespace StoriesLinker
                             charactersIds.Add(chID);
                             charactersLocalizIds.Add(entity);
 
-                            charactersNames.Add(chID, nativeDict[objectsList[chID].Properties.DisplayName]);
+                            // Проверяем наличие ключа перед добавлением в charactersNames
+                            string displayNameKey = objectsList[chID].Properties.DisplayName;
+                            if (nativeDict.TryGetValue(displayNameKey, out string characterName))
+                            {
+                                charactersNames.Add(chID, characterName);
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Предупреждение: имя персонажа с ключом '{displayNameKey}' не найдено в словаре локализации. Используем техническое имя.");
+                                charactersNames.Add(chID, displayNameKey); // Используем сам ключ как fallback
+                            }
                         }
 
 
@@ -739,8 +762,24 @@ namespace StoriesLinker
                 foreach (LocalizEntity item in ids)
                 {
                     string id = item.LocalizID;
+                    string value;
 
-                    string value = nativeDict[id];
+                    // Проверяем наличие ключа в словаре
+                    if (!nativeDict.TryGetValue(id, out value))
+                    {
+                        // Если ключ не найден, проверяем - возможно это уже готовый текст
+                        if (IsReadableText(id))
+                        {
+                            // Используем само значение LocalizID как готовый текст
+                            value = id;
+                            Console.WriteLine($"Используем готовый текст: '{id}'");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Предупреждение: ключ '{id}' не найден в словаре локализации и не является читаемым текстом. Пропускаем.");
+                            continue;
+                        }
+                    }
 
                     if (forTranslating && forLocalizatorsMode)
                     {
@@ -1051,7 +1090,12 @@ namespace StoriesLinker
             {
                 if (pair.Value.EType != AjType.Entity && pair.Value.EType != AjType.Location) continue;
 
-                string dname = nativeDict[pair.Value.Properties.DisplayName];
+                string displayNameKey = pair.Value.Properties.DisplayName;
+                if (!nativeDict.TryGetValue(displayNameKey, out string dname))
+                {
+                    Console.WriteLine($"Предупреждение: ключ '{displayNameKey}' не найден в словаре локализации для объекта {pair.Value.EType}. Используем техническое имя.");
+                    dname = displayNameKey; // Используем сам ключ как fallback
+                }
 
                 if (pair.Value.EType == AjType.Entity)
                 {
@@ -1379,7 +1423,12 @@ namespace StoriesLinker
         {
             void AddCh(string aid)
             {
-                string dname = nativeDict[objectsList[aid].Properties.DisplayName];
+                string displayNameKey = objectsList[aid].Properties.DisplayName;
+                if (!nativeDict.TryGetValue(displayNameKey, out string dname))
+                {
+                    Console.WriteLine($"Предупреждение: ключ персонажа '{displayNameKey}' не найден в словаре локализации. Используем техническое имя.");
+                    dname = displayNameKey; // Используем сам ключ как fallback
+                }
 
                 if (meta.Characters.Find(l => l.DisplayName == dname) == null)
                 {
@@ -1415,7 +1464,12 @@ namespace StoriesLinker
         {
             void AddLoc(string aid)
             {
-                string dname = nativeDict[objectsList[aid].Properties.DisplayName];
+                string displayNameKey = objectsList[aid].Properties.DisplayName;
+                if (!nativeDict.TryGetValue(displayNameKey, out string dname))
+                {
+                    Console.WriteLine($"Предупреждение: ключ локации '{displayNameKey}' не найден в словаре локализации. Используем техническое имя.");
+                    dname = displayNameKey; // Используем сам ключ как fallback
+                }
 
                 if (meta.Locations.Find(l => l.DisplayName == dname) == null)
                 {
@@ -1603,6 +1657,53 @@ namespace StoriesLinker
                 File.Copy(string.Format(_projectPath + @"\Audio\Idles\{0}.mp3", loc.SoundIdleName),
                           string.Format(chapterFolder + @"\Resources\{0}.mp3", loc.SoundIdleName));
             }
+        }
+
+        /// <summary>
+        /// Определяет, является ли строка читаемым текстом (а не ключом)
+        /// </summary>
+        private static bool IsReadableText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            // Если содержит пробелы - скорее всего это текст
+            if (text.Contains(" "))
+                return true;
+
+            // Если содержит знаки препинания - скорее всего это текст
+            if (text.Contains("?") || text.Contains("!") || text.Contains(".") || text.Contains(",") || 
+                text.Contains(";") || text.Contains(":") || text.Contains("'") || text.Contains("\""))
+                return true;
+
+            // Если начинается с "DFr_" или содержит подобные паттерны - это определенно ключ
+            if (text.StartsWith("DFr_") || text.Contains(".Text") || text.Contains("_0x") || 
+                text.Contains("0x") || text.Contains("Dfr_"))
+                return false;
+
+            // Проверяем является ли это техническим идентификатором
+            // Если содержит много "_" или цифр в начале/конце - вероятно ключ
+            int underscoreCount = text.Count(c => c == '_');
+            if (underscoreCount >= 2)
+                return false;
+
+            // Если начинается или заканчивается цифрами и содержит "_" - вероятно ключ
+            if ((char.IsDigit(text[0]) || char.IsDigit(text[text.Length - 1])) && text.Contains("_"))
+                return false;
+
+            // Если содержит буквы (любого алфавита) и достаточно длинный - скорее всего текст
+            bool hasLetters = text.Any(char.IsLetter);
+            if (hasLetters && text.Length > 4)
+            {
+                // Дополнительная проверка: если это не выглядит как GUID или хеш
+                bool looksLikeTechnicalId = text.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '-') && 
+                                           !text.Any(char.IsWhiteSpace) && 
+                                           text.Length > 20;
+                
+                return !looksLikeTechnicalId;
+            }
+
+            return false;
         }
 
         #endregion

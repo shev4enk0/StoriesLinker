@@ -25,22 +25,20 @@ namespace StoriesLinker
 
             if (key != null)
             {
-                string path = key.GetValue("LastPath").ToString();
+                var path = key.GetValue("LastPath").ToString();
 
                 folderBrowserDialog1.SelectedPath = path;
                 path_value.Text = path;
-                
+
                 // Также назначаем путь переменной _projectPath
                 _projectPath = path;
-                
+
                 // Обновляем имя проекта в интерфейсе
                 string[] pathParts = _projectPath.Split('/', '\\');
                 proj_name_value.Text = pathParts[pathParts.Length - 1];
             }
             else
-            {
                 path_value.Text = "-";
-            }
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -71,7 +69,7 @@ namespace StoriesLinker
         {
             using (var eP = new ExcelPackage())
             {
-                var sheet = eP.Workbook.Worksheets.Add("Characters");
+                ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Characters");
 
                 var row = 1;
                 var col = 1;
@@ -95,20 +93,20 @@ namespace StoriesLinker
                     else
                     {
                         sheet.Cells[row, col + 1].Value
-                            = (FantasyBook.ChClothesVariablesMathcing.ContainsKey(chId)
-                                   ? FantasyBook.ChClothesVariablesMathcing[chId]
-                                   : "-");
+                            = FantasyBook.ChClothesVariablesMathcing.ContainsKey(chId)
+                                  ? FantasyBook.ChClothesVariablesMathcing[chId]
+                                  : "-";
                         sheet.Cells[row, col + 2].Value
-                            = (FantasyBook.ChAtalsMathcing.ContainsKey(chId)
-                                   ? FantasyBook.ChAtalsMathcing[chId]
-                                   : "-");
+                            = FantasyBook.ChAtalsMathcing.ContainsKey(chId)
+                                  ? FantasyBook.ChAtalsMathcing[chId]
+                                  : "-";
                         sheet.Cells[row, col + 3].Value = chId.ToString();
                     }
 
                     row++;
                 }
 
-                var bin = eP.GetAsByteArray();
+                byte[] bin = eP.GetAsByteArray();
                 File.WriteAllBytes(_projectPath + @"\TempMetaCharacters.xlsx", bin);
             }
         }
@@ -117,7 +115,7 @@ namespace StoriesLinker
         {
             using (var eP = new ExcelPackage())
             {
-                var sheet = eP.Workbook.Worksheets.Add("Locations");
+                ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Locations");
 
                 var row = 1;
                 var col = 1;
@@ -155,46 +153,92 @@ namespace StoriesLinker
                     row++;
                 }
 
-                var bin = eP.GetAsByteArray();
+                byte[] bin = eP.GetAsByteArray();
                 File.WriteAllBytes(_projectPath + @"\TempMetaLocations.xlsx", bin);
             }
         }
 
         private void GenerateOutputFolderForBundles(object sender, EventArgs eventArgs)
         {
-            string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
-            string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
-
-            if (File.Exists(flowJsonPath) && File.Exists(stringsXmlPath))
+            // СНАЧАЛА проверяем тип проекта
+            bool isArticyX = ArticyXAdapter.IsArticyXProject(_projectPath);
+            
+            if (isArticyX)
             {
-                LinkerBin linker = new LinkerBin(_projectPath);
+                ShowMessage("Найден проект Articy X. Выполняется конвертация в Articy 3...");
+                
+                try
+                {
+                    // Создаем LinkerBinExtended, который автоматически выполнит конвертацию
+                    var linker = new LinkerBinExtended(_projectPath);
+                    
+                    // После конвертации проверяем наличие необходимых файлов
+                    string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
+                    string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
+                    
+                    if (!File.Exists(flowJsonPath) || !File.Exists(stringsXmlPath))
+                    {
+                        ShowMessage("Ошибка: после конвертации не найдены необходимые файлы (Flow.json или таблицы локализации).");
+                        return;
+                    }
+                    
+                    ShowMessage("Конвертация завершена. Генерация выходной папки...");
+                    
+                    if (RELEASE_MODE)
+                    {
+                        try
+                        {
+                            bool result = linker.GenerateOutputFolder();
+                            StartCheckAfterBundleGeneration(result);
+                        }
+                        catch (Exception e)
+                        {
+                            if (e.Message != "") ShowMessage("Ошибка: " + e.Message + " " + e.ToString());
+                        }
+                    }
+                    else
+                    {
+                        bool result = linker.GenerateOutputFolder();
+                        StartCheckAfterBundleGeneration(result);
+                    }
+                }
+                catch (Exception e)
+                {
+                    ShowMessage("Ошибка при конвертации или генерации: " + e.Message);
+                    return;
+                }
+            }
+            else
+            {
+                // Для Articy 3 используем стандартную логику
+                string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
+                string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
+                
+                if (!File.Exists(flowJsonPath) || !File.Exists(stringsXmlPath))
+                {
+                    ShowMessage("Отсуствует Flow.json или таблица xml.");
+                    return;
+                }
+
+                var linker = new LinkerBinExtended(_projectPath);
 
                 if (RELEASE_MODE)
                 {
                     try
                     {
                         bool result = linker.GenerateOutputFolder();
-
                         StartCheckAfterBundleGeneration(result);
                     }
                     catch (Exception e)
                     {
-                        if (e.Message != "")
-                        {
-                            ShowMessage("Ошибка: " + e.Message + " " + e.ToString());
-                        }
+                        if (e.Message != "") ShowMessage("Ошибка: " + e.Message + " " + e.ToString());
                     }
                 }
                 else
                 {
                     bool result = linker.GenerateOutputFolder();
-
                     StartCheckAfterBundleGeneration(result);
                 }
-            }
-            else
-            {
-                ShowMessage("Отсуствует Flow.json или таблица xml.");
             }
         }
 
@@ -202,41 +246,32 @@ namespace StoriesLinker
         {
             if (result)
             {
-                LinkerBin linker = new LinkerBin(_projectPath);
+                var linker = new LinkerBin(_projectPath);
 
                 AjLinkerMeta meta = linker.GetParsedMetaInputJsonFile();
 
-                LinkerAtlasChecker checker = new LinkerAtlasChecker(meta, meta.Characters);
+                var checker = new LinkerAtlasChecker(meta, meta.Characters);
 
                 Dictionary<string, AjObj> objectsList
                     = linker.GetAricyBookEntities(linker.GetParsedFlowJsonFile(), linker.GetNativeDict());
 
                 foreach (KeyValuePair<string, AjObj> @object in objectsList)
-                {
                     if (@object.Value.EType == AjType.Instruction)
                     {
                         string expr = @object.Value.Properties.Expression;
 
-                        if (expr.Contains("Clothes."))
-                        {
-                            checker.PassClothesInstruction(expr);
-                        }
+                        if (expr.Contains("Clothes.")) checker.PassClothesInstruction(expr);
                     }
-                }
 
-                string checkResult = "";
+                var checkResult = "";
 
                 if (meta.UniqueId != "Shism_1" && meta.UniqueId != "Shism_2")
                     checkResult = checker.BeginFinalCheck(_projectPath);
 
                 if (string.IsNullOrEmpty(checkResult))
-                {
                     ShowMessage("Иерархия для бандлов успешно сгенерирована.");
-                }
                 else
-                {
                     ShowMessage("Ошибка: " + checkResult);
-                }
             }
         }
 
@@ -264,35 +299,68 @@ namespace StoriesLinker
                 return;
             }
 
-            string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
-            string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
-
-            if (File.Exists(flowJsonPath) && File.Exists(stringsXmlPath))
+            // СНАЧАЛА проверяем тип проекта
+            bool isArticyX = ArticyXAdapter.IsArticyXProject(_projectPath);
+            
+            if (isArticyX)
             {
-                ShowMessage("Файлы найдены. Генерация началась...");
-
-                LinkerBin linker = new LinkerBin(_projectPath);
-
+                ShowMessage("Найден проект Articy X. Выполняется конвертация в Articy 3...");
+                
                 try
                 {
+                    // Создаем LinkerBinExtended, который автоматически выполнит конвертацию
+                    var linker = new LinkerBinExtended(_projectPath);
+                    
+                    // После конвертации проверяем наличие необходимых файлов
+                    string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
+                    string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
+                    
+                    if (!File.Exists(flowJsonPath) || !File.Exists(stringsXmlPath))
+                    {
+                        ShowMessage("Ошибка: после конвертации не найдены необходимые файлы (Flow.json или таблицы локализации).");
+                        return;
+                    }
+                    
+                    ShowMessage("Конвертация завершена. Генерация таблиц локализации...");
+                    
                     bool result = linker.GenerateLocalizTables();
 
-                    if (result)
-                    {
-                        ShowMessage("Таблицы локализации успешно сгенерированы.");
-                    }
+                    if (result) ShowMessage("Таблицы локализации успешно сгенерированы.");
                 }
                 catch (Exception e)
                 {
-                    if (e.Message != "")
-                    {
-                        ShowMessage("Ошибка: " + e.Message);
-                    }
+                    ShowMessage("Ошибка при конвертации или генерации: " + e.Message);
+                    return;
                 }
             }
             else
             {
-                ShowMessage("Отсуствует Flow.json или таблица xml.");
+                // Для Articy 3 используем стандартную логику
+                string flowJsonPath = LinkerBin.GetFlowJsonPath(_projectPath);
+                string stringsXmlPath = LinkerBin.GetLocalizTablesPath(_projectPath);
+                
+                if (File.Exists(flowJsonPath) && File.Exists(stringsXmlPath))
+                {
+                    ShowMessage("Найден проект Articy 3. Генерация началась...");
+                }
+                else
+                {
+                    ShowMessage("Отсуствует Flow.json или таблица xml.");
+                    return;
+                }
+
+                var linker = new LinkerBinExtended(_projectPath);
+                
+                try
+                {
+                    bool result = linker.GenerateLocalizTables();
+
+                    if (result) ShowMessage("Таблицы локализации успешно сгенерированы.");
+                }
+                catch (Exception e)
+                {
+                    if (e.Message != "") ShowMessage("Ошибка: " + e.Message);
+                }
             }
 
             //GenerateLocationsTempMetaTable();
