@@ -189,6 +189,10 @@ namespace StoriesLinker
                         try
                         {
                             bool result = linker.GenerateOutputFolder();
+                            if (result)
+                            {
+                                ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
+                            }
                             StartCheckAfterBundleGeneration(result);
                         }
                         catch (Exception e)
@@ -199,6 +203,10 @@ namespace StoriesLinker
                     else
                     {
                         bool result = linker.GenerateOutputFolder();
+                        if (result)
+                        {
+                            ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
+                        }
                         StartCheckAfterBundleGeneration(result);
                     }
                 }
@@ -227,6 +235,10 @@ namespace StoriesLinker
                     try
                     {
                         bool result = linker.GenerateOutputFolder();
+                        if (result)
+                        {
+                            ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
+                        }
                         StartCheckAfterBundleGeneration(result);
                     }
                     catch (Exception e)
@@ -237,6 +249,10 @@ namespace StoriesLinker
                 else
                 {
                     bool result = linker.GenerateOutputFolder();
+                    if (result)
+                    {
+                        ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
+                    }
                     StartCheckAfterBundleGeneration(result);
                 }
             }

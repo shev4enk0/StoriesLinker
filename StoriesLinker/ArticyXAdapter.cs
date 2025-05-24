@@ -9,17 +9,19 @@ using OfficeOpenXml;
 namespace StoriesLinker
 {
     /// <summary>
-    /// Адаптер для работы с данными Articy X, преобразующий их в формат Articy 3
+    /// Адаптер для работы с данными Articy X, создающий файлы в формате Articy 3
     /// </summary>
     public class ArticyXAdapter
     {
         private readonly string _projectPath;
         private readonly string _baseLanguage;
+        private Dictionary<string, string> _localizationDict; // ключ -> текст
 
         public ArticyXAdapter(string projectPath, string baseLanguage = "Russian")
         {
             _projectPath = projectPath;
             _baseLanguage = baseLanguage;
+            _localizationDict = new Dictionary<string, string>();
         }
 
         /// <summary>
@@ -27,7 +29,45 @@ namespace StoriesLinker
         /// </summary>
         public static bool IsArticyXProject(string projectPath)
         {
-            return Directory.Exists(Path.Combine(projectPath, "Raw", "JSON_X"));
+            return Directory.Exists(Path.Combine(projectPath, "Raw", "X"));
+        }
+
+        /// <summary>
+        /// Генерирует ключ локализации для готового текста на основе TechnicalName
+        /// </summary>
+        private string GenerateLocalizationKey(string text, string suffix, string technicalName)
+        {
+            if (string.IsNullOrEmpty(text))
+                return text;
+
+            // Если это уже ключ локализации - возвращаем как есть
+            if (IsLocalizationKey(text))
+                return text;
+
+            // Используем TechnicalName объекта + суффикс
+            string newKey = $"{technicalName}.{suffix}";
+
+            // Сохраняем соответствие для локализации
+            if (!_localizationDict.ContainsKey(newKey))
+            {
+                _localizationDict[newKey] = text;
+                Console.WriteLine($"Создан ключ {newKey} для текста: {text.Substring(0, Math.Min(50, text.Length))}...");
+            }
+
+            return newKey;
+        }
+
+        /// <summary>
+        /// Проверяет, является ли строка ключом локализации
+        /// </summary>
+        private bool IsLocalizationKey(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return false;
+
+            // Ключи локализации содержат точку и начинаются с букв
+            return text.Contains(".") && 
+                   (text.StartsWith("DFr_") || text.StartsWith("Ntt_") || text.StartsWith("Loc_") || text.StartsWith("FFr_"));
         }
 
         /// <summary>
@@ -35,25 +75,41 @@ namespace StoriesLinker
         /// </summary>
         public AjFile ConvertToArticy3Format()
         {
+            Console.WriteLine("Создаем файл Flow.json из данных Articy X...");
+
             var ajFile = new AjFile
             {
                 GlobalVariables = LoadGlobalVariables(),
                 Packages = new List<AjPackage>()
             };
 
-            // Загружаем объекты из пакета
+            // Загружаем объекты из пакета и конвертируем тексты в ключи
             var package = LoadPackageObjects();
             ajFile.Packages.Add(package);
+
+            Console.WriteLine($"Загружено {package.Models.Count} объектов из Articy X");
+            Console.WriteLine($"Сгенерировано {_localizationDict.Count} ключей локализации");
 
             return ajFile;
         }
 
         /// <summary>
-        /// Создает Excel файл локализации из JSON данных Articy X
+        /// Создает Excel файл локализации из данных Articy X + созданных ключей
         /// </summary>
         public void CreateLocalizationExcelFile()
         {
-            var localizationData = LoadLocalizationData();
+            Console.WriteLine("Создаем файл локализации Excel из данных Articy X...");
+            
+            // Загружаем существующие данные локализации из Articy X
+            var existingLocalizationData = LoadExistingLocalizationData();
+            
+            // Объединяем с нашими сгенерированными ключами
+            var combinedData = new Dictionary<string, string>(existingLocalizationData);
+            foreach (var kvp in _localizationDict)
+            {
+                combinedData[kvp.Key] = kvp.Value;
+            }
+
             string outputPath = Path.Combine(_projectPath, "Raw", $"loc_All objects_{GetLanguageCode()}.xlsx");
 
             using (var package = new ExcelPackage())
@@ -61,16 +117,19 @@ namespace StoriesLinker
                 var worksheet = package.Workbook.Worksheets.Add("Localization");
 
                 int row = 1;
-                foreach (var kvp in localizationData)
+                foreach (var kvp in combinedData)
                 {
-                    worksheet.Cells[row, 1].Value = kvp.Key;
-                    worksheet.Cells[row, 2].Value = kvp.Value;
+                    worksheet.Cells[row, 1].Value = kvp.Key;   // Ключ локализации
+                    worksheet.Cells[row, 2].Value = kvp.Value; // Переведенный текст
                     row++;
                 }
 
                 var fileInfo = new FileInfo(outputPath);
                 package.SaveAs(fileInfo);
             }
+
+            Console.WriteLine($"Создан файл локализации: {outputPath}");
+            Console.WriteLine($"Записано {combinedData.Count} записей локализации ({_localizationDict.Count} новых)");
         }
 
         /// <summary>
@@ -78,7 +137,7 @@ namespace StoriesLinker
         /// </summary>
         private List<AjNamespace> LoadGlobalVariables()
         {
-            string globalVarsPath = Path.Combine(_projectPath, "Raw", "JSON_X", "global_variables.json");
+            string globalVarsPath = Path.Combine(_projectPath, "Raw", "X", "global_variables.json");
             
             if (!File.Exists(globalVarsPath))
                 return new List<AjNamespace>();
@@ -101,11 +160,11 @@ namespace StoriesLinker
         }
 
         /// <summary>
-        /// Загружает объекты пакета из Articy X
+        /// Загружает объекты пакета из Articy X и конвертирует тексты в ключи
         /// </summary>
         private AjPackage LoadPackageObjects()
         {
-            string manifestPath = Path.Combine(_projectPath, "Raw", "JSON_X", "manifest.json");
+            string manifestPath = Path.Combine(_projectPath, "Raw", "X", "manifest.json");
             string manifest = File.ReadAllText(manifestPath);
             var manifestData = JObject.Parse(manifest);
 
@@ -113,7 +172,7 @@ namespace StoriesLinker
             var packageInfo = manifestData["Packages"][0];
             string objectsFileName = packageInfo["Files"]["Objects"]["FileName"].ToString();
             
-            string objectsPath = Path.Combine(_projectPath, "Raw", "JSON_X", objectsFileName);
+            string objectsPath = Path.Combine(_projectPath, "Raw", "X", objectsFileName);
             string objectsJson = File.ReadAllText(objectsPath);
             var objectsData = JObject.Parse(objectsJson);
 
@@ -125,7 +184,7 @@ namespace StoriesLinker
                 Models = new List<AjObj>()
             };
 
-            // Преобразуем объекты
+            // Преобразуем объекты, заменяя готовые тексты на ключи
             var objects = objectsData["Objects"].ToArray();
             foreach (var obj in objects)
             {
@@ -140,28 +199,25 @@ namespace StoriesLinker
         }
 
         /// <summary>
-        /// Конвертирует объект из формата Articy X в AjObj
+        /// Конвертирует объект из формата Articy X в AjObj, заменяя тексты на ключи
         /// </summary>
         private AjObj ConvertToAjObj(JToken objToken)
         {
             try
             {
                 var properties = objToken["Properties"];
+                string objectType = objToken["Type"].ToString();
                 
                 var ajObj = new AjObj
                 {
-                    Type = objToken["Type"].ToString(),
+                    Type = objectType,
                     Properties = new AjObjProps
                     {
                         TechnicalName = properties["TechnicalName"]?.ToString(),
                         Id = properties["Id"]?.ToString(),
-                        DisplayName = properties["DisplayName"]?.ToString(),
                         Parent = properties["Parent"]?.ToString(),
-                        Text = properties["Text"]?.ToString(),
                         ExternalId = properties["ExternalId"]?.ToString(),
                         ShortId = properties["ShortId"]?.ToString(),
-                        MenuText = properties["MenuText"]?.ToString(),
-                        StageDirections = properties["StageDirections"]?.ToString(),
                         Speaker = properties["Speaker"]?.ToString(),
                         Expression = properties["Expression"]?.ToString(),
                         Target = properties["Target"]?.ToString(),
@@ -169,6 +225,24 @@ namespace StoriesLinker
                         Attachments = properties["Attachments"]?.ToObject<List<string>>() ?? new List<string>()
                     }
                 };
+
+                // Обрабатываем текстовые поля в зависимости от типа объекта
+                if (objectType == "DialogueFragment")
+                {
+                    // Для DialogueFragment заменяем готовые тексты на ключи
+                    ajObj.Properties.DisplayName = ConvertTextToKey(properties["DisplayName"]?.ToString(), "DisplayName", ajObj.Properties.TechnicalName);
+                    ajObj.Properties.Text = ConvertTextToKey(properties["Text"]?.ToString(), "Text", ajObj.Properties.TechnicalName);
+                    ajObj.Properties.MenuText = ConvertTextToKey(properties["MenuText"]?.ToString(), "PreviewText", ajObj.Properties.TechnicalName);
+                    ajObj.Properties.StageDirections = ConvertTextToKey(properties["StageDirections"]?.ToString(), "StageDirections", ajObj.Properties.TechnicalName);
+                }
+                else
+                {
+                    // Для других типов оставляем как есть (они уже содержат ключи)
+                    ajObj.Properties.DisplayName = properties["DisplayName"]?.ToString();
+                    ajObj.Properties.Text = properties["Text"]?.ToString();
+                    ajObj.Properties.MenuText = properties["MenuText"]?.ToString();
+                    ajObj.Properties.StageDirections = properties["StageDirections"]?.ToString();
+                }
 
                 // Обработка цвета
                 if (properties["Color"] != null)
@@ -201,6 +275,22 @@ namespace StoriesLinker
                 Console.WriteLine($"Ошибка преобразования объекта: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Конвертирует готовый текст в ключ локализации, если нужно
+        /// </summary>
+        private string ConvertTextToKey(string text, string suffix, string technicalName)
+        {
+            if (string.IsNullOrEmpty(text))
+                return text;
+
+            // Если это уже ключ локализации - оставляем как есть
+            if (IsLocalizationKey(text))
+                return text;
+
+            // Если это готовый текст - создаем ключ
+            return GenerateLocalizationKey(text, suffix, technicalName);
         }
 
         /// <summary>
@@ -240,11 +330,11 @@ namespace StoriesLinker
         }
 
         /// <summary>
-        /// Загружает данные локализации из Articy X
+        /// Загружает существующие данные локализации из Articy X
         /// </summary>
-        private Dictionary<string, string> LoadLocalizationData()
+        private Dictionary<string, string> LoadExistingLocalizationData()
         {
-            string manifestPath = Path.Combine(_projectPath, "Raw", "JSON_X", "manifest.json");
+            string manifestPath = Path.Combine(_projectPath, "Raw", "X", "manifest.json");
             string manifest = File.ReadAllText(manifestPath);
             var manifestData = JObject.Parse(manifest);
 
@@ -252,7 +342,7 @@ namespace StoriesLinker
             var packageInfo = manifestData["Packages"][0];
             string localizationFileName = packageInfo["Files"]["Texts"]["FileName"].ToString();
             
-            string localizationPath = Path.Combine(_projectPath, "Raw", "JSON_X", localizationFileName);
+            string localizationPath = Path.Combine(_projectPath, "Raw", "X", localizationFileName);
             string localizationJson = File.ReadAllText(localizationPath);
             var localizationData = JObject.Parse(localizationJson);
 

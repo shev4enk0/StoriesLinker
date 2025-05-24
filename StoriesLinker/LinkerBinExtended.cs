@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Newtonsoft.Json;
+using System.Linq;
 
 namespace StoriesLinker
 {
     /// <summary>
-    /// Расширенная версия LinkerBin с поддержкой Articy X и Articy 3
+    /// Расширенная версия LinkerBin с поддержкой Articy X
     /// </summary>
     public class LinkerBinExtended : LinkerBin
     {
@@ -63,57 +64,117 @@ namespace StoriesLinker
             {
                 string projectPath = GetProjectPath();
                 
+                // Конвертируем данные Articy X в формат Articy 3
                 var articyData = _articyXAdapter.ConvertToArticy3Format();
                 
+                // Создаем Flow.json файл как в Articy 3
                 string flowJsonPath = GetFlowJsonPath(projectPath);
-                if (!File.Exists(flowJsonPath))
-                {
-                    string json = JsonConvert.SerializeObject(articyData, Formatting.Indented);
-                    File.WriteAllText(flowJsonPath, json);
-                    File.WriteAllText(flowJsonPath + ".temp_marker", "temp");
-                }
+                string json = JsonConvert.SerializeObject(articyData, Formatting.Indented);
+                File.WriteAllText(flowJsonPath, json);
+                File.WriteAllText(flowJsonPath + ".temp_marker", "temp");
+                
+                // Создаем Excel файл локализации как в Articy 3
+                _articyXAdapter.CreateLocalizationExcelFile();
 
-                string locPath = GetLocalizTablesPath(projectPath);
-                if (!File.Exists(locPath))
-                {
-                    _articyXAdapter.CreateLocalizationExcelFile();
-                }
-
-                Form1.ShowMessage("Данные Articy X успешно конвертированы");
+                Form1.ShowMessage("Данные Articy X успешно конвертированы в формат Articy 3");
             }
             catch (Exception ex)
             {
                 Form1.ShowMessage($"Ошибка конвертации Articy X: {ex.Message}");
+                Console.WriteLine($"Подробности ошибки: {ex}");
                 throw;
             }
         }
 
         /// <summary>
-        /// Переопределенный метод генерации выходной папки
+        /// Проверяет, поддерживается ли данный проект (Articy 3 или Articy X)
         /// </summary>
-        public new bool GenerateOutputFolder()
+        public static bool IsProjectSupported(string projectPath)
         {
-            if (_isArticyX)
-            {
-                Form1.ShowMessage("Обработка проекта Articy X...");
-                PrepareArticyXData();
-            }
+            // Проверяем наличие Flow.json (Articy 3)
+            if (File.Exists(GetFlowJsonPath(projectPath)))
+                return true;
 
-            return base.GenerateOutputFolder();
+            // Проверяем наличие папки X (Articy X)
+            if (ArticyXAdapter.IsArticyXProject(projectPath))
+                return true;
+
+            return false;
         }
 
         /// <summary>
-        /// Переопределенный метод генерации таблиц локализации
+        /// Адаптирует проект Articy X под формат Articy 3, если необходимо
+        /// </summary>
+        public void AdaptArticyXIfNeeded()
+        {
+            if (!ArticyXAdapter.IsArticyXProject(_projectPath))
+            {
+                Console.WriteLine("Проект использует формат Articy 3 - адаптация не требуется");
+                return;
+            }
+
+            Console.WriteLine("Обнаружен проект Articy X - начинаем адаптацию...");
+
+            try
+            {
+                var adapter = new ArticyXAdapter(_projectPath, _baseLanguage);
+                
+                // Конвертируем данные объектов (заменяя тексты на ключи)
+                var convertedData = adapter.ConvertToArticy3Format();
+                
+                // Создаем Flow.json в формате Articy 3
+                string flowJsonPath = GetFlowJsonPath(_projectPath);
+                string flowJson = Newtonsoft.Json.JsonConvert.SerializeObject(convertedData, Newtonsoft.Json.Formatting.Indented);
+                File.WriteAllText(flowJsonPath, flowJson);
+                Console.WriteLine($"Создан файл: {flowJsonPath}");
+
+                // Создаем файл локализации Excel (с исходными текстами + новыми ключами)
+                adapter.CreateLocalizationExcelFile();
+
+                Console.WriteLine("✅ Адаптация Articy X завершена успешно!");
+                Console.WriteLine("Теперь проект совместим с форматом Articy 3");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Ошибка при адаптации Articy X: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Переопределенный метод для получения потока с адаптацией Articy X
+        /// </summary>
+        public new AjFile GetParsedFlowJsonFile()
+        {
+            // Выполняем адаптацию при необходимости
+            AdaptArticyXIfNeeded();
+            
+            // Теперь вызываем базовый метод, который работает с уже созданным Flow.json
+            return base.GetParsedFlowJsonFile();
+        }
+
+        /// <summary>
+        /// Переопределенный метод генерации таблиц локализации с поддержкой Articy X
         /// </summary>
         public new bool GenerateLocalizTables()
         {
-            if (_isArticyX)
-            {
-                Form1.ShowMessage("Генерация таблиц локализации для Articy X...");
-                PrepareArticyXData();
-            }
-
+            // Выполняем адаптацию при необходимости
+            AdaptArticyXIfNeeded();
+            
+            // Теперь вызываем базовый метод
             return base.GenerateLocalizTables();
+        }
+
+        /// <summary>
+        /// Переопределенный метод генерации выходной папки с поддержкой Articy X
+        /// </summary>
+        public new bool GenerateOutputFolder()
+        {
+            // Выполняем адаптацию при необходимости
+            AdaptArticyXIfNeeded();
+            
+            // Теперь вызываем базовый метод
+            return base.GenerateOutputFolder();
         }
 
         /// <summary>
@@ -142,7 +203,7 @@ namespace StoriesLinker
 
             foreach (string file in requiredFiles)
             {
-                string filePath = Path.Combine(projectPath, "Raw", file);
+                string filePath = Path.Combine(projectPath, "Raw", "X", file);
                 if (!File.Exists(filePath))
                 {
                     Form1.ShowMessage($"Отсутствует файл Articy X: {file}");
@@ -175,6 +236,78 @@ namespace StoriesLinker
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка очистки: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Тестирует конвертацию Articy X
+        /// </summary>
+        public void TestArticyXConversion()
+        {
+            if (!_isArticyX)
+            {
+                Form1.ShowMessage("Проект не является Articy X");
+                return;
+            }
+
+            try
+            {
+                Form1.ShowMessage("Начинаем тестирование конвертации Articy X...");
+                
+                var articyData = _articyXAdapter.ConvertToArticy3Format();
+                
+                // Проверяем первые несколько объектов
+                int checkedObjects = 0;
+                int objectsWithKeys = 0;
+                int objectsWithTranslatedText = 0;
+                
+                foreach (var obj in articyData.Packages[0].Models.Take(10))
+                {
+                    checkedObjects++;
+                    
+                    if (!string.IsNullOrEmpty(obj.Properties.Text))
+                    {
+                        // Проверяем, что текст содержит ключи локализации (DFr_xxxxx.Text)
+                        if (obj.Properties.Text.StartsWith("DFr_") && obj.Properties.Text.Contains(".Text"))
+                        {
+                            objectsWithKeys++;
+                            Console.WriteLine($"✅ Объект {obj.Properties.Id}: Text = '{obj.Properties.Text}' (ключ локализации)");
+                        }
+                        else
+                        {
+                            objectsWithTranslatedText++;
+                            Console.WriteLine($"⚠️  Объект {obj.Properties.Id}: Text = '{obj.Properties.Text.Substring(0, Math.Min(50, obj.Properties.Text.Length))}...' (переведенный текст)");
+                        }
+                    }
+                    
+                    if (!string.IsNullOrEmpty(obj.Properties.DisplayName))
+                    {
+                        if (obj.Properties.DisplayName.StartsWith("DFr_") || obj.Properties.DisplayName.StartsWith("FFr_") || obj.Properties.DisplayName.StartsWith("Dlg_"))
+                        {
+                            Console.WriteLine($"✅ Объект {obj.Properties.Id}: DisplayName = '{obj.Properties.DisplayName}' (ключ локализации)");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"⚠️  Объект {obj.Properties.Id}: DisplayName = '{obj.Properties.DisplayName}' (переведенный текст)");
+                        }
+                    }
+                }
+                
+                Form1.ShowMessage($"Тестирование завершено. Проверено {checkedObjects} объектов, {objectsWithKeys} с ключами локализации, {objectsWithTranslatedText} с переведенным текстом.");
+                
+                if (objectsWithKeys > 0)
+                {
+                    Console.WriteLine("✅ ТЕСТ ПРОЙДЕН: Найдены ключи локализации в стиле Articy 3!");
+                }
+                else
+                {
+                    Console.WriteLine("❌ ТЕСТ НЕ ПРОЙДЕН: Ключи локализации не найдены!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Form1.ShowMessage($"Ошибка тестирования: {ex.Message}");
+                Console.WriteLine($"Подробности ошибки: {ex}");
             }
         }
     }

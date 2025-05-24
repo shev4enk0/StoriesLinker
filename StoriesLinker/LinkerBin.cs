@@ -12,8 +12,8 @@ namespace StoriesLinker
     {
         #region Поля и инициализация
 
-        private string _projectPath;
-        private string _baseLanguage; // Базовый язык локализации
+        protected string _projectPath;
+        protected string _baseLanguage; // Базовый язык локализации
         private Dictionary<string, Dictionary<string, string>> _savedXMLDicts;
         private int _allWordsCount = 0;
 
@@ -96,31 +96,64 @@ namespace StoriesLinker
 
             var nativeDict = new Dictionary<string, string>();
 
-            using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+            // ПРОВЕРКА: Файл должен существовать
+            if (!File.Exists(path))
             {
-                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
-                int totalRows = myWorksheet.Dimension.End.Row;
-                int totalColumns = myWorksheet.Dimension.End.Column;
+                Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Файл локализации не найден: {path}");
+                _savedXMLDicts.Add(path, nativeDict);
+                return nativeDict;
+            }
 
-                for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+            try
+            {
+                using (var xlPackage = new ExcelPackage(new FileInfo(path)))
                 {
-                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
-                    ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
+                    // ПРОВЕРКА: В файле должны быть листы
+                    if (xlPackage.Workbook.Worksheets.Count == 0)
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл не содержит листов: {path}");
+                        _savedXMLDicts.Add(path, nativeDict);
+                        return nativeDict;
+                    }
 
-                    string firstRowStr = firstRow != null && firstRow.Value != null
-                                                ? firstRow.Value.ToString()
-                                                : "";
-                    string secondRowStr = secondRow != null && secondRow.Value != null
-                                                 ? secondRow.Value.ToString()
-                                                 : " ";
+                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                    
+                    // ПРОВЕРКА: Лист должен иметь данные
+                    if (myWorksheet.Dimension == null)
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист пустой: {path}");
+                        _savedXMLDicts.Add(path, nativeDict);
+                        return nativeDict;
+                    }
 
-                    if (string.IsNullOrEmpty(firstRowStr)) continue;
+                    int totalRows = myWorksheet.Dimension.End.Row;
+                    int totalColumns = myWorksheet.Dimension.End.Column;
 
-                    if (!nativeDict.ContainsKey(firstRowStr))
-                        nativeDict.Add(firstRowStr, secondRowStr);
-                    else
-                        Console.WriteLine("double key critical error " + firstRowStr);
+                    for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+                    {
+                        ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                        ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
+
+                        string firstRowStr = firstRow != null && firstRow.Value != null
+                                                    ? firstRow.Value.ToString()
+                                                    : "";
+                        string secondRowStr = secondRow != null && secondRow.Value != null
+                                                     ? secondRow.Value.ToString()
+                                                     : " ";
+
+                        if (string.IsNullOrEmpty(firstRowStr)) continue;
+
+                        if (!nativeDict.ContainsKey(firstRowStr))
+                            nativeDict.Add(firstRowStr, secondRowStr);
+                        else
+                            Console.WriteLine("double key critical error " + firstRowStr);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ ОШИБКА при чтении Excel файла {path}: {ex.Message}");
+                // Возвращаем пустой словарь вместо падения
             }
 
             _savedXMLDicts.Add(path, nativeDict);
@@ -135,42 +168,75 @@ namespace StoriesLinker
 
             var nativeDict = new Dictionary<string, string>();
 
-            using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+            // ПРОВЕРКА: Файл должен существовать
+            if (!File.Exists(path))
             {
-                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
-                int totalRows = myWorksheet.Dimension.End.Row;
-                int totalColumns = myWorksheet.Dimension.End.Column;
+                Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Файл описания книги не найден: {path}");
+                _savedXMLDicts.Add(path, nativeDict);
+                return nativeDict;
+            }
 
-                for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+            try
+            {
+                using (var xlPackage = new ExcelPackage(new FileInfo(path)))
                 {
-                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];  // Колонка A (ID)
-                    ExcelRange columnD = myWorksheet.Cells[rowNum, 4];   // Колонка D
-                    ExcelRange columnB = myWorksheet.Cells[rowNum, 2];   // Колонка B
-
-                    string firstRowStr = firstRow != null && firstRow.Value != null
-                                                ? firstRow.Value.ToString()
-                                                : "";
-                                                
-                    if (string.IsNullOrEmpty(firstRowStr)) continue;
-
-                    // Проверяем сначала колонку D, если пусто, берем из B
-                    string valueStr;
-                    if (columnD != null && columnD.Value != null && !string.IsNullOrWhiteSpace(columnD.Value.ToString()))
+                    // ПРОВЕРКА: В файле должны быть листы
+                    if (xlPackage.Workbook.Worksheets.Count == 0)
                     {
-                        valueStr = columnD.Value.ToString();
-                    }
-                    else
-                    {
-                        valueStr = columnB != null && columnB.Value != null
-                                      ? columnB.Value.ToString()
-                                      : " ";
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл описания книги не содержит листов: {path}");
+                        _savedXMLDicts.Add(path, nativeDict);
+                        return nativeDict;
                     }
 
-                    if (!nativeDict.ContainsKey(firstRowStr))
-                        nativeDict.Add(firstRowStr, valueStr);
-                    else
-                        Console.WriteLine("double key critical error " + firstRowStr);
+                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                    
+                    // ПРОВЕРКА: Лист должен иметь данные
+                    if (myWorksheet.Dimension == null)
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист описания книги пустой: {path}");
+                        _savedXMLDicts.Add(path, nativeDict);
+                        return nativeDict;
+                    }
+
+                    int totalRows = myWorksheet.Dimension.End.Row;
+                    int totalColumns = myWorksheet.Dimension.End.Column;
+
+                    for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+                    {
+                        ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];  // Колонка A (ID)
+                        ExcelRange columnD = myWorksheet.Cells[rowNum, 4];   // Колонка D
+                        ExcelRange columnB = myWorksheet.Cells[rowNum, 2];   // Колонка B
+
+                        string firstRowStr = firstRow != null && firstRow.Value != null
+                                                    ? firstRow.Value.ToString()
+                                                    : "";
+                                                    
+                        if (string.IsNullOrEmpty(firstRowStr)) continue;
+
+                        // Проверяем сначала колонку D, если пусто, берем из B
+                        string valueStr;
+                        if (columnD != null && columnD.Value != null && !string.IsNullOrWhiteSpace(columnD.Value.ToString()))
+                        {
+                            valueStr = columnD.Value.ToString();
+                        }
+                        else
+                        {
+                            valueStr = columnB != null && columnB.Value != null
+                                          ? columnB.Value.ToString()
+                                          : " ";
+                        }
+
+                        if (!nativeDict.ContainsKey(firstRowStr))
+                            nativeDict.Add(firstRowStr, valueStr);
+                        else
+                            Console.WriteLine("double key critical error " + firstRowStr);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ ОШИБКА при чтении Excel файла описания книги {path}: {ex.Message}");
+                // Возвращаем пустой словарь вместо падения
             }
 
             _savedXMLDicts.Add(path, nativeDict);
@@ -204,191 +270,236 @@ namespace StoriesLinker
 
             string metaXMLPath = _projectPath + @"\Raw\Meta.xlsx";
 
-            using (var xlPackage = new ExcelPackage(new FileInfo(metaXMLPath)))
+            // ПРОВЕРКА: Файл Meta.xlsx должен существовать
+            if (!File.Exists(metaXMLPath))
             {
-                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
-                int totalRows = myWorksheet.Dimension.End.Row;
+                Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Файл Meta.xlsx не найден: {metaXMLPath}");
+                return jsonObj;
+            }
 
-                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
+            try
+            {
+                using (var xlPackage = new ExcelPackage(new FileInfo(metaXMLPath)))
                 {
-                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
-                    ExcelRange secondRow = myWorksheet.Cells[rowNum, 2];
-
-                    var fieldName = firstRow.Value.ToString();
-                    var fieldValue = secondRow.Value.ToString();
-
-                    string[] values;
-
-                    switch (fieldName)
+                    // ПРОВЕРКА: В файле должны быть листы
+                    if (xlPackage.Workbook.Worksheets.Count == 0)
                     {
-                        case "UniqueID": jsonObj.UniqueId = fieldValue; break;
-                        case "SpritePrefix": jsonObj.SpritePrefix = fieldValue; break;
-                        case "VersionBin": jsonObj.Version.BinVersion = fieldValue; break;
-                        case "VersionPreview": jsonObj.Version.PreviewVersion = fieldValue; break;
-                        case "VersionBaseResources": jsonObj.Version.BaseResourcesVersion = fieldValue; break;
-                        case "StandartizedUI": jsonObj.StandartizedUi = fieldValue == "1"; break;
-                        case "UITextBlockFontSize": jsonObj.UiTextBlockFontSize = int.Parse(fieldValue); break;
-                        case "UIChoiceBlockFontSize": jsonObj.UiChoiceBlockFontSize = int.Parse(fieldValue); break;
-                        case "KarmaCurrency": jsonObj.KarmaCurrency = fieldValue; break;
-                        case "KarmaBadBorder": jsonObj.KarmaBadBorder = int.Parse(fieldValue); break;
-                        case "KarmaGoodBorder": jsonObj.KarmaGoodBorder = int.Parse(fieldValue); break;
-                        case "KarmaTopLimit": jsonObj.KarmaTopLimit = int.Parse(fieldValue); break;
-                        case "CurrenciesInOrderOfUI":
-                            jsonObj.CurrenciesInOrderOfUi = new List<string>(fieldValue.Split(','));
-                            break;
-                        case "RacesList":
-                            jsonObj.RacesList = fieldValue != "-"
-                                                      ? new List<string>(fieldValue.Split(','))
-                                                      : new List<string>();
-                            break;
-                        case "ClothesSpriteNames":
-                            jsonObj.ClothesSpriteNames = new List<string>(fieldValue.Split(','));
-                            break;
-                        case "UndefinedClothesFuncVariant":
-                            jsonObj.UndefinedClothesFuncVariant = int.Parse(fieldValue);
-                            break;
-                        case "ExceptionsWeaponLayer": jsonObj.ExceptionsWeaponLayer = fieldValue == "1"; break;
-                        case "UITextPlateLimits":
-                            values = fieldValue.Split(',');
-
-                            jsonObj.UiTextPlateLimits = new List<int>();
-
-                            foreach (string el in values) jsonObj.UiTextPlateLimits.Add(int.Parse(el));
-
-                            break;
-                        case "UIPaintFirstLetterInRedException":
-                            jsonObj.UiPaintFirstLetterInRedException = fieldValue == "1";
-                            break;
-                        case "UITextPlateOffset": jsonObj.UiTextPlateOffset = int.Parse(fieldValue); break;
-                        case "UIOverridedTextColor": jsonObj.UiOverridedTextColor = fieldValue == "1"; break;
-                        case "UITextColor":
-                            values = fieldValue.Split(',');
-
-                            jsonObj.UiTextColor = new List<int>();
-
-                            foreach (string el in values) jsonObj.UiTextColor.Add(int.Parse(el));
-
-                            break;
-                        case "UIBlockedTextColor":
-                            values = fieldValue.Split(',');
-
-                            jsonObj.UiBlockedTextColor = new List<int>();
-
-                            foreach (string el in values) jsonObj.UiBlockedTextColor.Add(int.Parse(el));
-
-                            break;
-                        case "UIChNameTextColor":
-                            values = fieldValue.Split(',');
-
-                            jsonObj.UiChNameTextColor = new List<int>();
-
-                            foreach (string el in values) jsonObj.UiChNameTextColor.Add(int.Parse(el));
-
-                            break;
-                        case "UIOutlineColor":
-                            values = fieldValue.Split(',');
-
-                            jsonObj.UiOutlineColor = new List<int>();
-
-                            foreach (string el in values) jsonObj.UiOutlineColor.Add(int.Parse(el));
-
-                            break;
-                        case "UIResTextColor":
-                            values = fieldValue.Split(',');
-
-                            jsonObj.UiResTextColor = new List<int>();
-
-                            foreach (string el in values) jsonObj.UiResTextColor.Add(int.Parse(el));
-
-                            break;
-                        case "WardrobeEnabled": jsonObj.WardrobeEnabled = fieldValue == "1"; break;
-                        case "MainHeroHasDifferentGenders":
-                            jsonObj.MainHeroHasDifferentGenders = fieldValue == "1";
-                            break;
-                        case "MainHeroHasSplittedHairSprite":
-                            jsonObj.MainHeroHasSplittedHairSprite = fieldValue == "1";
-                            break;
-                        case "CustomClothesCount": jsonObj.CustomClothesCount = int.Parse(fieldValue); break;
-                        case "CustomHairsCount": jsonObj.CustomHairCount = int.Parse(fieldValue); break;
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Meta.xlsx не содержит листов");
+                        return jsonObj;
                     }
-                }
 
-                myWorksheet = xlPackage.Workbook.Worksheets[2];
-                totalRows = myWorksheet.Dimension.End.Row;
+                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                    
+                    // ПРОВЕРКА: Лист должен иметь данные
+                    if (myWorksheet.Dimension == null)
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Первый лист Meta.xlsx пустой");
+                        return jsonObj;
+                    }
 
-                Func<object[], int> checkRow = CheckRow();
+                    int totalRows = myWorksheet.Dimension.End.Row;
 
-                var characters = new List<AjMetaCharacterData>();
+                    for (var rowNum = 2; rowNum <= totalRows; rowNum++)
+                    {
+                        ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                        ExcelRange secondRow = myWorksheet.Cells[rowNum, 2];
 
-                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
-                {
-                    var cells = new object[]
+                        var fieldName = firstRow.Value.ToString();
+                        var fieldValue = secondRow.Value.ToString();
+
+                        string[] values;
+
+                        switch (fieldName)
+                        {
+                            case "UniqueID": jsonObj.UniqueId = fieldValue; break;
+                            case "SpritePrefix": jsonObj.SpritePrefix = fieldValue; break;
+                            case "VersionBin": jsonObj.Version.BinVersion = fieldValue; break;
+                            case "VersionPreview": jsonObj.Version.PreviewVersion = fieldValue; break;
+                            case "VersionBaseResources": jsonObj.Version.BaseResourcesVersion = fieldValue; break;
+                            case "StandartizedUI": jsonObj.StandartizedUi = fieldValue == "1"; break;
+                            case "UITextBlockFontSize": jsonObj.UiTextBlockFontSize = int.Parse(fieldValue); break;
+                            case "UIChoiceBlockFontSize": jsonObj.UiChoiceBlockFontSize = int.Parse(fieldValue); break;
+                            case "KarmaCurrency": jsonObj.KarmaCurrency = fieldValue; break;
+                            case "KarmaBadBorder": jsonObj.KarmaBadBorder = int.Parse(fieldValue); break;
+                            case "KarmaGoodBorder": jsonObj.KarmaGoodBorder = int.Parse(fieldValue); break;
+                            case "KarmaTopLimit": jsonObj.KarmaTopLimit = int.Parse(fieldValue); break;
+                            case "CurrenciesInOrderOfUI":
+                                jsonObj.CurrenciesInOrderOfUi = new List<string>(fieldValue.Split(','));
+                                break;
+                            case "RacesList":
+                                jsonObj.RacesList = fieldValue != "-"
+                                                          ? new List<string>(fieldValue.Split(','))
+                                                          : new List<string>();
+                                break;
+                            case "ClothesSpriteNames":
+                                jsonObj.ClothesSpriteNames = new List<string>(fieldValue.Split(','));
+                                break;
+                            case "UndefinedClothesFuncVariant":
+                                jsonObj.UndefinedClothesFuncVariant = int.Parse(fieldValue);
+                                break;
+                            case "ExceptionsWeaponLayer": jsonObj.ExceptionsWeaponLayer = fieldValue == "1"; break;
+                            case "UITextPlateLimits":
+                                values = fieldValue.Split(',');
+
+                                jsonObj.UiTextPlateLimits = new List<int>();
+
+                                foreach (string el in values) jsonObj.UiTextPlateLimits.Add(int.Parse(el));
+
+                                break;
+                            case "UIPaintFirstLetterInRedException":
+                                jsonObj.UiPaintFirstLetterInRedException = fieldValue == "1";
+                                break;
+                            case "UITextPlateOffset": jsonObj.UiTextPlateOffset = int.Parse(fieldValue); break;
+                            case "UIOverridedTextColor": jsonObj.UiOverridedTextColor = fieldValue == "1"; break;
+                            case "UITextColor":
+                                values = fieldValue.Split(',');
+
+                                jsonObj.UiTextColor = new List<int>();
+
+                                foreach (string el in values) jsonObj.UiTextColor.Add(int.Parse(el));
+
+                                break;
+                            case "UIBlockedTextColor":
+                                values = fieldValue.Split(',');
+
+                                jsonObj.UiBlockedTextColor = new List<int>();
+
+                                foreach (string el in values) jsonObj.UiBlockedTextColor.Add(int.Parse(el));
+
+                                break;
+                            case "UIChNameTextColor":
+                                values = fieldValue.Split(',');
+
+                                jsonObj.UiChNameTextColor = new List<int>();
+
+                                foreach (string el in values) jsonObj.UiChNameTextColor.Add(int.Parse(el));
+
+                                break;
+                            case "UIOutlineColor":
+                                values = fieldValue.Split(',');
+
+                                jsonObj.UiOutlineColor = new List<int>();
+
+                                foreach (string el in values) jsonObj.UiOutlineColor.Add(int.Parse(el));
+
+                                break;
+                            case "UIResTextColor":
+                                values = fieldValue.Split(',');
+
+                                jsonObj.UiResTextColor = new List<int>();
+
+                                foreach (string el in values) jsonObj.UiResTextColor.Add(int.Parse(el));
+
+                                break;
+                            case "WardrobeEnabled": jsonObj.WardrobeEnabled = fieldValue == "1"; break;
+                            case "MainHeroHasDifferentGenders":
+                                jsonObj.MainHeroHasDifferentGenders = fieldValue == "1";
+                                break;
+                            case "MainHeroHasSplittedHairSprite":
+                                jsonObj.MainHeroHasSplittedHairSprite = fieldValue == "1";
+                                break;
+                            case "CustomClothesCount": jsonObj.CustomClothesCount = int.Parse(fieldValue); break;
+                            case "CustomHairsCount": jsonObj.CustomHairCount = int.Parse(fieldValue); break;
+                        }
+                    }
+
+                    // ПРОВЕРКА: Должен быть третий лист (индекс 2)
+                    if (xlPackage.Workbook.Worksheets.Count < 3)
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Meta.xlsx не содержит третий лист для данных персонажей");
+                        return jsonObj;
+                    }
+
+                    myWorksheet = xlPackage.Workbook.Worksheets[2];
+                    
+                    // ПРОВЕРКА: Третий лист должен иметь данные
+                    if (myWorksheet.Dimension == null)
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Третий лист Meta.xlsx пустой");
+                        return jsonObj;
+                    }
+
+                    totalRows = myWorksheet.Dimension.End.Row;
+
+                    Func<object[], int> checkRow = CheckRow();
+
+                    var characters = new List<AjMetaCharacterData>();
+
+                    for (var rowNum = 2; rowNum <= totalRows; rowNum++)
+                    {
+                        var cells = new object[]
+                                     {
+                                         myWorksheet.Cells[rowNum, 1].Value,
+                                         myWorksheet.Cells[rowNum, 2].Value,
+                                         myWorksheet.Cells[rowNum, 3].Value,
+                                         myWorksheet.Cells[rowNum, 4].Value
+                                     };
+
+                        int chResult = checkRow(cells);
+
+                        switch (chResult)
+                        {
+                            case -1: continue;
+                            case 0: return null;
+                        }
+
+                        var ch = new AjMetaCharacterData
                                  {
-                                     myWorksheet.Cells[rowNum, 1].Value,
-                                     myWorksheet.Cells[rowNum, 2].Value,
-                                     myWorksheet.Cells[rowNum, 3].Value,
-                                     myWorksheet.Cells[rowNum, 4].Value
+                                     DisplayName = cells[0].ToString(),
+                                     ClothesVariableName = cells[1].ToString(),
+                                     AtlasFileName = cells[2].ToString(),
+                                     BaseNameInAtlas = cells[3].ToString()
                                  };
 
-                    int chResult = checkRow(cells);
-
-                    switch (chResult)
-                    {
-                        case -1: continue;
-                        case 0: return null;
+                        characters.Add(ch);
                     }
 
-                    var ch = new AjMetaCharacterData
-                             {
-                                 DisplayName = cells[0].ToString(),
-                                 ClothesVariableName = cells[1].ToString(),
-                                 AtlasFileName = cells[2].ToString(),
-                                 BaseNameInAtlas = cells[3].ToString()
-                             };
+                    jsonObj.Characters = characters;
 
-                    characters.Add(ch);
-                }
+                    myWorksheet = xlPackage.Workbook.Worksheets[3];
+                    totalRows = myWorksheet.Dimension.End.Row;
 
-                jsonObj.Characters = characters;
+                    var locations = new List<AjMetaLocationData>();
 
-                myWorksheet = xlPackage.Workbook.Worksheets[3];
-                totalRows = myWorksheet.Dimension.End.Row;
-
-                var locations = new List<AjMetaLocationData>();
-
-                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
-                {
-                    var cells = new object[]
-                                 {
-                                     myWorksheet.Cells[rowNum, 1].Value,
-                                     myWorksheet.Cells[rowNum, 2].Value,
-                                     myWorksheet.Cells[rowNum, 3].Value,
-                                     myWorksheet.Cells[rowNum, 4].Value,
-                                     myWorksheet.Cells[rowNum, 5].Value
-                                 };
-
-                    int chResult = checkRow(cells);
-
-                    switch (chResult)
+                    for (var rowNum = 2; rowNum <= totalRows; rowNum++)
                     {
-                        case -1: continue;
-                        case 0: return null;
+                        var cells = new object[]
+                                     {
+                                         myWorksheet.Cells[rowNum, 1].Value,
+                                         myWorksheet.Cells[rowNum, 2].Value,
+                                         myWorksheet.Cells[rowNum, 3].Value,
+                                         myWorksheet.Cells[rowNum, 4].Value,
+                                         myWorksheet.Cells[rowNum, 5].Value
+                                     };
+
+                        int chResult = checkRow(cells);
+
+                        switch (chResult)
+                        {
+                            case -1: continue;
+                            case 0: return null;
+                        }
+
+                        var loc = new AjMetaLocationData
+                                   {
+                                       Id = int.Parse(cells[0].ToString()),
+                                       DisplayName = cells[1].ToString(),
+                                       SpriteName = cells[2].ToString(),
+                                       SoundIdleName = cells[3].ToString()
+                                   };
+
+                        if (cells[4].ToString() == "1") jsonObj.IntroLocation = rowNum - 1;
+
+                        locations.Add(loc);
                     }
 
-                    var loc = new AjMetaLocationData
-                               {
-                                   Id = int.Parse(cells[0].ToString()),
-                                   DisplayName = cells[1].ToString(),
-                                   SpriteName = cells[2].ToString(),
-                                   SoundIdleName = cells[3].ToString()
-                               };
-
-                    if (cells[4].ToString() == "1") jsonObj.IntroLocation = rowNum - 1;
-
-                    locations.Add(loc);
+                    jsonObj.Locations = locations;
                 }
-
-                jsonObj.Locations = locations;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ ОШИБКА при чтении файла Meta.xlsx: {ex.Message}");
+                return jsonObj;
             }
 
             return jsonObj;
