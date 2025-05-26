@@ -248,13 +248,16 @@ namespace StoriesLinker
                 if (properties["Color"] != null)
                 {
                     var color = properties["Color"];
-                    ajObj.Properties.Color = new AjColor
+                    var ajColor = new AjColor
                     {
-                        R = color["R"]?.ToObject<float>() ?? 0f,
-                        G = color["G"]?.ToObject<float>() ?? 0f,
-                        B = color["B"]?.ToObject<float>() ?? 0f,
-                        A = color["A"]?.ToObject<float>() ?? 1f
+                        R = color["r"]?.ToObject<float>() ?? 0f,
+                        G = color["g"]?.ToObject<float>() ?? 0f,
+                        B = color["b"]?.ToObject<float>() ?? 0f,
+                        A = color["a"]?.ToObject<float>() ?? 1f
                     };
+                    
+                    // Устанавливаем цвет и автоматически обновляем эмоцию
+                    ajObj.Properties.SetColorAndUpdateEmotion(ajColor);
                 }
 
                 // Обработка пинов

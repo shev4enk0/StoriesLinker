@@ -92,6 +92,11 @@ namespace StoriesLinker
         public List<string> Attachments;
 
         public AjColor Color;
+        
+        /// <summary>
+        /// Автоматически распознанная эмоция на основе цвета
+        /// </summary>
+        public EChEmotion DetectedEmotion { get; private set; } = EChEmotion.IsntSetOrNeutral;
 
         public string Text;
         public string ExternalId;
@@ -111,6 +116,112 @@ namespace StoriesLinker
         //Jump
         public string Target;
         public string TargetPin;
+
+        /// <summary>
+        /// Автоматически обновляет поле DetectedEmotion на основе текущего цвета
+        /// Работает с цветами как из Articy 3, так и из Articy X
+        /// </summary>
+        public void UpdateEmotionFromColor()
+        {
+            if (Color != null)
+            {
+                string emotionString = ImprovedEmotionRecognizer.RecognizeEmotion(Color);
+                if (Enum.TryParse(emotionString, out EChEmotion emotion))
+                {
+                    DetectedEmotion = emotion;
+                }
+                else
+                {
+                    DetectedEmotion = EChEmotion.IsntSetOrNeutral;
+                }
+            }
+            else
+            {
+                DetectedEmotion = EChEmotion.IsntSetOrNeutral;
+            }
+        }
+
+        /// <summary>
+        /// Получает детальную информацию о распознавании эмоции
+        /// </summary>
+        public EmotionRecognitionResult GetEmotionRecognitionDetails()
+        {
+            if (Color != null)
+            {
+                return ImprovedEmotionRecognizer.RecognizeEmotionDetailed(Color);
+            }
+            
+            return new EmotionRecognitionResult
+            {
+                InputColor = null,
+                RecognizedEmotion = EChEmotion.IsntSetOrNeutral,
+                Source = "No color data",
+                IsExactMatch = false,
+                Confidence = 0.0f
+            };
+        }
+
+        /// <summary>
+        /// Устанавливает новый цвет и автоматически обновляет эмоцию
+        /// </summary>
+        public void SetColorAndUpdateEmotion(AjColor newColor)
+        {
+            Color = newColor;
+            UpdateEmotionFromColor();
+        }
+    }
+
+    /// <summary>
+    /// Утилитные методы для автоматического обновления эмоций в структурах данных
+    /// </summary>
+    public static class EmotionUpdateUtility
+    {
+        /// <summary>
+        /// Обновляет эмоции для всех объектов в AjFile
+        /// </summary>
+        public static void UpdateEmotionsInAjFile(AjFile ajFile)
+        {
+            if (ajFile?.Packages == null) return;
+
+            foreach (var package in ajFile.Packages)
+            {
+                UpdateEmotionsInPackage(package);
+            }
+        }
+
+        /// <summary>
+        /// Обновляет эмоции для всех объектов в пакете
+        /// </summary>
+        public static void UpdateEmotionsInPackage(AjPackage package)
+        {
+            if (package?.Models == null) return;
+
+            foreach (var model in package.Models)
+            {
+                UpdateEmotionsInObject(model);
+            }
+        }
+
+        /// <summary>
+        /// Обновляет эмоции в объекте
+        /// </summary>
+        public static void UpdateEmotionsInObject(AjObj ajObj)
+        {
+            ajObj?.Properties?.UpdateEmotionFromColor();
+        }
+
+        /// <summary>
+        /// Обновляет эмоции в списке объектов
+        /// </summary>
+        public static void UpdateEmotionsInObjectList(List<AjObj> objects)
+        {
+            if (objects == null) return;
+
+            foreach (var obj in objects)
+            {
+                UpdateEmotionsInObject(obj);
+            }
+        }
     }
 
     [Serializable]

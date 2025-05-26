@@ -249,6 +249,104 @@ namespace StoriesLinker
 
         #endregion
 
+        #region Работа с Excel таблицами с эмоциями
+
+        /// <summary>
+        /// Преобразование Excel-таблицы в словарь с эмоциями (для for_translating файлов)
+        /// Читает: колонка A - ID, колонка B - Speaker, колонка C - Emotion, колонка D - Text
+        /// </summary>
+        private Dictionary<string, LocalizEntityWithEmotion> XMLTableToDictWithEmotions(string path)
+        {
+            var resultDict = new Dictionary<string, LocalizEntityWithEmotion>();
+
+            // ПРОВЕРКА: Файл должен существовать
+            if (!File.Exists(path))
+            {
+                Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Файл с эмоциями не найден: {path}");
+                return resultDict;
+            }
+
+            try
+            {
+                using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+                {
+                    // ПРОВЕРКА: В файле должны быть листы
+                    if (xlPackage.Workbook.Worksheets.Count == 0)
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл с эмоциями не содержит листов: {path}");
+                        return resultDict;
+                    }
+
+                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                    
+                    // ПРОВЕРКА: Лист должен иметь данные
+                    if (myWorksheet.Dimension == null)
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист с эмоциями пустой: {path}");
+                        return resultDict;
+                    }
+
+                    int totalRows = myWorksheet.Dimension.End.Row;
+
+                    // Пропускаем заголовок (строка 1)
+                    for (var rowNum = 2; rowNum <= totalRows; rowNum++)
+                    {
+                        var idCell = myWorksheet.Cells[rowNum, 1];      // Колонка A - ID
+                        var speakerCell = myWorksheet.Cells[rowNum, 2]; // Колонка B - Speaker  
+                        var emotionCell = myWorksheet.Cells[rowNum, 3]; // Колонка C - Emotion
+                        var textCell = myWorksheet.Cells[rowNum, 4];    // Колонка D - Text
+
+                        string localizId = idCell?.Value?.ToString() ?? "";
+                        string speaker = speakerCell?.Value?.ToString() ?? "";
+                        string emotion = emotionCell?.Value?.ToString() ?? "";
+                        string text = textCell?.Value?.ToString() ?? "";
+
+                        if (string.IsNullOrEmpty(localizId) || string.IsNullOrEmpty(text)) 
+                            continue;
+
+                        var entity = new LocalizEntityWithEmotion
+                        {
+                            LocalizID = localizId,
+                            Text = text,
+                            SpeakerDisplayName = speaker,
+                            Emotion = emotion
+                        };
+
+                        if (!resultDict.ContainsKey(localizId))
+                        {
+                            resultDict.Add(localizId, entity);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Дублирующийся ключ в файле с эмоциями: {localizId}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ ОШИБКА при чтении Excel файла с эмоциями {path}: {ex.Message}");
+            }
+
+            Console.WriteLine($"📊 Загружено {resultDict.Count} записей с эмоциями из {path}");
+            return resultDict;
+        }
+
+        /// <summary>
+        /// Создает JSON файл локализации с эмоциями
+        /// </summary>
+        private AjLocalizWithEmotionsInJsonFile CreateLocalizationWithEmotions(string pathToForTranslatingFile)
+        {
+            var emotionsDict = XMLTableToDictWithEmotions(pathToForTranslatingFile);
+            
+            var jsonFile = new AjLocalizWithEmotionsInJsonFile();
+            jsonFile.Data = emotionsDict;
+
+            return jsonFile;
+        }
+
+        #endregion
+
         #region Работа с JSON файлами
 
         public AjFile GetParsedFlowJsonFile()
@@ -260,6 +358,9 @@ namespace StoriesLinker
                 string json = r.ReadToEnd();
                 jsonObj = JsonConvert.DeserializeObject<AjFile>(json);
             }
+
+            // Автоматически обновляем эмоции для всех объектов после загрузки
+            EmotionUpdateUtility.UpdateEmotionsInAjFile(jsonObj);
 
             return jsonObj;
         }
@@ -681,14 +782,7 @@ namespace StoriesLinker
             return ids.ToArray();
         }
 
-        private enum EChEmotion
-        {
-            Angry, //red
-            Happy, //green
-            Sad, //purple
-            Surprised, //yellow
-            IsntSetOrNeutral //blue
-        }
+        // Enum EChEmotion перенесен в EmotionColorMapper.cs для избежания дублирования
 
         #endregion
 
@@ -721,32 +815,8 @@ namespace StoriesLinker
 
             chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
 
-            string RecognizeEmotion(AjColor color)
-            {
-                var emotion = EChEmotion.IsntSetOrNeutral;
-
-                bool ColorsEquals(Color32 a, Color32 b) =>
-                    Math.Abs(a.R - b.R) < 20 && Math.Abs(a.G - b.G) < 20 && Math.Abs(a.B - b.B) < 20;
-
-                var fragColor = color.ToColor32();
-                var emotionsColor = new Color32[]
-                                    {
-                                        new Color32(255, 0, 0, 0),
-                                        new Color32(0, 110, 20, 0),
-                                        new Color32(41, 6, 88, 0),
-                                        new Color32(255, 134, 0, 0)
-                                    };
-
-                for (var i = 0; i < emotionsColor.Length; i++)
-                {
-                    if (!ColorsEquals(emotionsColor[i], fragColor)) continue;
-                    
-                    emotion = (EChEmotion)i;
-                    break;
-                }
-
-                return emotion.ToString();
-            }
+            // Используем улучшенную функцию распознавания эмоций, которая поддерживает оба стандарта
+            string RecognizeEmotion(AjColor color) => ImprovedEmotionRecognizer.RecognizeEmotion(color);
 
             List<string>[] csparentsIds = GetChaptersAndSubchaptersParentsIDs(chaptersIds, objectsList);
 
@@ -1424,6 +1494,15 @@ namespace StoriesLinker
                 if (!string.IsNullOrEmpty(correct))
                 {
                     showLocalizError(correct, "chapter" + chapterN);
+                }
+
+                // НОВОЕ: Создаем JSON файл с эмоциями для for_translating файлов
+                if (File.Exists(langFiles[0])) // Если есть файл Chapter_X_for_translating.xlsx
+                {
+                    var emotionsData = CreateLocalizationWithEmotions(langFiles[0]);
+                    string emotionsJsonPath = chapterFolder + @"\Strings\" + lang + "_emotions.json";
+                    File.WriteAllText(emotionsJsonPath, JsonConvert.SerializeObject(emotionsData, Formatting.Indented));
+                    Console.WriteLine($"✅ Создан файл с эмоциями: {emotionsJsonPath}");
                 }
 
                 if (chapterN != 1) continue;
