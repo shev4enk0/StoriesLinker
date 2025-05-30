@@ -382,10 +382,10 @@ namespace StoriesLinker
             {
                 using (var xlPackage = new ExcelPackage(new FileInfo(metaXMLPath)))
                 {
-                    // ПРОВЕРКА: В файле должны быть листы
-                    if (xlPackage.Workbook.Worksheets.Count == 0)
+                    // ПРОВЕРКА: Должны быть все три листа (Base, Characters, Locations)
+                    if (xlPackage.Workbook.Worksheets.Count < 3)
                     {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Meta.xlsx не содержит листов");
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Meta.xlsx должен содержать 3 листа (Base, Characters, Locations), найдено: {xlPackage.Workbook.Worksheets.Count}");
                         return jsonObj;
                     }
 
@@ -511,12 +511,12 @@ namespace StoriesLinker
                         return jsonObj;
                     }
 
-                    myWorksheet = xlPackage.Workbook.Worksheets[2];
+                    myWorksheet = xlPackage.Workbook.Worksheets[1]; // Characters лист (индекс 1)
                     
-                    // ПРОВЕРКА: Третий лист должен иметь данные
+                    // ПРОВЕРКА: Лист Characters должен иметь данные
                     if (myWorksheet.Dimension == null)
                     {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Третий лист Meta.xlsx пустой");
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Лист Characters в Meta.xlsx пустой");
                         return jsonObj;
                     }
 
@@ -557,7 +557,15 @@ namespace StoriesLinker
 
                     jsonObj.Characters = characters;
 
-                    myWorksheet = xlPackage.Workbook.Worksheets[3];
+                    myWorksheet = xlPackage.Workbook.Worksheets[2]; // Locations лист (индекс 2)
+                    
+                    // ПРОВЕРКА: Лист Locations должен иметь данные
+                    if (myWorksheet.Dimension == null)
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Лист Locations в Meta.xlsx пустой");
+                        return jsonObj;
+                    }
+                    
                     totalRows = myWorksheet.Dimension.End.Row;
 
                     var locations = new List<AjMetaLocationData>();
