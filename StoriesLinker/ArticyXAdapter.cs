@@ -357,18 +357,30 @@ namespace StoriesLinker
                 string key = kvp.Key;
                 var value = kvp.Value;
 
-                // Ищем текст для нужного языка
-                if (value[langCode] != null && value[langCode]["Text"] != null)
+                // Проверяем, что value является JObject, а не JProperty
+                if (value.Type != JTokenType.Object)
                 {
-                    result[key] = value[langCode]["Text"].ToString();
+                    continue;
+                }
+
+                var valueObj = value as JObject;
+                if (valueObj == null)
+                {
+                    continue;
+                }
+
+                // Ищем текст для нужного языка
+                if (valueObj[langCode] != null && valueObj[langCode]["Text"] != null)
+                {
+                    result[key] = valueObj[langCode]["Text"].ToString();
                 }
                 else
                 {
                     // Если нет текста для нужного языка, берем первый доступный
-                    var firstLang = value.Children().FirstOrDefault();
-                    if (firstLang != null && firstLang["Text"] != null)
+                    var firstLangProperty = valueObj.Properties().FirstOrDefault();
+                    if (firstLangProperty != null && firstLangProperty.Value["Text"] != null)
                     {
-                        result[key] = firstLang["Text"].ToString();
+                        result[key] = firstLangProperty.Value["Text"].ToString();
                     }
                     else
                     {
