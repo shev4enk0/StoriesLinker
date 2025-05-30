@@ -270,23 +270,21 @@ namespace StoriesLinker
     [Serializable]
     public class AjMetaCharacterData
     {
-        public string Aid;
-
-        public string DisplayName;
-        public string ClothesVariableName;
-        public string AtlasFileName;
-        public string BaseNameInAtlas;
+        public string Aid = string.Empty;
+        public string DisplayName = string.Empty;
+        public string ClothesVariableName = string.Empty;
+        public string AtlasFileName = string.Empty;
+        public string BaseNameInAtlas = string.Empty;
     }
 
     [Serializable]
     public class AjMetaLocationData
     {
-        public string Aid;
-
+        public string Aid = string.Empty;
         public int Id;
-        public string DisplayName;
-        public string SpriteName;
-        public string SoundIdleName;
+        public string DisplayName = string.Empty;
+        public string SpriteName = string.Empty;
+        public string SoundIdleName = string.Empty;
     }
 
     [Serializable]

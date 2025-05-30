@@ -1,19 +1,21 @@
-﻿using System;
-using System.Windows.Forms;
+﻿using System.Text;
 
-namespace StoriesLinker
+namespace StoriesLinker;
+
+static class Program
 {
-    static class Program
+    /// <summary>
+    /// The main entry point for the application.
+    /// </summary>
+    [STAThread]
+    static void Main(string[] args)
     {
-        /// <summary>
-        /// The main entry point for the application.
-        /// </summary>
-        [STAThread]
-        static void Main(string[] args)
-        {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
-        }
+        // Устанавливаем кодировку консоли для корректного отображения кириллицы
+        Console.OutputEncoding = Encoding.UTF8;
+        Console.InputEncoding = Encoding.UTF8;
+        
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        Application.Run(new Form1());
     }
 }

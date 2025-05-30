@@ -76,12 +76,12 @@ namespace StoriesLinker
                 // Создаем Excel файл локализации как в Articy 3
                 _articyXAdapter.CreateLocalizationExcelFile();
 
-                Form1.ShowMessage("Данные Articy X успешно конвертированы в формат Articy 3");
+                Form1.ShowMessage("Articy X data successfully converted to Articy 3 format");
             }
             catch (Exception ex)
             {
-                Form1.ShowMessage($"Ошибка конвертации Articy X: {ex.Message}");
-                Console.WriteLine($"Подробности ошибки: {ex}");
+                Form1.ShowMessage($"Articy X conversion error: {ex.Message}");
+                Console.WriteLine($"Conversion details: {ex}");
                 throw;
             }
         }
@@ -109,11 +109,11 @@ namespace StoriesLinker
         {
             if (!ArticyXAdapter.IsArticyXProject(_projectPath))
             {
-                Console.WriteLine("Проект использует формат Articy 3 - адаптация не требуется");
+                Console.WriteLine("Project uses Articy 3 format - adaptation not required");
                 return;
             }
 
-            Console.WriteLine("Обнаружен проект Articy X - начинаем адаптацию...");
+            Console.WriteLine("Articy X project detected - starting adaptation...");
 
             try
             {
@@ -126,17 +126,17 @@ namespace StoriesLinker
                 string flowJsonPath = GetFlowJsonPath(_projectPath);
                 string flowJson = Newtonsoft.Json.JsonConvert.SerializeObject(convertedData, Newtonsoft.Json.Formatting.Indented);
                 File.WriteAllText(flowJsonPath, flowJson);
-                Console.WriteLine($"Создан файл: {flowJsonPath}");
+                Console.WriteLine(ConsoleMessages.FlowJsonSaved(flowJsonPath));
 
                 // Создаем файл локализации Excel (с исходными текстами + новыми ключами)
                 adapter.CreateLocalizationExcelFile();
 
-                Console.WriteLine("✅ Адаптация Articy X завершена успешно!");
-                Console.WriteLine("Теперь проект совместим с форматом Articy 3");
+                Console.WriteLine(ConsoleMessages.ArticyDataProcessingComplete());
+                Console.WriteLine(ConsoleMessages.ConversionModeDetected("Articy 3"));
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Ошибка при адаптации Articy X: {ex.Message}");
+                Console.WriteLine($"ERROR during Articy X adaptation: {ex.Message}");
                 throw;
             }
         }
@@ -206,7 +206,7 @@ namespace StoriesLinker
                 string filePath = Path.Combine(projectPath, "Raw", "X", file);
                 if (!File.Exists(filePath))
                 {
-                    Form1.ShowMessage($"Отсутствует файл Articy X: {file}");
+                    Form1.ShowMessage($"Articy X file missing: {file}");
                     return false;
                 }
             }
@@ -235,7 +235,7 @@ namespace StoriesLinker
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка очистки: {ex.Message}");
+                Console.WriteLine($"Cleaning up error: {ex.Message}");
             }
         }
 
@@ -246,13 +246,13 @@ namespace StoriesLinker
         {
             if (!_isArticyX)
             {
-                Form1.ShowMessage("Проект не является Articy X");
+                Form1.ShowMessage("Project is not Articy X");
                 return;
             }
 
             try
             {
-                Form1.ShowMessage("Начинаем тестирование конвертации Articy X...");
+                Form1.ShowMessage("Starting Articy X conversion test...");
                 
                 var articyData = _articyXAdapter.ConvertToArticy3Format();
                 
@@ -271,12 +271,12 @@ namespace StoriesLinker
                         if (obj.Properties.Text.StartsWith("DFr_") && obj.Properties.Text.Contains(".Text"))
                         {
                             objectsWithKeys++;
-                            Console.WriteLine($"✅ Объект {obj.Properties.Id}: Text = '{obj.Properties.Text}' (ключ локализации)");
+                            Console.WriteLine($"✅ Object {obj.Properties.Id}: Text = '{obj.Properties.Text}' (localization key)");
                         }
                         else
                         {
                             objectsWithTranslatedText++;
-                            Console.WriteLine($"⚠️  Объект {obj.Properties.Id}: Text = '{obj.Properties.Text.Substring(0, Math.Min(50, obj.Properties.Text.Length))}...' (переведенный текст)");
+                            Console.WriteLine($"⚠️  Object {obj.Properties.Id}: Text = '{obj.Properties.Text.Substring(0, Math.Min(50, obj.Properties.Text.Length))}...' (translated text)");
                         }
                     }
                     
@@ -284,30 +284,30 @@ namespace StoriesLinker
                     {
                         if (obj.Properties.DisplayName.StartsWith("DFr_") || obj.Properties.DisplayName.StartsWith("FFr_") || obj.Properties.DisplayName.StartsWith("Dlg_"))
                         {
-                            Console.WriteLine($"✅ Объект {obj.Properties.Id}: DisplayName = '{obj.Properties.DisplayName}' (ключ локализации)");
+                            Console.WriteLine($"✅ Object {obj.Properties.Id}: DisplayName = '{obj.Properties.DisplayName}' (localization key)");
                         }
                         else
                         {
-                            Console.WriteLine($"⚠️  Объект {obj.Properties.Id}: DisplayName = '{obj.Properties.DisplayName}' (переведенный текст)");
+                            Console.WriteLine($"⚠️  Object {obj.Properties.Id}: DisplayName = '{obj.Properties.DisplayName}' (translated text)");
                         }
                     }
                 }
                 
-                Form1.ShowMessage($"Тестирование завершено. Проверено {checkedObjects} объектов, {objectsWithKeys} с ключами локализации, {objectsWithTranslatedText} с переведенным текстом.");
+                Form1.ShowMessage($"Test completed. Checked {checkedObjects} objects, {objectsWithKeys} with localization keys, {objectsWithTranslatedText} with translated text.");
                 
                 if (objectsWithKeys > 0)
                 {
-                    Console.WriteLine("✅ ТЕСТ ПРОЙДЕН: Найдены ключи локализации в стиле Articy 3!");
+                    Console.WriteLine("✅ TEST PASSED: Localization keys found in Articy 3 style!");
                 }
                 else
                 {
-                    Console.WriteLine("❌ ТЕСТ НЕ ПРОЙДЕН: Ключи локализации не найдены!");
+                    Console.WriteLine("❌ TEST FAILED: Localization keys not found!");
                 }
             }
             catch (Exception ex)
             {
-                Form1.ShowMessage($"Ошибка тестирования: {ex.Message}");
-                Console.WriteLine($"Подробности ошибки: {ex}");
+                Form1.ShowMessage($"Test error: {ex.Message}");
+                Console.WriteLine($"Test details: {ex}");
             }
         }
     }

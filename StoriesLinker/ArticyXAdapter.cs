@@ -51,7 +51,7 @@ namespace StoriesLinker
             if (!_localizationDict.ContainsKey(newKey))
             {
                 _localizationDict[newKey] = text;
-                Console.WriteLine($"Создан ключ {newKey} для текста: {text.Substring(0, Math.Min(50, text.Length))}...");
+                Console.WriteLine(ConsoleMessages.ProcessingLocalizationKey(newKey, text.Substring(0, Math.Min(50, text.Length))));
             }
 
             return newKey;
@@ -75,7 +75,7 @@ namespace StoriesLinker
         /// </summary>
         public AjFile ConvertToArticy3Format()
         {
-            Console.WriteLine("Создаем файл Flow.json из данных Articy X...");
+            Console.WriteLine(ConsoleMessages.ProcessingArticyFile());
 
             var ajFile = new AjFile
             {
@@ -87,8 +87,8 @@ namespace StoriesLinker
             var package = LoadPackageObjects();
             ajFile.Packages.Add(package);
 
-            Console.WriteLine($"Загружено {package.Models.Count} объектов из Articy X");
-            Console.WriteLine($"Сгенерировано {_localizationDict.Count} ключей локализации");
+            Console.WriteLine(ConsoleMessages.ArticyObjectsProcessed(package.Models.Count));
+            Console.WriteLine(ConsoleMessages.LocalizationKeysGenerated(_localizationDict.Count));
 
             return ajFile;
         }
@@ -98,38 +98,45 @@ namespace StoriesLinker
         /// </summary>
         public void CreateLocalizationExcelFile()
         {
-            Console.WriteLine("Создаем файл локализации Excel из данных Articy X...");
+            Console.WriteLine(ConsoleMessages.CreatingLocalizationExcel());
+
+            // Загружаем существующие данные локализации
+            var existingData = LoadExistingLocalizationData();
             
-            // Загружаем существующие данные локализации из Articy X
-            var existingLocalizationData = LoadExistingLocalizationData();
-            
-            // Объединяем с нашими сгенерированными ключами
-            var combinedData = new Dictionary<string, string>(existingLocalizationData);
+            // Объединяем с новыми ключами
+            var combinedData = new Dictionary<string, string>(existingData);
             foreach (var kvp in _localizationDict)
             {
-                combinedData[kvp.Key] = kvp.Value;
+                if (!combinedData.ContainsKey(kvp.Key))
+                {
+                    combinedData[kvp.Key] = kvp.Value;
+                }
             }
 
-            string outputPath = Path.Combine(_projectPath, "Raw", $"loc_All objects_{GetLanguageCode()}.xlsx");
-
+            // Создаем Excel файл
             using (var package = new ExcelPackage())
             {
                 var worksheet = package.Workbook.Worksheets.Add("Localization");
-
-                int row = 1;
-                foreach (var kvp in combinedData)
+                
+                // Заголовки
+                worksheet.Cells[1, 1].Value = "ID";
+                worksheet.Cells[1, 2].Value = "Text";
+                
+                int row = 2;
+                foreach (var kvp in combinedData.OrderBy(x => x.Key))
                 {
-                    worksheet.Cells[row, 1].Value = kvp.Key;   // Ключ локализации
-                    worksheet.Cells[row, 2].Value = kvp.Value; // Переведенный текст
+                    worksheet.Cells[row, 1].Value = kvp.Key;
+                    worksheet.Cells[row, 2].Value = kvp.Value;
                     row++;
                 }
 
-                var fileInfo = new FileInfo(outputPath);
-                package.SaveAs(fileInfo);
+                // Сохраняем файл
+                string outputPath = Path.Combine(_projectPath, "Raw", "loc_All objects_" + GetLanguageCode() + ".xlsx");
+                package.SaveAs(new FileInfo(outputPath));
+                
+                Console.WriteLine(ConsoleMessages.LocalizationFileCreated(outputPath));
+                Console.WriteLine(ConsoleMessages.LocalizationEntriesWritten(combinedData.Count, _localizationDict.Count));
             }
-
-            Console.WriteLine($"Создан файл локализации: {outputPath}");
-            Console.WriteLine($"Записано {combinedData.Count} записей локализации ({_localizationDict.Count} новых)");
         }
 
         /// <summary>
@@ -275,7 +282,7 @@ namespace StoriesLinker
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка преобразования объекта: {ex.Message}");
+                Console.WriteLine(ConsoleMessages.ObjectConversionError(ex.Message));
                 return null;
             }
         }
