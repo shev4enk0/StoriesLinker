@@ -27,30 +27,6 @@
     <PackageReference Include="System.Security.Permissions" Version="9.0.0" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('..\..\Stories-TestJSON\Assets\ArticyImporter\Plugin\Editor\ArticyImporter.Editor.dll')">
-    <Reference Include="ArticyImporter.Editor">
-      <HintPath>..\..\Stories-TestJSON\Assets\ArticyImporter\Plugin\Editor\ArticyImporter.Editor.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup Condition="Exists('..\..\Stories-TestJSON\Assets\ArticyJSON\ArticyRuntime.dll')">
-    <Reference Include="ArticyRuntime">
-      <HintPath>..\..\Stories-TestJSON\Assets\ArticyJSON\ArticyRuntime.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup Condition="Exists('..\..\Stories-TestJSON\Assets\ArticyImporter\Plugin\Editor\Ionic.Zip.dll')">
-    <Reference Include="Ionic.Zip">
-      <HintPath>..\..\Stories-TestJSON\Assets\ArticyImporter\Plugin\Editor\Ionic.Zip.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup Condition="Exists('..\..\Stories-TestJSON\Library\UnityAssemblies\UnityEngine.dll')">
-    <Reference Include="UnityEngine">
-      <HintPath>..\..\Stories-TestJSON\Library\UnityAssemblies\UnityEngine.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
   <ItemGroup>
     <None Update="Resources\512x512.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
