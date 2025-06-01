@@ -1,5 +1,3 @@
-using System;
-
 namespace StoriesLinker
 {
     /// <summary>

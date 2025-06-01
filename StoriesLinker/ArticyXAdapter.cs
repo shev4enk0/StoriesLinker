@@ -1,36 +1,19 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using OfficeOpenXml;
 
 namespace StoriesLinker
 {
     /// <summary>
     /// Адаптер для работы с данными Articy X, создающий файлы в формате Articy 3
     /// </summary>
-    public class ArticyXAdapter
+    public class ArticyXAdapter(string projectPath, string baseLanguage = "Russian")
     {
-        private readonly string _projectPath;
-        private readonly string _baseLanguage;
-        private Dictionary<string, string> _localizationDict; // ключ -> текст
-
-        public ArticyXAdapter(string projectPath, string baseLanguage = "Russian")
-        {
-            _projectPath = projectPath;
-            _baseLanguage = baseLanguage;
-            _localizationDict = new Dictionary<string, string>();
-        }
+        private readonly Dictionary<string, string> _localizationDict = new(); // ключ -> текст
 
         /// <summary>
         /// Проверяет, является ли проект Articy X
         /// </summary>
-        public static bool IsArticyXProject(string projectPath)
-        {
-            return Directory.Exists(Path.Combine(projectPath, "Raw", "X"));
-        }
+        public static bool IsArticyXProject(string projectPath) => 
+            Directory.Exists(Path.Combine(projectPath, "Raw", "X"));
 
         /// <summary>
         /// Генерирует ключ локализации для готового текста на основе TechnicalName
@@ -48,9 +31,8 @@ namespace StoriesLinker
             string newKey = $"{technicalName}.{suffix}";
 
             // Сохраняем соответствие для локализации
-            if (!_localizationDict.ContainsKey(newKey))
+            if (_localizationDict.TryAdd(newKey, text))
             {
-                _localizationDict[newKey] = text;
                 Console.WriteLine(ConsoleMessages.ProcessingLocalizationKey(newKey, text.Substring(0, Math.Min(50, text.Length))));
             }
 
@@ -80,7 +62,7 @@ namespace StoriesLinker
             var ajFile = new AjFile
             {
                 GlobalVariables = LoadGlobalVariables(),
-                Packages = new List<AjPackage>()
+                Packages = []
             };
 
             // Загружаем объекты из пакета и конвертируем тексты в ключи
@@ -114,29 +96,27 @@ namespace StoriesLinker
             }
 
             // Создаем Excel файл
-            using (var package = new ExcelPackage())
+            using var package = new ExcelPackage();
+            var worksheet = package.Workbook.Worksheets.Add("Localization");
+                
+            // Заголовки
+            worksheet.Cells[1, 1].Value = "ID";
+            worksheet.Cells[1, 2].Value = "Text";
+                
+            int row = 2;
+            foreach (var kvp in combinedData.OrderBy(x => x.Key))
             {
-                var worksheet = package.Workbook.Worksheets.Add("Localization");
-                
-                // Заголовки
-                worksheet.Cells[1, 1].Value = "ID";
-                worksheet.Cells[1, 2].Value = "Text";
-                
-                int row = 2;
-                foreach (var kvp in combinedData.OrderBy(x => x.Key))
-                {
-                    worksheet.Cells[row, 1].Value = kvp.Key;
-                    worksheet.Cells[row, 2].Value = kvp.Value;
-                    row++;
-                }
-
-                // Сохраняем файл
-                string outputPath = Path.Combine(_projectPath, "Raw", "loc_All objects_" + GetLanguageCode() + ".xlsx");
-                package.SaveAs(new FileInfo(outputPath));
-                
-                Console.WriteLine(ConsoleMessages.LocalizationFileCreated(outputPath));
-                Console.WriteLine(ConsoleMessages.LocalizationEntriesWritten(combinedData.Count, _localizationDict.Count));
+                worksheet.Cells[row, 1].Value = kvp.Key;
+                worksheet.Cells[row, 2].Value = kvp.Value;
+                row++;
             }
+
+            // Сохраняем файл
+            string outputPath = Path.Combine(projectPath, "Raw", "loc_All objects_" + GetLanguageCode() + ".xlsx");
+            package.SaveAs(new FileInfo(outputPath));
+                
+            Console.WriteLine(ConsoleMessages.LocalizationFileCreated(outputPath));
+            Console.WriteLine(ConsoleMessages.LocalizationEntriesWritten(combinedData.Count, _localizationDict.Count));
         }
 
         /// <summary>
@@ -144,7 +124,7 @@ namespace StoriesLinker
         /// </summary>
         private List<AjNamespace> LoadGlobalVariables()
         {
-            string globalVarsPath = Path.Combine(_projectPath, "Raw", "X", "global_variables.json");
+            string globalVarsPath = Path.Combine(projectPath, "Raw", "X", "global_variables.json");
             
             if (!File.Exists(globalVarsPath))
                 return new List<AjNamespace>();
@@ -171,7 +151,7 @@ namespace StoriesLinker
         /// </summary>
         private AjPackage LoadPackageObjects()
         {
-            string manifestPath = Path.Combine(_projectPath, "Raw", "X", "manifest.json");
+            string manifestPath = Path.Combine(projectPath, "Raw", "X", "manifest.json");
             string manifest = File.ReadAllText(manifestPath);
             var manifestData = JObject.Parse(manifest);
 
@@ -179,7 +159,7 @@ namespace StoriesLinker
             var packageInfo = manifestData["Packages"][0];
             string objectsFileName = packageInfo["Files"]["Objects"]["FileName"].ToString();
             
-            string objectsPath = Path.Combine(_projectPath, "Raw", "X", objectsFileName);
+            string objectsPath = Path.Combine(projectPath, "Raw", "X", objectsFileName);
             string objectsJson = File.ReadAllText(objectsPath);
             var objectsData = JObject.Parse(objectsJson);
 
@@ -344,7 +324,7 @@ namespace StoriesLinker
         /// </summary>
         private Dictionary<string, string> LoadExistingLocalizationData()
         {
-            string manifestPath = Path.Combine(_projectPath, "Raw", "X", "manifest.json");
+            string manifestPath = Path.Combine(projectPath, "Raw", "X", "manifest.json");
             string manifest = File.ReadAllText(manifestPath);
             var manifestData = JObject.Parse(manifest);
 
@@ -352,7 +332,7 @@ namespace StoriesLinker
             var packageInfo = manifestData["Packages"][0];
             string localizationFileName = packageInfo["Files"]["Texts"]["FileName"].ToString();
             
-            string localizationPath = Path.Combine(_projectPath, "Raw", "X", localizationFileName);
+            string localizationPath = Path.Combine(projectPath, "Raw", "X", localizationFileName);
             string localizationJson = File.ReadAllText(localizationPath);
             var localizationData = JObject.Parse(localizationJson);
 
@@ -404,7 +384,7 @@ namespace StoriesLinker
         /// </summary>
         private string GetLanguageCode()
         {
-            switch (_baseLanguage.ToLower())
+            switch (baseLanguage.ToLower())
             {
                 case "russian": return "ru";
                 case "english": return "en";

@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
-using Newtonsoft.Json;
-using OfficeOpenXml;
-
-namespace StoriesLinker
+﻿namespace StoriesLinker
 {
     public class LinkerBin
     {
@@ -54,12 +46,6 @@ namespace StoriesLinker
             
             Console.WriteLine($"Определен базовый язык: {_baseLanguage} на основе файла {locFilePath}");
         }
-        
-        // Метод для ручной установки базового языка
-        public void SetBaseLanguage(string language)
-        {
-            _baseLanguage = language;
-        }
 
         // Получение пути к основному файлу локализации
         public static string GetLocalizTablesPath(string projPath)
@@ -81,10 +67,7 @@ namespace StoriesLinker
 
         // Получение пути к файлу потока
         public static string GetFlowJsonPath(string projPath) => projPath + @"\Raw\Flow.json";
-
-        // Получение пути к файлу метаданных
-        public static string GetMetaJsonPath(string projPath) => projPath + @"\Raw\Meta.json";
-
+     
         #endregion
 
         #region Работа с Excel таблицами
@@ -106,48 +89,42 @@ namespace StoriesLinker
 
             try
             {
-                using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+                using var xlPackage = new ExcelPackage(new FileInfo(path));
+                // ПРОВЕРКА: В файле должны быть листы
+                if (xlPackage.Workbook.Worksheets.Count == 0)
                 {
-                    // ПРОВЕРКА: В файле должны быть листы
-                    if (xlPackage.Workbook.Worksheets.Count == 0)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл не содержит листов: {path}");
-                        _savedXMLDicts.Add(path, nativeDict);
-                        return nativeDict;
-                    }
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл не содержит листов: {path}");
+                    _savedXMLDicts.Add(path, nativeDict);
+                    return nativeDict;
+                }
 
-                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
                     
-                    // ПРОВЕРКА: Лист должен иметь данные
-                    if (myWorksheet.Dimension == null)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист пустой: {path}");
-                        _savedXMLDicts.Add(path, nativeDict);
-                        return nativeDict;
-                    }
+                // ПРОВЕРКА: Лист должен иметь данные
+                if (myWorksheet.Dimension == null)
+                {
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист пустой: {path}");
+                    _savedXMLDicts.Add(path, nativeDict);
+                    return nativeDict;
+                }
 
-                    int totalRows = myWorksheet.Dimension.End.Row;
-                    int totalColumns = myWorksheet.Dimension.End.Column;
+                int totalRows = myWorksheet.Dimension.End.Row;
+                for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+                {
+                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                    ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
 
-                    for (var rowNum = 1; rowNum <= totalRows; rowNum++)
-                    {
-                        ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
-                        ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
+                    string firstRowStr = firstRow != null && firstRow.Value != null
+                        ? firstRow.Value.ToString()
+                        : "";
+                    string secondRowStr = secondRow != null && secondRow.Value != null
+                        ? secondRow.Value.ToString()
+                        : " ";
 
-                        string firstRowStr = firstRow != null && firstRow.Value != null
-                                                    ? firstRow.Value.ToString()
-                                                    : "";
-                        string secondRowStr = secondRow != null && secondRow.Value != null
-                                                     ? secondRow.Value.ToString()
-                                                     : " ";
+                    if (string.IsNullOrEmpty(firstRowStr)) continue;
 
-                        if (string.IsNullOrEmpty(firstRowStr)) continue;
-
-                        if (!nativeDict.ContainsKey(firstRowStr))
-                            nativeDict.Add(firstRowStr, secondRowStr);
-                        else
-                            Console.WriteLine("double key critical error " + firstRowStr);
-                    }
+                    if (!nativeDict.TryAdd(firstRowStr, secondRowStr))
+                        Console.WriteLine("double key critical error " + firstRowStr);
                 }
             }
             catch (Exception ex)
@@ -178,59 +155,53 @@ namespace StoriesLinker
 
             try
             {
-                using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+                using var xlPackage = new ExcelPackage(new FileInfo(path));
+                // ПРОВЕРКА: В файле должны быть листы
+                if (xlPackage.Workbook.Worksheets.Count == 0)
                 {
-                    // ПРОВЕРКА: В файле должны быть листы
-                    if (xlPackage.Workbook.Worksheets.Count == 0)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл описания книги не содержит листов: {path}");
-                        _savedXMLDicts.Add(path, nativeDict);
-                        return nativeDict;
-                    }
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл описания книги не содержит листов: {path}");
+                    _savedXMLDicts.Add(path, nativeDict);
+                    return nativeDict;
+                }
 
-                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
                     
-                    // ПРОВЕРКА: Лист должен иметь данные
-                    if (myWorksheet.Dimension == null)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист описания книги пустой: {path}");
-                        _savedXMLDicts.Add(path, nativeDict);
-                        return nativeDict;
-                    }
+                // ПРОВЕРКА: Лист должен иметь данные
+                if (myWorksheet.Dimension == null)
+                {
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист описания книги пустой: {path}");
+                    _savedXMLDicts.Add(path, nativeDict);
+                    return nativeDict;
+                }
 
-                    int totalRows = myWorksheet.Dimension.End.Row;
-                    int totalColumns = myWorksheet.Dimension.End.Column;
+                int totalRows = myWorksheet.Dimension.End.Row;
+                for (var rowNum = 1; rowNum <= totalRows; rowNum++)
+                {
+                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];  // Колонка A (ID)
+                    ExcelRange columnD = myWorksheet.Cells[rowNum, 4];   // Колонка D
+                    ExcelRange columnB = myWorksheet.Cells[rowNum, 2];   // Колонка B
 
-                    for (var rowNum = 1; rowNum <= totalRows; rowNum++)
-                    {
-                        ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];  // Колонка A (ID)
-                        ExcelRange columnD = myWorksheet.Cells[rowNum, 4];   // Колонка D
-                        ExcelRange columnB = myWorksheet.Cells[rowNum, 2];   // Колонка B
-
-                        string firstRowStr = firstRow != null && firstRow.Value != null
-                                                    ? firstRow.Value.ToString()
-                                                    : "";
+                    string firstRowStr = firstRow != null && firstRow.Value != null
+                        ? firstRow.Value.ToString()
+                        : "";
                                                     
-                        if (string.IsNullOrEmpty(firstRowStr)) continue;
+                    if (string.IsNullOrEmpty(firstRowStr)) continue;
 
-                        // Проверяем сначала колонку D, если пусто, берем из B
-                        string valueStr;
-                        if (columnD != null && columnD.Value != null && !string.IsNullOrWhiteSpace(columnD.Value.ToString()))
-                        {
-                            valueStr = columnD.Value.ToString();
-                        }
-                        else
-                        {
-                            valueStr = columnB != null && columnB.Value != null
-                                          ? columnB.Value.ToString()
-                                          : " ";
-                        }
-
-                        if (!nativeDict.ContainsKey(firstRowStr))
-                            nativeDict.Add(firstRowStr, valueStr);
-                        else
-                            Console.WriteLine("double key critical error " + firstRowStr);
+                    // Проверяем сначала колонку D, если пусто, берем из B
+                    string valueStr;
+                    if (columnD != null && columnD.Value != null && !string.IsNullOrWhiteSpace(columnD.Value.ToString()))
+                    {
+                        valueStr = columnD.Value.ToString();
                     }
+                    else
+                    {
+                        valueStr = columnB != null && columnB.Value != null
+                            ? columnB.Value.ToString()
+                            : " ";
+                    }
+
+                    if (!nativeDict.TryAdd(firstRowStr, valueStr))
+                        Console.WriteLine("double key critical error " + firstRowStr);
                 }
             }
             catch (Exception ex)
@@ -268,58 +239,52 @@ namespace StoriesLinker
 
             try
             {
-                using (var xlPackage = new ExcelPackage(new FileInfo(path)))
+                using var xlPackage = new ExcelPackage(new FileInfo(path));
+                // ПРОВЕРКА: В файле должны быть листы
+                if (xlPackage.Workbook.Worksheets.Count == 0)
                 {
-                    // ПРОВЕРКА: В файле должны быть листы
-                    if (xlPackage.Workbook.Worksheets.Count == 0)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл с эмоциями не содержит листов: {path}");
-                        return resultDict;
-                    }
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл с эмоциями не содержит листов: {path}");
+                    return resultDict;
+                }
 
-                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
                     
-                    // ПРОВЕРКА: Лист должен иметь данные
-                    if (myWorksheet.Dimension == null)
+                // ПРОВЕРКА: Лист должен иметь данные
+                if (myWorksheet.Dimension == null)
+                {
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист с эмоциями пустой: {path}");
+                    return resultDict;
+                }
+
+                int totalRows = myWorksheet.Dimension.End.Row;
+
+                // Пропускаем заголовок (строка 1)
+                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
+                {
+                    var idCell = myWorksheet.Cells[rowNum, 1];      // Колонка A - ID
+                    var speakerCell = myWorksheet.Cells[rowNum, 2]; // Колонка B - Speaker  
+                    var emotionCell = myWorksheet.Cells[rowNum, 3]; // Колонка C - Emotion
+                    var textCell = myWorksheet.Cells[rowNum, 4];    // Колонка D - Text
+
+                    string localizId = idCell?.Value?.ToString() ?? "";
+                    string speaker = speakerCell?.Value?.ToString() ?? "";
+                    string emotion = emotionCell?.Value?.ToString() ?? "";
+                    string text = textCell?.Value?.ToString() ?? "";
+
+                    if (string.IsNullOrEmpty(localizId) || string.IsNullOrEmpty(text)) 
+                        continue;
+
+                    var entity = new LocalizEntityWithEmotion
                     {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист с эмоциями пустой: {path}");
-                        return resultDict;
-                    }
+                        LocalizID = localizId,
+                        Text = text,
+                        SpeakerDisplayName = speaker,
+                        Emotion = emotion
+                    };
 
-                    int totalRows = myWorksheet.Dimension.End.Row;
-
-                    // Пропускаем заголовок (строка 1)
-                    for (var rowNum = 2; rowNum <= totalRows; rowNum++)
+                    if (!resultDict.TryAdd(localizId, entity))
                     {
-                        var idCell = myWorksheet.Cells[rowNum, 1];      // Колонка A - ID
-                        var speakerCell = myWorksheet.Cells[rowNum, 2]; // Колонка B - Speaker  
-                        var emotionCell = myWorksheet.Cells[rowNum, 3]; // Колонка C - Emotion
-                        var textCell = myWorksheet.Cells[rowNum, 4];    // Колонка D - Text
-
-                        string localizId = idCell?.Value?.ToString() ?? "";
-                        string speaker = speakerCell?.Value?.ToString() ?? "";
-                        string emotion = emotionCell?.Value?.ToString() ?? "";
-                        string text = textCell?.Value?.ToString() ?? "";
-
-                        if (string.IsNullOrEmpty(localizId) || string.IsNullOrEmpty(text)) 
-                            continue;
-
-                        var entity = new LocalizEntityWithEmotion
-                        {
-                            LocalizID = localizId,
-                            Text = text,
-                            SpeakerDisplayName = speaker,
-                            Emotion = emotion
-                        };
-
-                        if (!resultDict.ContainsKey(localizId))
-                        {
-                            resultDict.Add(localizId, entity);
-                        }
-                        else
-                        {
-                            Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Дублирующийся ключ в файле с эмоциями: {localizId}");
-                        }
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Дублирующийся ключ в файле с эмоциями: {localizId}");
                     }
                 }
             }
@@ -380,230 +345,228 @@ namespace StoriesLinker
 
             try
             {
-                using (var xlPackage = new ExcelPackage(new FileInfo(metaXMLPath)))
+                using var xlPackage = new ExcelPackage(new FileInfo(metaXMLPath));
+                // ПРОВЕРКА: Должны быть все три листа (Base, Characters, Locations)
+                if (xlPackage.Workbook.Worksheets.Count < 3)
                 {
-                    // ПРОВЕРКА: Должны быть все три листа (Base, Characters, Locations)
-                    if (xlPackage.Workbook.Worksheets.Count < 3)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Meta.xlsx должен содержать 3 листа (Base, Characters, Locations), найдено: {xlPackage.Workbook.Worksheets.Count}");
-                        return jsonObj;
-                    }
-
-                    ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
-                    
-                    // ПРОВЕРКА: Лист должен иметь данные
-                    if (myWorksheet.Dimension == null)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Первый лист Meta.xlsx пустой");
-                        return jsonObj;
-                    }
-
-                    int totalRows = myWorksheet.Dimension.End.Row;
-
-                    for (var rowNum = 2; rowNum <= totalRows; rowNum++)
-                    {
-                        ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
-                        ExcelRange secondRow = myWorksheet.Cells[rowNum, 2];
-
-                        var fieldName = firstRow.Value.ToString();
-                        var fieldValue = secondRow.Value.ToString();
-
-                        string[] values;
-
-                        switch (fieldName)
-                        {
-                            case "UniqueID": jsonObj.UniqueId = fieldValue; break;
-                            case "SpritePrefix": jsonObj.SpritePrefix = fieldValue; break;
-                            case "VersionBin": jsonObj.Version.BinVersion = fieldValue; break;
-                            case "VersionPreview": jsonObj.Version.PreviewVersion = fieldValue; break;
-                            case "VersionBaseResources": jsonObj.Version.BaseResourcesVersion = fieldValue; break;
-                            case "StandartizedUI": jsonObj.StandartizedUi = fieldValue == "1"; break;
-                            case "UITextBlockFontSize": jsonObj.UiTextBlockFontSize = int.Parse(fieldValue); break;
-                            case "UIChoiceBlockFontSize": jsonObj.UiChoiceBlockFontSize = int.Parse(fieldValue); break;
-                            case "KarmaCurrency": jsonObj.KarmaCurrency = fieldValue; break;
-                            case "KarmaBadBorder": jsonObj.KarmaBadBorder = int.Parse(fieldValue); break;
-                            case "KarmaGoodBorder": jsonObj.KarmaGoodBorder = int.Parse(fieldValue); break;
-                            case "KarmaTopLimit": jsonObj.KarmaTopLimit = int.Parse(fieldValue); break;
-                            case "CurrenciesInOrderOfUI":
-                                jsonObj.CurrenciesInOrderOfUi = new List<string>(fieldValue.Split(','));
-                                break;
-                            case "RacesList":
-                                jsonObj.RacesList = fieldValue != "-"
-                                                          ? new List<string>(fieldValue.Split(','))
-                                                          : new List<string>();
-                                break;
-                            case "ClothesSpriteNames":
-                                jsonObj.ClothesSpriteNames = new List<string>(fieldValue.Split(','));
-                                break;
-                            case "UndefinedClothesFuncVariant":
-                                jsonObj.UndefinedClothesFuncVariant = int.Parse(fieldValue);
-                                break;
-                            case "ExceptionsWeaponLayer": jsonObj.ExceptionsWeaponLayer = fieldValue == "1"; break;
-                            case "UITextPlateLimits":
-                                values = fieldValue.Split(',');
-
-                                jsonObj.UiTextPlateLimits = new List<int>();
-
-                                foreach (string el in values) jsonObj.UiTextPlateLimits.Add(int.Parse(el));
-
-                                break;
-                            case "UIPaintFirstLetterInRedException":
-                                jsonObj.UiPaintFirstLetterInRedException = fieldValue == "1";
-                                break;
-                            case "UITextPlateOffset": jsonObj.UiTextPlateOffset = int.Parse(fieldValue); break;
-                            case "UIOverridedTextColor": jsonObj.UiOverridedTextColor = fieldValue == "1"; break;
-                            case "UITextColor":
-                                values = fieldValue.Split(',');
-
-                                jsonObj.UiTextColor = new List<int>();
-
-                                foreach (string el in values) jsonObj.UiTextColor.Add(int.Parse(el));
-
-                                break;
-                            case "UIBlockedTextColor":
-                                values = fieldValue.Split(',');
-
-                                jsonObj.UiBlockedTextColor = new List<int>();
-
-                                foreach (string el in values) jsonObj.UiBlockedTextColor.Add(int.Parse(el));
-
-                                break;
-                            case "UIChNameTextColor":
-                                values = fieldValue.Split(',');
-
-                                jsonObj.UiChNameTextColor = new List<int>();
-
-                                foreach (string el in values) jsonObj.UiChNameTextColor.Add(int.Parse(el));
-
-                                break;
-                            case "UIOutlineColor":
-                                values = fieldValue.Split(',');
-
-                                jsonObj.UiOutlineColor = new List<int>();
-
-                                foreach (string el in values) jsonObj.UiOutlineColor.Add(int.Parse(el));
-
-                                break;
-                            case "UIResTextColor":
-                                values = fieldValue.Split(',');
-
-                                jsonObj.UiResTextColor = new List<int>();
-
-                                foreach (string el in values) jsonObj.UiResTextColor.Add(int.Parse(el));
-
-                                break;
-                            case "WardrobeEnabled": jsonObj.WardrobeEnabled = fieldValue == "1"; break;
-                            case "MainHeroHasDifferentGenders":
-                                jsonObj.MainHeroHasDifferentGenders = fieldValue == "1";
-                                break;
-                            case "MainHeroHasSplittedHairSprite":
-                                jsonObj.MainHeroHasSplittedHairSprite = fieldValue == "1";
-                                break;
-                            case "CustomClothesCount": jsonObj.CustomClothesCount = int.Parse(fieldValue); break;
-                            case "CustomHairsCount": jsonObj.CustomHairCount = int.Parse(fieldValue); break;
-                        }
-                    }
-
-                    // ПРОВЕРКА: Должен быть третий лист (индекс 2)
-                    if (xlPackage.Workbook.Worksheets.Count < 3)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Meta.xlsx не содержит третий лист для данных персонажей");
-                        return jsonObj;
-                    }
-
-                    myWorksheet = xlPackage.Workbook.Worksheets[1]; // Characters лист (индекс 1)
-                    
-                    // ПРОВЕРКА: Лист Characters должен иметь данные
-                    if (myWorksheet.Dimension == null)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Лист Characters в Meta.xlsx пустой");
-                        return jsonObj;
-                    }
-
-                    totalRows = myWorksheet.Dimension.End.Row;
-
-                    Func<object[], int> checkRow = CheckRow();
-
-                    var characters = new List<AjMetaCharacterData>();
-
-                    for (var rowNum = 2; rowNum <= totalRows; rowNum++)
-                    {
-                        var cells = new object[]
-                                     {
-                                         myWorksheet.Cells[rowNum, 1].Value,
-                                         myWorksheet.Cells[rowNum, 2].Value,
-                                         myWorksheet.Cells[rowNum, 3].Value,
-                                         myWorksheet.Cells[rowNum, 4].Value
-                                     };
-
-                        int chResult = checkRow(cells);
-
-                        switch (chResult)
-                        {
-                            case -1: continue;
-                            case 0: return null;
-                        }
-
-                        var ch = new AjMetaCharacterData
-                                 {
-                                     DisplayName = cells[0].ToString(),
-                                     ClothesVariableName = cells[1].ToString(),
-                                     AtlasFileName = cells[2].ToString(),
-                                     BaseNameInAtlas = cells[3].ToString()
-                                 };
-
-                        characters.Add(ch);
-                    }
-
-                    jsonObj.Characters = characters;
-
-                    myWorksheet = xlPackage.Workbook.Worksheets[2]; // Locations лист (индекс 2)
-                    
-                    // ПРОВЕРКА: Лист Locations должен иметь данные
-                    if (myWorksheet.Dimension == null)
-                    {
-                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Лист Locations в Meta.xlsx пустой");
-                        return jsonObj;
-                    }
-                    
-                    totalRows = myWorksheet.Dimension.End.Row;
-
-                    var locations = new List<AjMetaLocationData>();
-
-                    for (var rowNum = 2; rowNum <= totalRows; rowNum++)
-                    {
-                        var cells = new object[]
-                                     {
-                                         myWorksheet.Cells[rowNum, 1].Value,
-                                         myWorksheet.Cells[rowNum, 2].Value,
-                                         myWorksheet.Cells[rowNum, 3].Value,
-                                         myWorksheet.Cells[rowNum, 4].Value,
-                                         myWorksheet.Cells[rowNum, 5].Value
-                                     };
-
-                        int chResult = checkRow(cells);
-
-                        switch (chResult)
-                        {
-                            case -1: continue;
-                            case 0: return null;
-                        }
-
-                        var loc = new AjMetaLocationData
-                                   {
-                                       Id = int.Parse(cells[0].ToString()),
-                                       DisplayName = cells[1].ToString(),
-                                       SpriteName = cells[2].ToString(),
-                                       SoundIdleName = cells[3].ToString()
-                                   };
-
-                        if (cells[4].ToString() == "1") jsonObj.IntroLocation = rowNum - 1;
-
-                        locations.Add(loc);
-                    }
-
-                    jsonObj.Locations = locations;
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Meta.xlsx должен содержать 3 листа (Base, Characters, Locations), найдено: {xlPackage.Workbook.Worksheets.Count}");
+                    return jsonObj;
                 }
+
+                ExcelWorksheet myWorksheet = xlPackage.Workbook.Worksheets.First();
+                    
+                // ПРОВЕРКА: Лист должен иметь данные
+                if (myWorksheet.Dimension == null)
+                {
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Первый лист Meta.xlsx пустой");
+                    return jsonObj;
+                }
+
+                int totalRows = myWorksheet.Dimension.End.Row;
+
+                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
+                {
+                    ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
+                    ExcelRange secondRow = myWorksheet.Cells[rowNum, 2];
+
+                    var fieldName = firstRow.Value.ToString();
+                    var fieldValue = secondRow.Value.ToString();
+
+                    string[] values;
+
+                    switch (fieldName)
+                    {
+                        case "UniqueID": jsonObj.UniqueId = fieldValue; break;
+                        case "SpritePrefix": jsonObj.SpritePrefix = fieldValue; break;
+                        case "VersionBin": jsonObj.Version.BinVersion = fieldValue; break;
+                        case "VersionPreview": jsonObj.Version.PreviewVersion = fieldValue; break;
+                        case "VersionBaseResources": jsonObj.Version.BaseResourcesVersion = fieldValue; break;
+                        case "StandartizedUI": jsonObj.StandartizedUi = fieldValue == "1"; break;
+                        case "UITextBlockFontSize": jsonObj.UiTextBlockFontSize = int.Parse(fieldValue); break;
+                        case "UIChoiceBlockFontSize": jsonObj.UiChoiceBlockFontSize = int.Parse(fieldValue); break;
+                        case "KarmaCurrency": jsonObj.KarmaCurrency = fieldValue; break;
+                        case "KarmaBadBorder": jsonObj.KarmaBadBorder = int.Parse(fieldValue); break;
+                        case "KarmaGoodBorder": jsonObj.KarmaGoodBorder = int.Parse(fieldValue); break;
+                        case "KarmaTopLimit": jsonObj.KarmaTopLimit = int.Parse(fieldValue); break;
+                        case "CurrenciesInOrderOfUI":
+                            jsonObj.CurrenciesInOrderOfUi = new List<string>(fieldValue.Split(','));
+                            break;
+                        case "RacesList":
+                            jsonObj.RacesList = fieldValue != "-"
+                                ? new List<string>(fieldValue.Split(','))
+                                : new List<string>();
+                            break;
+                        case "ClothesSpriteNames":
+                            jsonObj.ClothesSpriteNames = new List<string>(fieldValue.Split(','));
+                            break;
+                        case "UndefinedClothesFuncVariant":
+                            jsonObj.UndefinedClothesFuncVariant = int.Parse(fieldValue);
+                            break;
+                        case "ExceptionsWeaponLayer": jsonObj.ExceptionsWeaponLayer = fieldValue == "1"; break;
+                        case "UITextPlateLimits":
+                            values = fieldValue.Split(',');
+
+                            jsonObj.UiTextPlateLimits = new List<int>();
+
+                            foreach (string el in values) jsonObj.UiTextPlateLimits.Add(int.Parse(el));
+
+                            break;
+                        case "UIPaintFirstLetterInRedException":
+                            jsonObj.UiPaintFirstLetterInRedException = fieldValue == "1";
+                            break;
+                        case "UITextPlateOffset": jsonObj.UiTextPlateOffset = int.Parse(fieldValue); break;
+                        case "UIOverridedTextColor": jsonObj.UiOverridedTextColor = fieldValue == "1"; break;
+                        case "UITextColor":
+                            values = fieldValue.Split(',');
+
+                            jsonObj.UiTextColor = new List<int>();
+
+                            foreach (string el in values) jsonObj.UiTextColor.Add(int.Parse(el));
+
+                            break;
+                        case "UIBlockedTextColor":
+                            values = fieldValue.Split(',');
+
+                            jsonObj.UiBlockedTextColor = new List<int>();
+
+                            foreach (string el in values) jsonObj.UiBlockedTextColor.Add(int.Parse(el));
+
+                            break;
+                        case "UIChNameTextColor":
+                            values = fieldValue.Split(',');
+
+                            jsonObj.UiChNameTextColor = new List<int>();
+
+                            foreach (string el in values) jsonObj.UiChNameTextColor.Add(int.Parse(el));
+
+                            break;
+                        case "UIOutlineColor":
+                            values = fieldValue.Split(',');
+
+                            jsonObj.UiOutlineColor = new List<int>();
+
+                            foreach (string el in values) jsonObj.UiOutlineColor.Add(int.Parse(el));
+
+                            break;
+                        case "UIResTextColor":
+                            values = fieldValue.Split(',');
+
+                            jsonObj.UiResTextColor = new List<int>();
+
+                            foreach (string el in values) jsonObj.UiResTextColor.Add(int.Parse(el));
+
+                            break;
+                        case "WardrobeEnabled": jsonObj.WardrobeEnabled = fieldValue == "1"; break;
+                        case "MainHeroHasDifferentGenders":
+                            jsonObj.MainHeroHasDifferentGenders = fieldValue == "1";
+                            break;
+                        case "MainHeroHasSplittedHairSprite":
+                            jsonObj.MainHeroHasSplittedHairSprite = fieldValue == "1";
+                            break;
+                        case "CustomClothesCount": jsonObj.CustomClothesCount = int.Parse(fieldValue); break;
+                        case "CustomHairsCount": jsonObj.CustomHairCount = int.Parse(fieldValue); break;
+                    }
+                }
+
+                // ПРОВЕРКА: Должен быть третий лист (индекс 2)
+                if (xlPackage.Workbook.Worksheets.Count < 3)
+                {
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Meta.xlsx не содержит третий лист для данных персонажей");
+                    return jsonObj;
+                }
+
+                myWorksheet = xlPackage.Workbook.Worksheets[1]; // Characters лист (индекс 1)
+                    
+                // ПРОВЕРКА: Лист Characters должен иметь данные
+                if (myWorksheet.Dimension == null)
+                {
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Лист Characters в Meta.xlsx пустой");
+                    return jsonObj;
+                }
+
+                totalRows = myWorksheet.Dimension.End.Row;
+
+                Func<object[], int> checkRow = CheckRow();
+
+                var characters = new List<AjMetaCharacterData>();
+
+                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
+                {
+                    var cells = new object[]
+                    {
+                        myWorksheet.Cells[rowNum, 1].Value,
+                        myWorksheet.Cells[rowNum, 2].Value,
+                        myWorksheet.Cells[rowNum, 3].Value,
+                        myWorksheet.Cells[rowNum, 4].Value
+                    };
+
+                    int chResult = checkRow(cells);
+
+                    switch (chResult)
+                    {
+                        case -1: continue;
+                        case 0: return null;
+                    }
+
+                    var ch = new AjMetaCharacterData
+                    {
+                        DisplayName = cells[0].ToString(),
+                        ClothesVariableName = cells[1].ToString(),
+                        AtlasFileName = cells[2].ToString(),
+                        BaseNameInAtlas = cells[3].ToString()
+                    };
+
+                    characters.Add(ch);
+                }
+
+                jsonObj.Characters = characters;
+
+                myWorksheet = xlPackage.Workbook.Worksheets[2]; // Locations лист (индекс 2)
+                    
+                // ПРОВЕРКА: Лист Locations должен иметь данные
+                if (myWorksheet.Dimension == null)
+                {
+                    Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Лист Locations в Meta.xlsx пустой");
+                    return jsonObj;
+                }
+                    
+                totalRows = myWorksheet.Dimension.End.Row;
+
+                var locations = new List<AjMetaLocationData>();
+
+                for (var rowNum = 2; rowNum <= totalRows; rowNum++)
+                {
+                    var cells = new object[]
+                    {
+                        myWorksheet.Cells[rowNum, 1].Value,
+                        myWorksheet.Cells[rowNum, 2].Value,
+                        myWorksheet.Cells[rowNum, 3].Value,
+                        myWorksheet.Cells[rowNum, 4].Value,
+                        myWorksheet.Cells[rowNum, 5].Value
+                    };
+
+                    int chResult = checkRow(cells);
+
+                    switch (chResult)
+                    {
+                        case -1: continue;
+                        case 0: return null;
+                    }
+
+                    var loc = new AjMetaLocationData
+                    {
+                        Id = int.Parse(cells[0].ToString()),
+                        DisplayName = cells[1].ToString(),
+                        SpriteName = cells[2].ToString(),
+                        SoundIdleName = cells[3].ToString()
+                    };
+
+                    if (cells[4].ToString() == "1") jsonObj.IntroLocation = rowNum - 1;
+
+                    locations.Add(loc);
+                }
+
+                jsonObj.Locations = locations;
             }
             catch (Exception ex)
             {
@@ -630,9 +593,7 @@ namespace StoriesLinker
 
                 if (rowIsCompletelyEmpty)
                     return -1;
-                else if (rowHasEmptyField) return 0;
-
-                return 1;
+                return rowHasEmptyField ? 0 : 1;
             }
 
             return Row;
@@ -673,27 +634,6 @@ namespace StoriesLinker
 
             return jsonFile;
         }
-
-        public AjLocalizInJsonFile ConvertXMLToJson(string[] pathsToXmls, string pathToJson, int column)
-        {
-            var total = new Dictionary<string, string>();
-
-            foreach (string el in pathsToXmls)
-            {
-                Dictionary<string, string> fileDict = XMLTableToDict(el, column);
-
-                foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
-                    total.Add(pair.Key, pair.Value);
-            }
-
-            var jsonFile = new AjLocalizInJsonFile();
-            jsonFile.Data = total;
-
-            File.WriteAllText(pathToJson, JsonConvert.SerializeObject(jsonFile));
-
-            return jsonFile;
-        }
-
         #endregion
 
         #region Работа с сущностями и главами
@@ -799,7 +739,7 @@ namespace StoriesLinker
         /// <summary>
         /// Генерирует таблицы локализации на основе данных книги
         /// </summary>
-        public bool GenerateLocalizTables()
+        protected bool GenerateLocalizTables()
         {
             if (Directory.Exists(_projectPath + @"\Localization"))
                 Directory.Delete(_projectPath + @"\Localization", true);
@@ -912,7 +852,7 @@ namespace StoriesLinker
                 CreateLocalizTable($"Chapter_{chapterN}_internal", nonTranslating, nativeDict);
             }
 
-            CreateLocalizTable(string.Format("CharacterNames"), charactersLocalizIds, nativeDict);
+            CreateLocalizTable("CharacterNames", charactersLocalizIds, nativeDict);
 
             return true;
         }
@@ -924,105 +864,95 @@ namespace StoriesLinker
         {
             var wordCount = 0;
 
-            using (var eP = new ExcelPackage())
+            using var eP = new ExcelPackage();
+            bool forTranslating = name.Contains("for_translating");
+            ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Data");
+
+          
+
+            var row = 1;
+            var col = 1;
+
+            sheet.Cells[row, col].Value = "ID";
+
+            sheet.Cells[row, col + 1].Value = "Speaker";
+            sheet.Cells[row, col + 2].Value = "Emotion";
+            sheet.Cells[row, col +  3 ].Value = "Text";
+
+            row++;
+
+            var replacedIds = new List<string>();
+
+            foreach (LocalizEntity item in ids)
             {
-                bool forTranslating = name.Contains("for_translating");
-                ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Data");
+                string id = item.LocalizID;
 
-                bool forLocalizatorsMode = Form1.FOR_LOCALIZATORS_MODE;
-
-                var row = 1;
-                var col = 1;
-
-                sheet.Cells[row, col].Value = "ID";
-
-                if (forLocalizatorsMode)
+                // Проверяем наличие ключа в словаре
+                if (!nativeDict.TryGetValue(id, out var value))
                 {
-                    sheet.Cells[row, col + 1].Value = "Speaker";
-                    sheet.Cells[row, col + 2].Value = "Emotion";
+                    // Если ключ не найден, проверяем - возможно это уже готовый текст
+                    if (IsReadableText(id))
+                    {
+                        // Используем само значение LocalizID как готовый текст
+                        value = id;
+                        Console.WriteLine($"Используем готовый текст: '{id}'");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Предупреждение: ключ '{id}' не найден в словаре локализации и не является читаемым текстом. Пропускаем.");
+                        continue;
+                    }
                 }
 
-                sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = "Text";
-
-                row++;
-
-                var replacedIds = new List<string>();
-
-                foreach (LocalizEntity item in ids)
+                if (forTranslating)
                 {
-                    string id = item.LocalizID;
-                    string value;
+                    value = value.Replace("pname", "%pname%");
+                    value = value.Replace("Pname", "%pname%");
 
-                    // Проверяем наличие ключа в словаре
-                    if (!nativeDict.TryGetValue(id, out value))
+                    if (!replacedIds.Contains(id))
                     {
-                        // Если ключ не найден, проверяем - возможно это уже готовый текст
-                        if (IsReadableText(id))
+                        var repeatedValues = new List<string>();
+
+                        foreach (KeyValuePair<string, string> pair in nativeDict)
+                            if (pair.Value == value && pair.Key != id)
+                                repeatedValues.Add(pair.Key);
+
+                        if (repeatedValues.Count == 1 || (repeatedValues.Count > 1 && value.Contains("?")))
                         {
-                            // Используем само значение LocalizID как готовый текст
-                            value = id;
-                            Console.WriteLine($"Используем готовый текст: '{id}'");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Предупреждение: ключ '{id}' не найден в словаре локализации и не является читаемым текстом. Пропускаем.");
-                            continue;
-                        }
-                    }
-
-                    if (forTranslating && forLocalizatorsMode)
-                    {
-                        value = value.Replace("pname", "%pname%");
-                        value = value.Replace("Pname", "%pname%");
-
-                        if (!replacedIds.Contains(id))
-                        {
-                            var repeatedValues = new List<string>();
-
-                            foreach (KeyValuePair<string, string> pair in nativeDict)
-                                if (pair.Value == value && pair.Key != id)
-                                    repeatedValues.Add(pair.Key);
-
-                            if (repeatedValues.Count == 1 || (repeatedValues.Count > 1 && value.Contains("?")))
+                            foreach (string el in repeatedValues)
                             {
-                                foreach (string el in repeatedValues)
-                                {
-                                    nativeDict[el] = "*SystemLinkTo*" + id + "*";
-                                    replacedIds.Add(el);
-                                }
+                                nativeDict[el] = "*SystemLinkTo*" + id + "*";
+                                replacedIds.Add(el);
                             }
                         }
                     }
-
-                    if (string.IsNullOrEmpty(value.Trim())) continue;
-
-                    sheet.Cells[row, col].Value = item.LocalizID;
-
-                    if (forLocalizatorsMode)
-                    {
-                        sheet.Cells[row, col + 1].Value = item.SpeakerDisplayName;
-                        sheet.Cells[row, col + 2].Value = item.Emotion;
-                    }
-
-                    sheet.Cells[row, col + (forLocalizatorsMode ? 3 : 1)].Value = value;
-
-                    if (forLocalizatorsMode && !replacedIds.Contains(id)) wordCount += CountWords(value);
-
-                    row++;
                 }
 
-                byte[] bin = eP.GetAsByteArray();
+                if (string.IsNullOrEmpty(value.Trim())) continue;
 
-                File.WriteAllBytes(_projectPath + @"\Localization\" + _baseLanguage + @"\" + name + ".xlsx", bin);
+                sheet.Cells[row, col].Value = item.LocalizID;
 
-                if (name.Contains("internal") || !forLocalizatorsMode) return;
+                sheet.Cells[row, col + 1].Value = item.SpeakerDisplayName;
+                sheet.Cells[row, col + 2].Value = item.Emotion;
 
-                Console.WriteLine("Таблица " + name + " сгенерирована, количество слов: " + wordCount);
+                sheet.Cells[row, col +3].Value = value;
 
-                _allWordsCount += wordCount;
+                if (!replacedIds.Contains(id)) wordCount += CountWords(value);
 
-                if (name.Contains("12")) Console.WriteLine("total count = " + _allWordsCount);
+                row++;
             }
+
+            byte[] bin = eP.GetAsByteArray();
+
+            File.WriteAllBytes(_projectPath + @"\Localization\" + _baseLanguage + @"\" + name + ".xlsx", bin);
+
+            if (name.Contains("internal")) return;
+
+            Console.WriteLine("Таблица " + name + " сгенерирована, количество слов: " + wordCount);
+
+            _allWordsCount += wordCount;
+
+            if (name.Contains("12")) Console.WriteLine("total count = " + _allWordsCount);
         }
 
         /// <summary>
@@ -1056,7 +986,7 @@ namespace StoriesLinker
         /// <summary>
         /// Генерирует папки с выходными файлами для игры
         /// </summary>
-        public bool GenerateOutputFolder()
+        protected bool GenerateOutputFolder()
         {
             Form1.ShowMessage("Начинаем...");
 
@@ -1144,11 +1074,9 @@ namespace StoriesLinker
                 foreach (string langDir in Directory.GetDirectories(translatedDataFolder))
                 {
                     string langName = Path.GetFileName(langDir);
-                    if (langName != _baseLanguage && !langsCols.ContainsKey(langName))
-                    {
-                        langsCols.Add(langName, 4);
-                        Console.WriteLine($"Добавлен язык для локализации: {langName}");
-                    }
+                    if (langName == _baseLanguage || !langsCols.TryAdd(langName, 4)) continue;
+                    
+                    Console.WriteLine($"Добавлен язык для локализации: {langName}");
                 }
             }
 
@@ -1249,24 +1177,23 @@ namespace StoriesLinker
         // Проверка локаций
         private bool CheckLocations(AjLinkerMeta meta)
         {
-            if (meta.UniqueId != "Pirates_1")
+            if (meta.UniqueId == "Pirates_1") return true;
+            
+            for (var i = 0; i < meta.Locations.Count; i++)
             {
-                for (var i = 0; i < meta.Locations.Count; i++)
+                AjMetaLocationData cObj = meta.Locations[i];
+
+                for (var j = 0; j < meta.Locations.Count; j++)
                 {
-                    AjMetaLocationData cObj = meta.Locations[i];
+                    if (i == j) continue;
 
-                    for (var j = 0; j < meta.Locations.Count; j++)
-                    {
-                        if (i == j) continue;
+                    AjMetaLocationData aObj = meta.Locations[j];
 
-                        AjMetaLocationData aObj = meta.Locations[j];
+                    if (cObj.DisplayName != aObj.DisplayName && cObj.SpriteName != aObj.SpriteName)
+                        continue;
 
-                        if (cObj.DisplayName != aObj.DisplayName && cObj.SpriteName != aObj.SpriteName)
-                            continue;
-
-                        Form1.ShowMessage("Найдены дублирующиеся значения среди локаций: " + aObj.DisplayName);
-                        return false;
-                    }
+                    Form1.ShowMessage("Найдены дублирующиеся значения среди локаций: " + aObj.DisplayName);
+                    return false;
                 }
             }
             return true;
@@ -1446,10 +1373,6 @@ namespace StoriesLinker
 
             Action<string, string> showLocalizError = ShowLocalizError();
 
-            if (Form1.ONLY_ENGLISH_MODE)
-                if (!langsCols.ContainsKey("English"))
-                    langsCols.Add("English", -1);
-
             foreach (KeyValuePair<string, int> langPair in langsCols)
             {
                 string lang = langPair.Key;
@@ -1543,11 +1466,10 @@ namespace StoriesLinker
                                            previewFolder + @"\Strings\" + lang + ".json",
                                            colNum != -1 ? colNum : 1);
 
-                if (!string.IsNullOrEmpty(correct))
-                {
-                    showLocalizError(correct, "previewstrings");
-                    throw new Exception("Ошибка при генерации previewstrings");
-                }
+                if (string.IsNullOrEmpty(correct)) continue;
+                
+                showLocalizError(correct, "previewstrings");
+                throw new Exception("Ошибка при генерации previewstrings");
             }
         }
 
@@ -1714,42 +1636,39 @@ namespace StoriesLinker
                 AjLocalizInJsonFile origJsonData = origLangData[id];
                 if (origLang) jsonData = GetXMLFile(inPaths, colN);
 
-                if (Form1.FOR_LOCALIZATORS_MODE)
+                Console.WriteLine($"start {id} {allStrings.Count}");
+                foreach (KeyValuePair<string, string> pair in origJsonData.Data)
                 {
-                    Console.WriteLine($"start {id} {allStrings.Count}");
-                    foreach (KeyValuePair<string, string> pair in origJsonData.Data)
+                    string origValue = pair.Value.Trim();
+                    if (!jsonData.Data.TryGetValue(pair.Key, out string translatedValue))
                     {
-                        string origValue = pair.Value.Trim();
-                        if (!jsonData.Data.TryGetValue(pair.Key, out string translatedValue))
+                        Console.WriteLine($"String with ID {pair.Key} not found");
+                        continue;
+                    }
+
+                    translatedValue = translatedValue.Replace("Pname", "pname");
+
+                    allStrings.TryAdd(pair.Key, translatedValue);
+
+                    if (origValue.Contains("*SystemLinkTo*"))
+                    {
+                        string linkId = origValue.Split('*')[2];
+                        if (!jsonData.Data.TryGetValue(linkId, out string linkedValue) &&
+                            !allStrings.TryGetValue(linkId, out linkedValue))
                         {
-                            Console.WriteLine($"String with ID {pair.Key} not found");
+                            Console.WriteLine($"String with {linkId} is not found");
                             continue;
                         }
 
-                        translatedValue = translatedValue.Replace("Pname", "pname");
-
-                        if (!allStrings.ContainsKey(pair.Key)) allStrings[pair.Key] = translatedValue;
-
-                        if (origValue.Contains("*SystemLinkTo*"))
-                        {
-                            string linkId = origValue.Split('*')[2];
-                            if (!jsonData.Data.TryGetValue(linkId, out string linkedValue) &&
-                                !allStrings.TryGetValue(linkId, out linkedValue))
-                            {
-                                Console.WriteLine($"String with {linkId} is not found");
-                                continue;
-                            }
-
-                            jsonData.Data[pair.Key] = linkedValue;
-                            translatedValue = linkedValue;
-                        }
-
-                        if (IsTranslationIncomplete(translatedValue,
-                                                    origValue,
-                                                    origLang,
-                                                    jsonData.Data[pair.Key]))
-                            Console.WriteLine($"String with ID {pair.Key} isn't translated");
+                        jsonData.Data[pair.Key] = linkedValue;
+                        translatedValue = linkedValue;
                     }
+
+                    if (IsTranslationIncomplete(translatedValue,
+                            origValue,
+                            origLang,
+                            jsonData.Data[pair.Key]))
+                        Console.WriteLine($"String with ID {pair.Key} isn't translated");
                 }
 
                 string localizationIssue = CheckLocalizationIssues(origJsonData, jsonData, origLang);
@@ -1886,7 +1805,7 @@ namespace StoriesLinker
                 return false;
 
             // Если начинается или заканчивается цифрами и содержит "_" - вероятно ключ
-            if ((char.IsDigit(text[0]) || char.IsDigit(text[text.Length - 1])) && text.Contains("_"))
+            if ((char.IsDigit(text[0]) || char.IsDigit(text[^1])) && text.Contains("_"))
                 return false;
 
             // Если содержит буквы (любого алфавита) и достаточно длинный - скорее всего текст

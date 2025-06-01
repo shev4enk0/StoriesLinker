@@ -1,6 +1,4 @@
-﻿using System.Text;
-
-namespace StoriesLinker;
+﻿namespace StoriesLinker;
 
 static class Program
 {

@@ -1,20 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Windows.Forms;
-using Microsoft.Win32;
-using OfficeOpenXml;
+﻿using Microsoft.Win32;
 
 namespace StoriesLinker
 {
     public partial class Form1 : Form
     {
         public static int AvailableChapters;
-
-        public const bool RELEASE_MODE = false;
-        public const bool ONLY_ENGLISH_MODE = false;
-        public const bool FOR_LOCALIZATORS_MODE = true;
-
         private string _projectPath;
 
         public Form1()
@@ -36,9 +26,16 @@ namespace StoriesLinker
                 // Обновляем имя проекта в интерфейсе
                 string[] pathParts = _projectPath.Split('/', '\\');
                 proj_name_value.Text = pathParts[pathParts.Length - 1];
+
+                // Загружаем сохраненное количество глав для этого проекта
+                LoadChaptersCountForProject(_projectPath);
             }
             else
+            {
                 path_value.Text = "-";
+                // Устанавливаем значение по умолчанию - 1 глава
+                chapters_count_value.Text = "1";
+            }
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -59,107 +56,20 @@ namespace StoriesLinker
 
                 proj_name_value.Text = pathParts[pathParts.Length - 1];
 
-                //UpdateLocalizTablesExistState();
-            }
-        }
-
-        private void Form1_Load(object sender, EventArgs e) { }
-
-        private void GenerateCharactersTempMetaTable()
-        {
-            using (var eP = new ExcelPackage())
-            {
-                ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Characters");
-
-                var row = 1;
-                var col = 1;
-
-                row++;
-
-                FantasyBook.Init();
-
-                foreach (KeyValuePair<string, FantBookCharacter> pair in FantasyBook.Characters)
-                {
-                    FantBookCharacter chId = pair.Value;
-
-                    sheet.Cells[row, col].Value = pair.Key;
-
-                    if (chId.ToString().Contains("Sec_"))
-                    {
-                        sheet.Cells[row, col + 1].Value = chId.ToString();
-                        sheet.Cells[row, col + 2].Value = chId.ToString();
-                        sheet.Cells[row, col + 3].Value = chId.ToString();
-                    }
-                    else
-                    {
-                        sheet.Cells[row, col + 1].Value
-                            = FantasyBook.ChClothesVariablesMathcing.ContainsKey(chId)
-                                  ? FantasyBook.ChClothesVariablesMathcing[chId]
-                                  : "-";
-                        sheet.Cells[row, col + 2].Value
-                            = FantasyBook.ChAtalsMathcing.ContainsKey(chId)
-                                  ? FantasyBook.ChAtalsMathcing[chId]
-                                  : "-";
-                        sheet.Cells[row, col + 3].Value = chId.ToString();
-                    }
-
-                    row++;
-                }
-
-                byte[] bin = eP.GetAsByteArray();
-                File.WriteAllBytes(_projectPath + @"\TempMetaCharacters.xlsx", bin);
-            }
-        }
-
-        private void GenerateLocationsTempMetaTable()
-        {
-            using (var eP = new ExcelPackage())
-            {
-                ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Locations");
-
-                var row = 1;
-                var col = 1;
-
-                row++;
-
-                FantasyBook.Init();
-                /*
-                int _id_counter = 0;
-
-                foreach (KeyValuePair<WarBookLocation, string> _pair in WarBook.LocSpriteMatching)
-                {
-                    WarBookLocation _loc_id = _pair.Key;
-
-                    sheet.Cells[row, col].Value = _id_counter++;
-                    sheet.Cells[row, col + 1].Value = _loc_id.ToString();
-                    sheet.Cells[row, col + 2].Value = _pair.Value.ToString();
-                    sheet.Cells[row, col + 3].Value = WarBook.LocSoundMatching[_loc_id];
-                    sheet.Cells[row, col + 4].Value = 0;
-
-                    row++;
-                }*/
-
-
-                foreach (KeyValuePair<string, FantBookLocation> pair in FantasyBook.Locations)
-                {
-                    FantBookLocation locId = pair.Value;
-
-                    sheet.Cells[row, col].Value = 0;
-                    sheet.Cells[row, col + 1].Value = pair.Key;
-                    sheet.Cells[row, col + 2].Value = FantasyBook.LocSpriteMatching[locId];
-                    sheet.Cells[row, col + 3].Value = FantasyBook.LocSoundMatching[locId];
-                    sheet.Cells[row, col + 4].Value = 0;
-
-                    row++;
-                }
-
-                byte[] bin = eP.GetAsByteArray();
-                File.WriteAllBytes(_projectPath + @"\TempMetaLocations.xlsx", bin);
+                // Загружаем сохраненное количество глав для выбранного проекта
+                LoadChaptersCountForProject(_projectPath);
             }
         }
 
         private void GenerateOutputFolderForBundles(object sender, EventArgs eventArgs)
         {
+            // Сохраняем количество глав для текущего проекта
+            if (!string.IsNullOrEmpty(_projectPath) && int.TryParse(chapters_count_value.Text, out int chaptersCount))
+            {
+                SaveChaptersCountForProject(_projectPath, chaptersCount);
+                AvailableChapters = chaptersCount; // Устанавливаем значение для использования в LinkerBin
+            }
+
             // СНАЧАЛА проверяем тип проекта
             bool isArticyX = ArticyXAdapter.IsArticyXProject(_projectPath);
             
@@ -183,32 +93,13 @@ namespace StoriesLinker
                     }
                     
                     ShowMessage("Конвертация завершена. Генерация выходной папки...");
-                    
-                    if (RELEASE_MODE)
+                   
+                    bool result = linker.GenerateOutputFolder();
+                    if (result)
                     {
-                        try
-                        {
-                            bool result = linker.GenerateOutputFolder();
-                            if (result)
-                            {
-                                ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
-                            }
-                            StartCheckAfterBundleGeneration(result);
-                        }
-                        catch (Exception e)
-                        {
-                            if (e.Message != "") ShowMessage("Ошибка: " + e.Message + " " + e.ToString());
-                        }
+                        ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
                     }
-                    else
-                    {
-                        bool result = linker.GenerateOutputFolder();
-                        if (result)
-                        {
-                            ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
-                        }
-                        StartCheckAfterBundleGeneration(result);
-                    }
+                    StartCheckAfterBundleGeneration(result);
                 }
                 catch (Exception e)
                 {
@@ -229,32 +120,13 @@ namespace StoriesLinker
                 }
 
                 var linker = new LinkerBinExtended(_projectPath);
-
-                if (RELEASE_MODE)
+              
+                bool result = linker.GenerateOutputFolder();
+                if (result)
                 {
-                    try
-                    {
-                        bool result = linker.GenerateOutputFolder();
-                        if (result)
-                        {
-                            ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
-                        }
-                        StartCheckAfterBundleGeneration(result);
-                    }
-                    catch (Exception e)
-                    {
-                        if (e.Message != "") ShowMessage("Ошибка: " + e.Message + " " + e.ToString());
-                    }
+                    ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
                 }
-                else
-                {
-                    bool result = linker.GenerateOutputFolder();
-                    if (result)
-                    {
-                        ShowMessage($"✅ Папка Temp с бандлами создана в: {_projectPath}\\Temp\\");
-                    }
-                    StartCheckAfterBundleGeneration(result);
-                }
+                StartCheckAfterBundleGeneration(result);
             }
         }
 
@@ -291,19 +163,6 @@ namespace StoriesLinker
             }
         }
 
-        private void StartVerificationButton_Click(object sender, EventArgs e) { }
-        /*
-        private void UpdateLocalizTablesExistState() {
-            bool _loc_dir_exists = Directory.Exists(ProjectPath + "\\Localization");
-
-            loc_state_value.Text = _loc_dir_exists ? "Созданы" : "Отсуствуют";
-        }*/
-
-        public static void ShowMessage(string message)
-        {
-            Application.OpenForms["Form1"].Controls["textBox2"].Text = message;
-        }
-
         private void GenerateLocalizTables(object sender, EventArgs eventArgs)
         {
             string chaptersCountText = chapters_count_value.Text;
@@ -313,6 +172,12 @@ namespace StoriesLinker
                 ShowMessage("Некорректное количество глав");
 
                 return;
+            }
+
+            // Сохраняем количество глав для текущего проекта
+            if (!string.IsNullOrEmpty(_projectPath))
+            {
+                SaveChaptersCountForProject(_projectPath, AvailableChapters);
             }
 
             // СНАЧАЛА проверяем тип проекта
@@ -378,11 +243,104 @@ namespace StoriesLinker
                     if (e.Message != "") ShowMessage("Ошибка: " + e.Message);
                 }
             }
-
-            //GenerateLocationsTempMetaTable();
-            //GenerateCharactersTempMetaTable();
         }
 
-        private void ChaptersCountLabel_Click(object sender, EventArgs e) { }
+        /// <summary>
+        /// Загружает сохраненное количество глав для указанного проекта из реестра
+        /// </summary>
+        /// <param name="projectPath">Путь к проекту</param>
+        private void LoadChaptersCountForProject(string projectPath)
+        {
+            if (string.IsNullOrEmpty(projectPath))
+            {
+                chapters_count_value.Text = "1";
+                return;
+            }
+
+            try
+            {
+                // Создаем уникальный ключ на основе пути проекта
+                string projectKey = CreateProjectRegistryKey(projectPath);
+                
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\StoriesLinker\Projects\" + projectKey);
+                
+                if (key != null)
+                {
+                    var chaptersCount = key.GetValue("ChaptersCount");
+                    if (chaptersCount != null && int.TryParse(chaptersCount.ToString(), out int count) && count > 0)
+                    {
+                        chapters_count_value.Text = count.ToString();
+                    }
+                    else
+                    {
+                        chapters_count_value.Text = "1";
+                    }
+                    key.Close();
+                }
+                else
+                {
+                    chapters_count_value.Text = "1";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при загрузке количества глав: {ex.Message}");
+                chapters_count_value.Text = "1";
+            }
+        }
+
+        /// <summary>
+        /// Сохраняет количество глав для текущего проекта в реестр
+        /// </summary>
+        /// <param name="projectPath">Путь к проекту</param>
+        /// <param name="chaptersCount">Количество глав</param>
+        private void SaveChaptersCountForProject(string projectPath, int chaptersCount)
+        {
+            if (string.IsNullOrEmpty(projectPath) || chaptersCount <= 0)
+                return;
+
+            try
+            {
+                // Создаем уникальный ключ на основе пути проекта
+                string projectKey = CreateProjectRegistryKey(projectPath);
+                
+                RegistryKey key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\StoriesLinker\Projects\" + projectKey);
+                key.SetValue("ChaptersCount", chaptersCount);
+                key.SetValue("ProjectPath", projectPath); // Сохраняем также полный путь для справки
+                key.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при сохранении количества глав: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Создает безопасный ключ реестра на основе пути проекта
+        /// </summary>
+        /// <param name="projectPath">Путь к проекту</param>
+        /// <returns>Безопасный ключ для реестра</returns>
+        private string CreateProjectRegistryKey(string projectPath)
+        {
+            // Берем имя папки проекта и заменяем недопустимые символы
+            string projectName = Path.GetFileName(projectPath.TrimEnd('\\', '/'));
+            
+            // Заменяем недопустимые символы на подчеркивания
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+            foreach (char c in invalidChars)
+            {
+                projectName = projectName.Replace(c, '_');
+            }
+            
+            // Добавляем хеш от полного пути для уникальности
+            int pathHash = Math.Abs(projectPath.GetHashCode());
+            
+            return $"{projectName}_{pathHash}";
+        }
+
+        public static void ShowMessage(string message)
+        {
+            Application.OpenForms["Form1"].Controls["textBox2"].Text = message;
+        }
     }
 }

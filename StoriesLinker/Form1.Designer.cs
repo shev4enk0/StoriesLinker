@@ -35,7 +35,6 @@
             this.button1 = new System.Windows.Forms.Button();
             this.proj_name_label = new System.Windows.Forms.Label();
             this.proj_name_value = new System.Windows.Forms.Label();
-            this.StartVerificationButton = new System.Windows.Forms.Button();
             this.button3 = new System.Windows.Forms.Button();
             this.button4 = new System.Windows.Forms.Button();
             this.textBox2 = new System.Windows.Forms.TextBox();
@@ -100,19 +99,9 @@
             this.proj_name_value.TabIndex = 7;
             this.proj_name_value.Text = "-";
             // 
-            // StartVerificationButton
-            // 
-            this.StartVerificationButton.Location = new System.Drawing.Point(22, 163);
-            this.StartVerificationButton.Name = "StartVerificationButton";
-            this.StartVerificationButton.Size = new System.Drawing.Size(271, 33);
-            this.StartVerificationButton.TabIndex = 10;
-            this.StartVerificationButton.Text = "Запустить верификацию";
-            this.StartVerificationButton.UseVisualStyleBackColor = true;
-            this.StartVerificationButton.Click += new System.EventHandler(this.StartVerificationButton_Click);
-            // 
             // button3
             // 
-            this.button3.Location = new System.Drawing.Point(21, 202);
+            this.button3.Location = new System.Drawing.Point(21, 163);
             this.button3.Name = "button3";
             this.button3.Size = new System.Drawing.Size(271, 33);
             this.button3.TabIndex = 11;
@@ -122,7 +111,7 @@
             // 
             // button4
             // 
-            this.button4.Location = new System.Drawing.Point(21, 241);
+            this.button4.Location = new System.Drawing.Point(21, 202);
             this.button4.Name = "button4";
             this.button4.Size = new System.Drawing.Size(271, 33);
             this.button4.TabIndex = 12;
@@ -137,7 +126,7 @@
             this.textBox2.Location = new System.Drawing.Point(321, 163);
             this.textBox2.Multiline = true;
             this.textBox2.Name = "textBox2";
-            this.textBox2.Size = new System.Drawing.Size(255, 120);
+            this.textBox2.Size = new System.Drawing.Size(255, 81);
             this.textBox2.TabIndex = 13;
             this.textBox2.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
             // 
@@ -149,7 +138,6 @@
             this.chapters_count_label.Size = new System.Drawing.Size(70, 13);
             this.chapters_count_label.TabIndex = 14;
             this.chapters_count_label.Text = "Кол-во глав:";
-            this.chapters_count_label.Click += new System.EventHandler(this.ChaptersCountLabel_Click);
             // 
             // chapters_count_value
             // 
@@ -158,7 +146,7 @@
             this.chapters_count_value.Name = "chapters_count_value";
             this.chapters_count_value.Size = new System.Drawing.Size(79, 20);
             this.chapters_count_value.TabIndex = 15;
-            this.chapters_count_value.Text = "12";
+            this.chapters_count_value.Text = "1";
             // 
             // label1
             // 
@@ -190,7 +178,6 @@
             this.Controls.Add(this.textBox2);
             this.Controls.Add(this.button4);
             this.Controls.Add(this.button3);
-            this.Controls.Add(this.StartVerificationButton);
             this.Controls.Add(this.proj_name_value);
             this.Controls.Add(this.proj_name_label);
             this.Controls.Add(this.button1);
@@ -199,7 +186,6 @@
             this.Controls.Add(this.pictureBox1);
             this.Name = "Form1";
             this.Text = "Компоновщик Stories: Your Choice";
-            this.Load += new System.EventHandler(this.Form1_Load);
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -214,7 +200,6 @@
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Label proj_name_label;
         private System.Windows.Forms.Label proj_name_value;
-        private System.Windows.Forms.Button StartVerificationButton;
         private System.Windows.Forms.Button button3;
         private System.Windows.Forms.Button button4;
         private System.Windows.Forms.TextBox textBox2;

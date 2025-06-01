@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using StoriesLinker;
+﻿using StoriesLinker;
 
-public class AtlasCheckerChInfo {
+public class AtlasCheckerChInfo 
+{
     public AjMetaCharacterData MetaData;
 
     public string SpritePrefix;
@@ -112,21 +110,12 @@ public class LinkerAtlasChecker
 
             _checkCharactersList.Add(ch);
         }
-
-        /*foreach (AtlasCheckerChInfo _ch in CheckCharactersList)
-        {
-            foreach (KeyValuePair<string, string> _sp_pair in _ch.RequiredSprites)
-            {
-                Console.WriteLine(_ch.SpritePrefix + ": " + _sp_pair.Key + " | " + _sp_pair.Value);
-            }
-        }*/
+      
     }
 
     public void PassClothesInstruction(string rawScript)
     {
         string[] scripts = rawScript.Replace("\\n", "").Replace("\\r", "").Split(';');
-
-        //Console.WriteLine("pass instr " + _raw_script);
 
         foreach (string script in scripts)
         {
@@ -185,14 +174,8 @@ public class LinkerAtlasChecker
                         if (text.Contains(spriteName2) && !string.IsNullOrEmpty(spPair.Value))
                         {
                             checkedSprites.Add(spPair.Key);
-
-                            //Console.WriteLine("ok");
-
-                            //всё ок
                         }
                         else {
-                            //Console.WriteLine("error");
-
                             if (ch.MetaData.BaseNameInAtlas == "Main" && _metaData.CustomClothesCount > 0) // если история с выбором одежды в начале игры, делаем исключения для главного героя
                             {
 
@@ -260,8 +243,6 @@ public class AInstruction
             break;
         }
 
-        //Debug.Log("_sign_index " + _sign_index);
-
         if (signIndex != -1)
         {
             string[] parts = rawScript.Replace(signs[signIndex], "|").Split('|');
@@ -272,10 +253,6 @@ public class AInstruction
             string valueStr = parts[1].Trim(' ');
 
             int result;
-
-
-            //Debug.Log(Variable + ", _value_str " + _value_str + " - " + int.TryParse(_value_str, out _result));
-
 
                 if (int.TryParse(valueStr, out result))
                 {
@@ -291,7 +268,7 @@ public class AInstruction
                         BadParse = true;
                     }
                 }
-                else if (valueStr == "true" || valueStr == "false")
+                else if (valueStr is "true" or "false")
                 {
                     _varType = DInstuctionVarType.Boolean;
 

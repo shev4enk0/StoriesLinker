@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace StoriesLinker
 {
     /// <summary>
@@ -47,7 +44,7 @@ namespace StoriesLinker
         /// <summary>
         /// Проверяет, совпадают ли два цвета с заданной точностью
         /// </summary>
-        public static bool ColorsMatch(AjColor color1, AjColor color2, float tolerance = 0.01f)
+        private static bool ColorsMatch(AjColor color1, AjColor color2, float tolerance = 0.01f)
         {
             return Math.Abs(color1.R - color2.R) <= tolerance &&
                    Math.Abs(color1.G - color2.G) <= tolerance &&
