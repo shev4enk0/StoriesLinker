@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using OfficeOpenXml;
 
 namespace StoriesLinker
 {
@@ -81,6 +82,9 @@ namespace StoriesLinker
         public void CreateLocalizationExcelFile()
         {
             Console.WriteLine(ConsoleMessages.CreatingLocalizationExcel());
+
+            // Устанавливаем контекст лицензии EPPlus
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
             // Загружаем существующие данные локализации
             var existingData = LoadExistingLocalizationData();

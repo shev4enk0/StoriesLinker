@@ -7,4 +7,5 @@ global using System.Text;
 global using System.Text.RegularExpressions;
 global using System.Windows.Forms;
 global using Newtonsoft.Json;
-global using OfficeOpenXml; 
+global using OfficeOpenXml;
+global using Microsoft.Win32; 

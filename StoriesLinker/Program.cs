@@ -8,6 +8,9 @@ static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        // Устанавливаем контекст лицензии EPPlus (некоммерческое использование)
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        
         // Устанавливаем кодировку консоли для корректного отображения кириллицы
         Console.OutputEncoding = Encoding.UTF8;
         Console.InputEncoding = Encoding.UTF8;

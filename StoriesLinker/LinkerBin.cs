@@ -6,13 +6,13 @@
 
         protected string _projectPath;
         protected string _baseLanguage; // Базовый язык локализации
-        private Dictionary<string, Dictionary<string, string>> _savedXMLDicts;
+        private static Dictionary<string, Dictionary<string, string>> _savedXMLDicts = new();
         private int _allWordsCount = 0;
 
         public LinkerBin(string projectPath)
         {
             _projectPath = projectPath;
-            _savedXMLDicts = new Dictionary<string, Dictionary<string, string>>();
+            // Убираем инициализацию - теперь кэш статический
             
             // Автоматически определяем язык по найденному файлу
             DetermineBaseLanguage();
@@ -67,6 +67,32 @@
 
         // Получение пути к файлу потока
         public static string GetFlowJsonPath(string projPath) => projPath + @"\Raw\Flow.json";
+
+        /// <summary>
+        /// Очищает кэш загруженных Excel файлов
+        /// </summary>
+        public static void ClearCache()
+        {
+            _savedXMLDicts.Clear();
+            Console.WriteLine("🗑️ Кэш Excel файлов очищен");
+        }
+
+        /// <summary>
+        /// Получает информацию о текущем состоянии кэша
+        /// </summary>
+        public static string GetCacheInfo()
+        {
+            if (_savedXMLDicts.Count == 0)
+                return "📊 Кэш пуст";
+
+            var uniqueFiles = _savedXMLDicts.Keys
+                .Select(key => key.Split('|')[0]) // Извлекаем путь к файлу
+                .Distinct() // Убираем дубликаты
+                .Select(path => Path.GetFileName(path))
+                .ToList();
+
+            return $"📊 В кэше: {_savedXMLDicts.Count} записей из {uniqueFiles.Count} уникальных файлов ({string.Join(", ", uniqueFiles.Take(3))}{(uniqueFiles.Count > 3 ? "..." : "")})";
+        }
      
         #endregion
 
@@ -75,7 +101,19 @@
         // Преобразование Excel-таблицы в словарь
         private Dictionary<string, string> XMLTableToDict(string path, int column = 1)
         {
-            if (_savedXMLDicts.TryGetValue(path, out Dictionary<string, string> dict)) return dict;
+            // Создаем уникальный ключ кэша, учитывающий и путь, и колонку
+            string cacheKey = $"{path}|column:{column}";
+            
+            if (_savedXMLDicts.TryGetValue(cacheKey, out Dictionary<string, string> dict))
+            {
+                Console.WriteLine($"💾 Используем кэш для: {Path.GetFileName(path)} (колонка {column})");
+                return dict;
+            }
+
+            Console.WriteLine($"📖 Читаем файл: {Path.GetFileName(path)} (колонка {column})");
+
+            // Устанавливаем контекст лицензии EPPlus
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
             var nativeDict = new Dictionary<string, string>();
 
@@ -83,7 +121,7 @@
             if (!File.Exists(path))
             {
                 Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Файл локализации не найден: {path}");
-                _savedXMLDicts.Add(path, nativeDict);
+                _savedXMLDicts.Add(cacheKey, nativeDict);
                 return nativeDict;
             }
 
@@ -94,7 +132,7 @@
                 if (xlPackage.Workbook.Worksheets.Count == 0)
                 {
                     Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл не содержит листов: {path}");
-                    _savedXMLDicts.Add(path, nativeDict);
+                    _savedXMLDicts.Add(cacheKey, nativeDict);
                     return nativeDict;
                 }
 
@@ -104,7 +142,7 @@
                 if (myWorksheet.Dimension == null)
                 {
                     Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист пустой: {path}");
-                    _savedXMLDicts.Add(path, nativeDict);
+                    _savedXMLDicts.Add(cacheKey, nativeDict);
                     return nativeDict;
                 }
 
@@ -114,10 +152,10 @@
                     ExcelRange firstRow = myWorksheet.Cells[rowNum, 1];
                     ExcelRange secondRow = myWorksheet.Cells[rowNum, column + 1];
 
-                    string firstRowStr = firstRow != null && firstRow.Value != null
+                    string firstRowStr = firstRow is { Value: not null }
                         ? firstRow.Value.ToString()
                         : "";
-                    string secondRowStr = secondRow != null && secondRow.Value != null
+                    string secondRowStr = secondRow is { Value: not null }
                         ? secondRow.Value.ToString()
                         : " ";
 
@@ -133,7 +171,7 @@
                 // Возвращаем пустой словарь вместо падения
             }
 
-            _savedXMLDicts.Add(path, nativeDict);
+            _savedXMLDicts.Add(cacheKey, nativeDict);
 
             return nativeDict;
         }
@@ -141,7 +179,19 @@
         // Специальная версия для обработки BookDescriptions для основного языка
         private Dictionary<string, string> XMLTableToDictBookDesc(string path)
         {
-            if (_savedXMLDicts.TryGetValue(path, out Dictionary<string, string> dict)) return dict;
+            // Создаем уникальный ключ кэша для BookDescriptions
+            string cacheKey = $"{path}|bookdesc";
+            
+            if (_savedXMLDicts.TryGetValue(cacheKey, out Dictionary<string, string> dict))
+            {
+                Console.WriteLine($"💾 Используем кэш для BookDescriptions: {Path.GetFileName(path)}");
+                return dict;
+            }
+
+            Console.WriteLine($"📖 Читаем BookDescriptions: {Path.GetFileName(path)}");
+
+            // Устанавливаем контекст лицензии EPPlus
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
             var nativeDict = new Dictionary<string, string>();
 
@@ -149,7 +199,7 @@
             if (!File.Exists(path))
             {
                 Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Файл описания книги не найден: {path}");
-                _savedXMLDicts.Add(path, nativeDict);
+                _savedXMLDicts.Add(cacheKey, nativeDict);
                 return nativeDict;
             }
 
@@ -160,7 +210,7 @@
                 if (xlPackage.Workbook.Worksheets.Count == 0)
                 {
                     Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel файл описания книги не содержит листов: {path}");
-                    _savedXMLDicts.Add(path, nativeDict);
+                    _savedXMLDicts.Add(cacheKey, nativeDict);
                     return nativeDict;
                 }
 
@@ -170,7 +220,7 @@
                 if (myWorksheet.Dimension == null)
                 {
                     Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Excel лист описания книги пустой: {path}");
-                    _savedXMLDicts.Add(path, nativeDict);
+                    _savedXMLDicts.Add(cacheKey, nativeDict);
                     return nativeDict;
                 }
 
@@ -181,7 +231,7 @@
                     ExcelRange columnD = myWorksheet.Cells[rowNum, 4];   // Колонка D
                     ExcelRange columnB = myWorksheet.Cells[rowNum, 2];   // Колонка B
 
-                    string firstRowStr = firstRow != null && firstRow.Value != null
+                    string firstRowStr = firstRow is { Value: not null }
                         ? firstRow.Value.ToString()
                         : "";
                                                     
@@ -189,13 +239,13 @@
 
                     // Проверяем сначала колонку D, если пусто, берем из B
                     string valueStr;
-                    if (columnD != null && columnD.Value != null && !string.IsNullOrWhiteSpace(columnD.Value.ToString()))
+                    if (columnD is { Value: not null } && !string.IsNullOrWhiteSpace(columnD.Value.ToString()))
                     {
                         valueStr = columnD.Value.ToString();
                     }
                     else
                     {
-                        valueStr = columnB != null && columnB.Value != null
+                        valueStr = columnB is { Value: not null }
                             ? columnB.Value.ToString()
                             : " ";
                     }
@@ -210,7 +260,7 @@
                 // Возвращаем пустой словарь вместо падения
             }
 
-            _savedXMLDicts.Add(path, nativeDict);
+            _savedXMLDicts.Add(cacheKey, nativeDict);
 
             return nativeDict;
         }
@@ -228,6 +278,9 @@
         /// </summary>
         private Dictionary<string, LocalizEntityWithEmotion> XMLTableToDictWithEmotions(string path)
         {
+            // Устанавливаем контекст лицензии EPPlus
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            
             var resultDict = new Dictionary<string, LocalizEntityWithEmotion>();
 
             // ПРОВЕРКА: Файл должен существовать
@@ -332,6 +385,9 @@
 
         public AjLinkerMeta GetParsedMetaInputJsonFile()
         {
+            // Устанавливаем контекст лицензии EPPlus
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            
             var jsonObj = new AjLinkerMeta { Version = new BookVersionInfo() };
 
             string metaXMLPath = _projectPath + @"\Raw\Meta.xlsx";
@@ -605,6 +661,8 @@
 
             foreach (string el in pathsToXmls)
             {
+                Console.WriteLine($"📖 Обрабатываем файл: {el}");
+                
                 Dictionary<string, string> fileDict;
                 
                 // Проверяем, является ли файл описанием книги для основного языка
@@ -612,17 +670,29 @@
                 {
                     // Для основного языка используем специальный метод чтения BookDescriptions
                     fileDict = XMLTableToDictBookDesc(el);
+                    Console.WriteLine($"📖 Загружено {fileDict.Count} ключей из BookDescriptions");
                 }
                 else
                 {
                     // Для других файлов используем стандартный метод
                     fileDict = XMLTableToDict(el, column);
+                    Console.WriteLine($"📖 Загружено {fileDict.Count} ключей из {Path.GetFileName(el)}");
                 }
 
                 foreach (KeyValuePair<string, string> pair in fileDict.Where(pair => pair.Key != "ID"))
-                    total.Add(pair.Key, pair.Value);
+                {
+                    if (total.ContainsKey(pair.Key))
+                    {
+                        Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Дублирующийся ключ '{pair.Key}' в файле {Path.GetFileName(el)}");
+                    }
+                    else
+                    {
+                        total.Add(pair.Key, pair.Value);
+                    }
+                }
             }
 
+            Console.WriteLine($"📖 Итого загружено {total.Count} уникальных ключей");
             var jsonFile = new AjLocalizInJsonFile { Data = total };
 
             return jsonFile;
@@ -756,7 +826,7 @@
 
             if (chaptersIds.Count < Form1.AvailableChapters)
             {
-                Form1.ShowMessage("Глав в книге меньше введённого количества");
+                Form1.ShowMessage($"Глав в книге меньше введённого количества. Найдено: {chaptersIds.Count}, требуется: {Form1.AvailableChapters}");
 
                 return false;
             }
@@ -854,6 +924,10 @@
 
             CreateLocalizTable("CharacterNames", charactersLocalizIds, nativeDict);
 
+            // НОВОЕ: Предварительно кэшируем все созданные файлы для ускорения последующих операций
+            Console.WriteLine("🔄 Запускаем предварительное кэширование созданных файлов...");
+            PreCacheCreatedLocalizationFiles();
+
             return true;
         }
 
@@ -862,26 +936,29 @@
         /// </summary>
         private void CreateLocalizTable(string name, List<LocalizEntity> ids, Dictionary<string, string> nativeDict)
         {
+            // Устанавливаем контекст лицензии EPPlus
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            
             var wordCount = 0;
 
             using var eP = new ExcelPackage();
             bool forTranslating = name.Contains("for_translating");
             ExcelWorksheet sheet = eP.Workbook.Worksheets.Add("Data");
 
-          
-
             var row = 1;
             var col = 1;
 
             sheet.Cells[row, col].Value = "ID";
-
             sheet.Cells[row, col + 1].Value = "Speaker";
             sheet.Cells[row, col + 2].Value = "Emotion";
-            sheet.Cells[row, col +  3 ].Value = "Text";
+            sheet.Cells[row, col + 3].Value = "Text";
 
             row++;
 
             var replacedIds = new List<string>();
+            
+            // Словарь для кэширования данных
+            var cacheDict = new Dictionary<string, string>();
 
             foreach (LocalizEntity item in ids)
             {
@@ -931,11 +1008,12 @@
                 if (string.IsNullOrEmpty(value.Trim())) continue;
 
                 sheet.Cells[row, col].Value = item.LocalizID;
-
                 sheet.Cells[row, col + 1].Value = item.SpeakerDisplayName;
                 sheet.Cells[row, col + 2].Value = item.Emotion;
+                sheet.Cells[row, col + 3].Value = value;
 
-                sheet.Cells[row, col +3].Value = value;
+                // Добавляем в кэш-словарь для последующего использования
+                cacheDict.TryAdd(item.LocalizID, value);
 
                 if (!replacedIds.Contains(id)) wordCount += CountWords(value);
 
@@ -943,8 +1021,17 @@
             }
 
             byte[] bin = eP.GetAsByteArray();
+            string filePath = _projectPath + @"\Localization\" + _baseLanguage + @"\" + name + ".xlsx";
+            
+            File.WriteAllBytes(filePath, bin);
 
-            File.WriteAllBytes(_projectPath + @"\Localization\" + _baseLanguage + @"\" + name + ".xlsx", bin);
+            // НОВОЕ: Сразу кэшируем созданный файл в _savedXMLDicts
+            // Для созданных файлов кэшируем только для колонки 1, так как текст всегда в колонке 4
+            string cacheKeyCol1 = $"{filePath}|column:1";
+            
+            _savedXMLDicts.TryAdd(cacheKeyCol1, new Dictionary<string, string>(cacheDict));
+            
+            Console.WriteLine($"💾 Кэшированы данные для файла: {name}.xlsx");
 
             if (name.Contains("internal")) return;
 
@@ -1037,7 +1124,7 @@
 
             if (chaptersIds.Count < Form1.AvailableChapters)
             {
-                Form1.ShowMessage("Глав в книге меньше введённого количества");
+                Form1.ShowMessage($"Глав в книге меньше введённого количества. Найдено: {chaptersIds.Count}, требуется: {Form1.AvailableChapters}");
 
                 return false;
             }
@@ -1142,7 +1229,8 @@
                          cObj.ClothesVariableName.Trim() == "-"))
                         continue;
 
-                    Form1.ShowMessage("Найдены дублирующиеся значения среди персонажей: " + aObj.DisplayName);
+                    string duplicateCharError = $"Найдены дублирующиеся значения среди персонажей: {aObj.DisplayName} (ключ: '{cObj.DisplayName}', AID: '{cObj.Aid}')";
+                    Form1.ShowMessage(duplicateCharError);
 
                     return false;
                 }
@@ -1151,8 +1239,8 @@
                 {
                     if (cObj.AtlasFileName != cObj.BaseNameInAtlas)
                     {
-                        Form1.ShowMessage("AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: " +
-                                          cObj.DisplayName);
+                        string atlasError = $"AtlasFileName и BaseNameInAtlas у второстепенных должны быть одинаковы: {cObj.DisplayName}";
+                        Form1.ShowMessage(atlasError);
 
                         return false;
                     }
@@ -1167,7 +1255,8 @@
                               -1;
                 if (cObj.ClothesVariableName.Trim() == "-" || (state1 && state2)) continue;
 
-                Form1.ShowMessage("В артиси не определена переменная с именем Clothes." + cObj.ClothesVariableName);
+                string clothesError = $"В артиси не определена переменная с именем Clothes: {cObj.ClothesVariableName}";
+                Form1.ShowMessage(clothesError);
 
                 return false;
             }
@@ -1192,7 +1281,8 @@
                     if (cObj.DisplayName != aObj.DisplayName && cObj.SpriteName != aObj.SpriteName)
                         continue;
 
-                    Form1.ShowMessage("Найдены дублирующиеся значения среди локаций: " + aObj.DisplayName);
+                    string duplicateLocError = $"Найдены дублирующиеся значения среди локаций: {aObj.DisplayName}";
+                    Form1.ShowMessage(duplicateLocError);
                     return false;
                 }
             }
@@ -1428,13 +1518,13 @@
                 }
 
                 // НОВОЕ: Создаем JSON файл с эмоциями для for_translating файлов
-                if (File.Exists(langFiles[0])) // Если есть файл Chapter_X_for_translating.xlsx
+                /*if (File.Exists(langFiles[0])) // Если есть файл Chapter_X_for_translating.xlsx
                 {
                     var emotionsData = CreateLocalizationWithEmotions(langFiles[0]);
                     string emotionsJsonPath = chapterFolder + @"\Strings\" + lang + "_emotions.json";
                     File.WriteAllText(emotionsJsonPath, JsonConvert.SerializeObject(emotionsData, Formatting.Indented));
                     Console.WriteLine($"✅ Создан файл с эмоциями: {emotionsJsonPath}");
-                }
+                }*/
 
                 if (chapterN != 1) continue;
 
@@ -1457,7 +1547,7 @@
                 if (!string.IsNullOrEmpty(correct))
                 {
                     showLocalizError(correct, "sharedstrings");
-                    throw new Exception("Ошибка при генерации sharedstrings");
+                    throw new Exception($"Ошибка при генерации sharedstrings: проблемный ключ '{correct}' в языке '{lang}'. Проверьте файлы: {string.Join(", ", sharedLangFiles)}");
                 }
 
                 correct = generateLjson(lang,
@@ -1469,7 +1559,7 @@
                 if (string.IsNullOrEmpty(correct)) continue;
                 
                 showLocalizError(correct, "previewstrings");
-                throw new Exception("Ошибка при генерации previewstrings");
+                throw new Exception($"Ошибка при генерации previewstrings: проблемный ключ '{correct}' в языке '{lang}'. Проверьте файл: {bookDescsPath}");
             }
         }
 
@@ -1504,8 +1594,9 @@
 
             if (!File.Exists(pcoversSourcePath + @"\Russian\PreviewCover.png"))
             {
-                Form1.ShowMessage("Не все preview обложки присуствуют.");
-                throw new Exception("Отсутствуют preview обложки");
+                string expectedPath = pcoversSourcePath + @"\Russian\PreviewCover.png";
+                Form1.ShowMessage($"Не все preview обложки присутствуют. Отсутствует: {expectedPath}");
+                throw new Exception($"Отсутствуют preview обложки. Ожидаемый файл: {expectedPath}. Проверьте папку: {pcoversSourcePath}");
             }
 
             foreach (string dirPath in Directory.GetDirectories(pcoversSourcePath, "*", SearchOption.AllDirectories))
@@ -1552,9 +1643,9 @@
 
                 if (meta.Characters.Find(l => l.DisplayName == dname) == null)
                 {
-                    Form1.ShowMessage("В таблице нет персонажа с именем " + dname);
-
-                    throw new Exception("В таблице нет персонажа с именем " + dname);
+                    string errorMsg = $"В таблице Meta.xlsx нет персонажа с именем '{dname}' (ключ: '{displayNameKey}', AID: '{aid}')";
+                    Form1.ShowMessage(errorMsg);
+                    throw new Exception(errorMsg + ". Проверьте лист Characters в файле Meta.xlsx");
                 }
 
                 if (!gridLinker.IsChExist(dname)) gridLinker.AddCharacter(dname, aid);
@@ -1593,9 +1684,9 @@
 
                 if (meta.Locations.Find(l => l.DisplayName == dname) == null)
                 {
-                    Form1.ShowMessage("В таблице нет локации с именем " + dname);
-
-                    throw new Exception("В таблице нет локации с именем " + dname);
+                    string locationErrorMsg = $"В таблице Meta.xlsx нет локации с именем '{dname}' (ключ: '{displayNameKey}', AID: '{aid}')";
+                    Form1.ShowMessage(locationErrorMsg);
+                    throw new Exception(locationErrorMsg + ". Проверьте лист Locations в файле Meta.xlsx");
                 }
 
                 if (!gridLinker.IsLocExist(dname)) gridLinker.AddLocation(dname, objectsList[aid].Properties.Id);
@@ -1622,6 +1713,9 @@
         {
             return (language, id, inPaths, outputPath, colN) =>
             {
+                Console.WriteLine($"🔄 Начинаем генерацию {id} для языка {language}");
+                Console.WriteLine($"🔄 Входные файлы: {string.Join(", ", inPaths.Select(Path.GetFileName))}");
+                
                 if (!allDicts.TryGetValue(language, out Dictionary<string, string> allStrings))
                 {
                     allStrings = new Dictionary<string, string>();
@@ -1629,20 +1723,27 @@
                 }
 
                 AjLocalizInJsonFile jsonData = GetXMLFile(inPaths, colN);
-                bool origLang = !origLangData.ContainsKey(id);
+                
+                // ИСПРАВЛЕНО: определяем оригинальный язык на основе _baseLanguage, а не порядка обработки
+                bool origLang = language == _baseLanguage;
 
-                if (origLang) origLangData[id] = jsonData;
+                // Если это оригинальный язык или данных еще нет - сохраняем как оригинал
+                if (origLang || !origLangData.ContainsKey(id)) 
+                {
+                    origLangData[id] = jsonData;
+                    Console.WriteLine($"🔄 Сохранили как оригинальные данные для {id} (origLang: {origLang})");
+                }
 
                 AjLocalizInJsonFile origJsonData = origLangData[id];
-                if (origLang) jsonData = GetXMLFile(inPaths, colN);
 
-                Console.WriteLine($"start {id} {allStrings.Count}");
+                Console.WriteLine($"🔄 Начинаем обработку {origJsonData.Data.Count} ключей для {id} (origLang: {origLang})");
+                
                 foreach (KeyValuePair<string, string> pair in origJsonData.Data)
                 {
                     string origValue = pair.Value.Trim();
                     if (!jsonData.Data.TryGetValue(pair.Key, out string translatedValue))
                     {
-                        Console.WriteLine($"String with ID {pair.Key} not found");
+                        Console.WriteLine($"⚠️ Ключ {pair.Key} не найден в данных перевода для {language}");
                         continue;
                     }
 
@@ -1656,7 +1757,7 @@
                         if (!jsonData.Data.TryGetValue(linkId, out string linkedValue) &&
                             !allStrings.TryGetValue(linkId, out linkedValue))
                         {
-                            Console.WriteLine($"String with {linkId} is not found");
+                            Console.WriteLine($"⚠️ Связанный ключ {linkId} не найден");
                             continue;
                         }
 
@@ -1664,25 +1765,47 @@
                         translatedValue = linkedValue;
                     }
 
+                    // Для оригинального языка проверяем только критические проблемы (пустые строки)
+                    // Для переводов выполняем полную проверку
+                    if (origLang && !string.IsNullOrEmpty(translatedValue.Trim())) continue;
+                    
                     if (IsTranslationIncomplete(translatedValue,
                             origValue,
                             origLang,
                             jsonData.Data[pair.Key]))
-                        Console.WriteLine($"String with ID {pair.Key} isn't translated");
+                        Console.WriteLine($"⚠️ Неполный перевод для ключа {pair.Key}");
                 }
 
-                string localizationIssue = CheckLocalizationIssues(origJsonData, jsonData, origLang);
+                Console.WriteLine($"🔄 Проверяем проблемы локализации для {id}...");
+                string localizationIssue = "";
+
+                // Для оригинального языка проверяем только пустые значения
+                localizationIssue = origLang ? CheckForEmptyValues(jsonData) :
+                    // Для переводов выполняем полную проверку
+                    CheckLocalizationIssues(origJsonData, jsonData);
+
+                Console.WriteLine(!string.IsNullOrEmpty(localizationIssue)
+                    ? $"❌ Найдена проблема локализации: {localizationIssue}"
+                    : $"✅ Проблем локализации не найдено для {id}");
+
                 WriteJsonFile(jsonData, outputPath);
+                Console.WriteLine($"✅ Записан файл: {outputPath}");
 
                 return localizationIssue;
             };
         }
 
-        // Проверка неполного перевода
+        /// <summary>
+        /// Проверка неполного перевода
+        /// Для оригинального языка: проверяет только пустые строки
+        /// Для переводов: выполняет полную проверку качества перевода
+        /// </summary>
         private bool IsTranslationIncomplete(string translatedValue, string origValue, bool origLang, string jsonDataValue) =>
+            // Всегда проверяем пустые строки (критично для всех языков)
             string.IsNullOrEmpty(translatedValue.Trim()) ||
+            // Дополнительные проверки только для переводов (!origLang)
             (/*origValue.Trim() == translatedValue.Trim() &&*/
-             !origLang &&
+             !origLang &&  // Только для переводов, НЕ для оригинального языка
              origValue.Length > 10 &&
              !origValue.Contains("*SystemLinkTo*") &&
              !origValue.Contains("NextChoiceIsTracked") &&
@@ -1690,16 +1813,39 @@
              !string.IsNullOrEmpty(jsonDataValue.Replace(".", "").Trim()) &&
              !origValue.ToLower().Contains("%pname%"));
 
-        // Проверка проблем локализации
+        // Проверка пустых значений (для оригинального языка)
+        private string CheckForEmptyValues(AjLocalizInJsonFile jsonData)
+        {
+            foreach (KeyValuePair<string, string> pair in jsonData.Data)
+            {
+                if (!string.IsNullOrEmpty(pair.Value.Trim())) continue;
+                
+                Console.WriteLine($"⚠️ Пустое значение для ключа '{pair.Key}' в оригинальном языке");
+                return pair.Key;
+            }
+
+            return string.Empty;
+        }
+
+        // Проверка проблем локализации (для переводов)
         private string CheckLocalizationIssues(AjLocalizInJsonFile origJsonData,
-                                               AjLocalizInJsonFile jsonData,
-                                               bool origLang)
+                                               AjLocalizInJsonFile jsonData)
         {
             foreach (KeyValuePair<string, string> pair in origJsonData.Data)
-                if (!jsonData.Data.ContainsKey(pair.Key) ||
-                    string.IsNullOrEmpty(jsonData.Data[pair.Key].Trim()) /*||
-                    (jsonData.Data[pair.Key] == pair.Value && !Form1.ONLY_ENGLISH_MODE && !origLang)*/)
+            {
+                // Проверяем, что ключ присутствует в переводе
+                if (!jsonData.Data.TryGetValue(pair.Key, out var value))
+                {
+                    Console.WriteLine($"⚠️ Ключ '{pair.Key}' отсутствует в переводе");
                     return pair.Key;
+                }
+                
+                // Проверяем, что значение не пустое
+                if (!string.IsNullOrEmpty(value.Trim())) continue;
+                
+                Console.WriteLine($"⚠️ Пустое значение для ключа '{pair.Key}'");
+                return pair.Key;
+            }
 
             return string.Empty;
         }
@@ -1824,5 +1970,78 @@
         }
 
         #endregion
+
+        /// <summary>
+        /// Предварительно кэширует все созданные Excel файлы локализации
+        /// Вызывается после GenerateLocalizTables для ускорения последующих операций
+        /// </summary>
+        public void PreCacheCreatedLocalizationFiles()
+        {
+            // Сначала очищаем возможные дублирующиеся записи
+            CleanupDuplicateCache();
+            
+            string localizationPath = _projectPath + @"\Localization\" + _baseLanguage;
+            
+            if (!Directory.Exists(localizationPath))
+            {
+                Console.WriteLine("⚠️ Папка локализации не найдена для предварительного кэширования");
+                return;
+            }
+
+            var filesToCache = new List<string>();
+            
+            // Ищем все созданные Excel файлы
+            filesToCache.AddRange(Directory.GetFiles(localizationPath, "Chapter_*_for_translating.xlsx"));
+            filesToCache.AddRange(Directory.GetFiles(localizationPath, "Chapter_*_internal.xlsx"));
+            filesToCache.AddRange(Directory.GetFiles(localizationPath, "CharacterNames.xlsx"));
+
+            Console.WriteLine($"🔄 Предварительное кэширование {filesToCache.Count} файлов локализации...");
+
+            foreach (string filePath in filesToCache)
+            {
+                // Кэшируем только для колонки 1 (основная), так как созданные файлы имеют текст в колонке 4
+                string cacheKey1 = $"{filePath}|column:1";
+                if (!_savedXMLDicts.ContainsKey(cacheKey1))
+                {
+                    var dict = XMLTableToDict(filePath, 1);
+                    Console.WriteLine($"💾 Предварительно кэширован: {Path.GetFileName(filePath)}");
+                }
+            }
+
+            Console.WriteLine($"✅ Предварительное кэширование завершено. Кэшировано файлов: {filesToCache.Count}");
+        }
+
+        /// <summary>
+        /// Очищает дублирующиеся записи в кэше для созданных файлов локализации
+        /// </summary>
+        public static void CleanupDuplicateCache()
+        {
+            var keysToRemove = new List<string>();
+            
+            foreach (string key in _savedXMLDicts.Keys)
+            {
+                // Ищем дублирующиеся записи для созданных файлов (column:2)
+                if (key.Contains("Chapter_") && key.Contains("column:2") && 
+                    (key.Contains("for_translating.xlsx") || key.Contains("internal.xlsx")))
+                {
+                    keysToRemove.Add(key);
+                }
+                else if (key.Contains("CharacterNames.xlsx") && key.Contains("column:2"))
+                {
+                    keysToRemove.Add(key);
+                }
+            }
+            
+            foreach (string key in keysToRemove)
+            {
+                _savedXMLDicts.Remove(key);
+                Console.WriteLine($"🗑️ Удалена дублирующаяся запись кэша: {Path.GetFileName(key.Split('|')[0])} (column:2)");
+            }
+            
+            if (keysToRemove.Count > 0)
+            {
+                Console.WriteLine($"✅ Очищено {keysToRemove.Count} дублирующихся записей кэша");
+            }
+        }
     }
 }

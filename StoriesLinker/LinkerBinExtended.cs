@@ -15,6 +15,9 @@ namespace StoriesLinker
             _isArticyX = ArticyXAdapter.IsArticyXProject(projectPath);
             if (!_isArticyX) return;
             
+            // Очищаем старые временные файлы
+            CleanupTempFiles();
+            
             _articyXAdapter = new ArticyXAdapter(projectPath, GetCurrentBaseLanguage());
             PrepareArticyXData();
         }
@@ -64,7 +67,6 @@ namespace StoriesLinker
                 string flowJsonPath = GetFlowJsonPath(projectPath);
                 string json = JsonConvert.SerializeObject(articyData, Formatting.Indented);
                 File.WriteAllText(flowJsonPath, json);
-                File.WriteAllText(flowJsonPath + ".temp_marker", "temp");
                 
                 // Создаем Excel файл локализации как в Articy 3
                 _articyXAdapter.CreateLocalizationExcelFile();
@@ -140,6 +142,28 @@ namespace StoriesLinker
             
             // Теперь вызываем базовый метод
             return base.GenerateOutputFolder();
+        }
+
+        /// <summary>
+        /// Очищает временные файлы-маркеры из предыдущих запусков
+        /// </summary>
+        private void CleanupTempFiles()
+        {
+            try
+            {
+                string projectPath = GetProjectPath();
+                string[] tempFiles = Directory.GetFiles(projectPath, "*.temp_marker", SearchOption.AllDirectories);
+                
+                foreach (string tempFile in tempFiles)
+                {
+                    File.Delete(tempFile);
+                    Console.WriteLine($"Удален временный файл: {tempFile}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Предупреждение: не удалось очистить временные файлы: {ex.Message}");
+            }
         }
     }
 } 
