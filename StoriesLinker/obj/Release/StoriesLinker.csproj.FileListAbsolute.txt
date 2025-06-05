@@ -1,5 +1,0 @@
-L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\bin\Release\StoriesLinker.exe.config
-L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Release\StoriesLinker.csprojResolveAssemblyReference.cache
-L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Release\StoriesLinker.Form1.resources
-L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Release\StoriesLinker.Properties.Resources.resources
-L:\Unity Projects\RF\NS\StoriesLinker\StoriesLinker\obj\Release\StoriesLinker.csproj.GenerateResource.Cache
