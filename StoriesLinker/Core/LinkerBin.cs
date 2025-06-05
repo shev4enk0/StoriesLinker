@@ -8,6 +8,10 @@
         protected string _baseLanguage; // Базовый язык локализации
         private static Dictionary<string, Dictionary<string, string>> _savedXMLDicts = new();
         private int _allWordsCount = 0;
+        
+        // Кэш для списка отсортированных глав
+        private static Dictionary<string, List<string>> _chaptersCache = new();
+        private static string _lastFlowJsonHash = string.Empty;
 
         public LinkerBin(string projectPath)
         {
@@ -74,7 +78,8 @@
         public static void ClearCache()
         {
             _savedXMLDicts.Clear();
-            Console.WriteLine("🗑️ Кэш Excel файлов очищен");
+            ClearChaptersCache();
+            Console.WriteLine("🗑️ Весь кэш очищен");
         }
 
         /// <summary>
@@ -725,6 +730,19 @@
         private List<string> GetSortedChaptersList(Dictionary<string, AjObj> objList,
                                                    Dictionary<string, string> nativeDict)
         {
+            // Проверяем кэш
+            string currentHash = GetFlowJsonHash();
+            string cacheKey = $"{_projectPath}_{currentHash}";
+            
+            if (!string.IsNullOrEmpty(currentHash) && 
+                currentHash == _lastFlowJsonHash && 
+                _chaptersCache.TryGetValue(cacheKey, out List<string> cachedResult))
+            {
+                Console.WriteLine($"📦 Используем кэшированный список глав ({cachedResult.Count} глав)");
+                return new List<string>(cachedResult); // Возвращаем копию для безопасности
+            }
+
+            Console.WriteLine("🔄 Вычисляем список глав...");
             var chaptersIds = new List<string>();
 
             var chaptersIDNames = new Dictionary<string, int>();
@@ -758,12 +776,28 @@
 
             foreach (KeyValuePair<string, int> pair in sortedChapterNames) chaptersIds.Add(pair.Key);
 
+            Console.WriteLine($"🔍 ОТЛАДКА GetSortedChaptersList: найдено {chaptersIds.Count} глав(ы)");
+            for (int i = 0; i < chaptersIds.Count; i++)
+            {
+                Console.WriteLine($"  Глава {i + 1}: ID = {chaptersIds[i]}");
+            }
+
+            // Сохраняем в кэш
+            if (!string.IsNullOrEmpty(currentHash))
+            {
+                _chaptersCache[cacheKey] = new List<string>(chaptersIds);
+                _lastFlowJsonHash = currentHash;
+                Console.WriteLine($"💾 Список глав сохранен в кэш");
+            }
+
             return chaptersIds;
         }
 
         private List<string>[] GetChaptersAndSubchaptersParentsIDs(List<string> chaptersIds,
                                                                    Dictionary<string, AjObj> objList)
         {
+            Console.WriteLine($"🔍 ОТЛАДКА GetChaptersAndSubchaptersParentsIDs: Входных глав: {chaptersIds.Count}");
+            
             var ids = new List<List<string>>();
 
             for (var i = 0; i < chaptersIds.Count; i++)
@@ -795,6 +829,12 @@
                                 break;
                         }
                 }
+            }
+
+            Console.WriteLine($"🔍 ОТЛАДКА GetChaptersAndSubchaptersParentsIDs: Результат - {ids.Count} массивов:");
+            for (int i = 0; i < ids.Count; i++)
+            {
+                Console.WriteLine($"  Массив {i + 1}: {ids[i].Count} элементов - [{string.Join(", ", ids[i])}]");
             }
 
             return ids.ToArray();
@@ -1129,7 +1169,9 @@
                 return false;
             }
 
+            Console.WriteLine($"🔍 ОТЛАДКА GenerateOutputFolder: До обрезки глав: {chaptersIds.Count}");
             chaptersIds.RemoveRange(Form1.AvailableChapters, chaptersIds.Count - Form1.AvailableChapters);
+            Console.WriteLine($"🔍 ОТЛАДКА GenerateOutputFolder: После обрезки глав: {chaptersIds.Count}");
 
             List<string>[] csparentsIds = GetChaptersAndSubchaptersParentsIDs(chaptersIds, objectsList);
 
@@ -1395,6 +1437,13 @@
                                      List<string> copiedChAtlasses, List<string> copiedLocSprites, List<string> copiedLocIdles,
                                      AjGridAssetJson gridAssetFile, Dictionary<string, int> langsCols)
         {
+            // ОТЛАДКА: Проверяем количество глав
+            Console.WriteLine($"🔍 ОТЛАДКА: Обрабатываем {csparentsIds.Length} глав(ы)");
+            for (int debug = 0; debug < csparentsIds.Length; debug++)
+            {
+                Console.WriteLine($"  Глава {debug + 1}: {csparentsIds[debug].Count} родительских ID: [{string.Join(", ", csparentsIds[debug])}]");
+            }
+            
             // Обработка по главам
             for (var i = 0; i < csparentsIds.Length; i++)
             {
@@ -1403,6 +1452,7 @@
                 int chapterN = i + 1;
                 List<string> parentsIds = csparentsIds[i];
 
+                Console.WriteLine($"📖 Обрабатываем главу {chapterN}: добавляем entry point '{parentsIds[0]}'");
                 meta.ChaptersEntryPoints.Add(parentsIds[0]);
 
                 var chapterObjs = new List<AjObj>();
@@ -2042,6 +2092,28 @@
             {
                 Console.WriteLine($"✅ Очищено {keysToRemove.Count} дублирующихся записей кэша");
             }
+        }
+
+        /// <summary>
+        /// Вычисляет хэш содержимого Flow.json для кэширования
+        /// </summary>
+        private string GetFlowJsonHash()
+        {
+            string flowJsonPath = GetFlowJsonPath(_projectPath);
+            if (!File.Exists(flowJsonPath)) return string.Empty;
+            
+            var fileInfo = new FileInfo(flowJsonPath);
+            return $"{fileInfo.Length}_{fileInfo.LastWriteTime.Ticks}";
+        }
+
+        /// <summary>
+        /// Очищает кэш глав
+        /// </summary>
+        public static void ClearChaptersCache()
+        {
+            _chaptersCache.Clear();
+            _lastFlowJsonHash = string.Empty;
+            Console.WriteLine("🧹 Кэш глав очищен");
         }
     }
 }

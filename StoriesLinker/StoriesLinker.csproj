@@ -28,8 +28,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Resources\512x512.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <EmbeddedResource Include="Resources\512x512.png" />
   </ItemGroup>
 </Project>
